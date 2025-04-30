@@ -12,7 +12,7 @@ import (
 	"sync"
 )
 
-type Topic struct {
+type Topic[S any] struct {
 	Name              string
 	Partitions        int
 	ReplicationFactor int
@@ -27,18 +27,17 @@ type ChildTopicObjects struct {
 var (
 	onStart        sync.Once
 	onStartErr     error
-	existingTopics = make(map[string]*Topic)
+	existingTopics = make(map[string]*TopicSettings)
 )
 
 var (
-	ErrCannotCreateTopicWithEmptySettings = errors.New("cannot create topic with empty settings")
-	ErrStreamDoesNotExist                 = errors.New("stream does not exist")
-	ErrTableDoesNotExist                  = errors.New("table does not exist")
+	ErrStreamDoesNotExist = errors.New("stream does not exist")
+	ErrTableDoesNotExist  = errors.New("table does not exist")
 )
 
 func getTopics(
 	ctx context.Context,
-	conn net.Conn) map[string]*Topic {
+	conn net.Conn) map[string]*TopicSettings {
 
 	onStart.Do(func() {
 		var (
@@ -59,14 +58,9 @@ func getTopics(
 		topics := strings.Split(string(response), ",")
 
 		for _, topic := range topics {
-			existingTopics[topic] = &Topic{
-				Name:              topic,
-				Partitions:        1,
-				ReplicationFactor: 1,
-				ChildObjects: ChildTopicObjects{
-					Streams: make(map[string]streams.StreamSettings),
-					Tables:  make(map[string]tables.TableSettings),
-				},
+			existingTopics[topic] = &TopicSettings{
+				Partitions:   1,
+				Replications: 1,
 			}
 		}
 	},
@@ -75,41 +69,13 @@ func getTopics(
 	return existingTopics
 }
 
-func getOrCreateTopic(
-	ctx context.Context,
-	conn net.Conn,
-	name string,
-	settings *TopicSettings) (*Topic, error) {
-
-	var (
-		err error
-	)
-
-	topic, exists := existingTopics[name]
-	if exists {
-		return topic, nil
-	}
-
-	topic, err = getTopicRemotely(ctx, conn, name)
-	if err == nil {
-		existingTopics[name] = topic
-		return topic, nil
-	}
-
-	if settings == nil {
-		return nil, ErrCannotCreateTopicWithEmptySettings
-	}
-
-	return createTopicRemotely(ctx, conn, name, *settings)
-}
-
 // GetTopicRemotely retrieves the topic information from the Kafka broker
 // using the provided connection. That method should be used after in-code check-ups
 // or in case of high-consistency requirements
-func getTopicRemotely(
+func getTopicRemotely[S any](
 	ctx context.Context,
 	conn net.Conn,
-	name string) (*Topic, error) {
+	name string) (*Topic[S], error) {
 
 	command := "GET TOPIC " + name
 	response, err := network.Perform(
@@ -124,10 +90,9 @@ func getTopicRemotely(
 
 	topic := strings.Split(string(response), ",")
 	if len(topic) < 3 {
-		return nil, errors.New("Invalid topic format")
+		return nil, errors.New("invalid topic format")
 	}
 
-	topicName := topic[0]
 	partitions, err := strconv.Atoi(topic[1])
 	if err != nil {
 		return nil, err
@@ -138,14 +103,9 @@ func getTopicRemotely(
 		return nil, err
 	}
 
-	return &Topic{
-		Name:              topicName,
+	return &Topic[S]{
 		Partitions:        partitions,
 		ReplicationFactor: replicationFactor,
-		ChildObjects: ChildTopicObjects{
-			Streams: make(map[string]streams.StreamSettings),
-			Tables:  make(map[string]tables.TableSettings),
-		},
 	}, nil
 }
 
@@ -153,11 +113,11 @@ func getTopicRemotely(
 // brokers, replications.
 // Current request is send to the leader broker, if in-code check-up haven't found current topic
 // If the settings are empty, it won't create the topic
-func createTopicRemotely(
+func createTopicRemotely[S any](
 	ctx context.Context,
 	conn net.Conn,
 	name string,
-	settings TopicSettings) (*Topic, error) {
+	settings TopicSettings) (*Topic[S], error) {
 
 	command := "CREATE TOPIC " + name + " PARTITIONS " + strconv.Itoa(settings.Partitions)
 
@@ -175,7 +135,7 @@ func createTopicRemotely(
 		return nil, err
 	}
 
-	return &Topic{
+	return &Topic[S]{
 		Name:              name,
 		Partitions:        settings.Partitions,
 		ReplicationFactor: settings.Replications,
@@ -186,7 +146,15 @@ func createTopicRemotely(
 	}, nil
 }
 
-func (t *Topic) GetStreamAdapter(ctx context.Context) (*streams.StreamSettings, error) {
+func GetTopicProjection(ctx context.Context, name string) (*TopicSettings, error) {
+	topicSettings, exist := existingTopics[name]
+	if !exist {
+		return nil, errors.New("topic does not exist")
+	}
+	return topicSettings, nil
+}
+
+func (t *Topic[S]) GetStreamAdapter() (*streams.StreamSettings, error) {
 	stream, exists := t.ChildObjects.Streams[t.Name]
 	if !exists {
 		return &stream, ErrStreamDoesNotExist
@@ -194,7 +162,7 @@ func (t *Topic) GetStreamAdapter(ctx context.Context) (*streams.StreamSettings, 
 	return &stream, nil
 }
 
-func (t *Topic) GetAllStreamAdapters(ctx context.Context) map[string]streams.StreamSettings {
+func (t *Topic[S]) GetAllStreamAdapters() map[string]streams.StreamSettings {
 	copyMap := make(map[string]streams.StreamSettings, len(t.ChildObjects.Streams))
 	for k, v := range t.ChildObjects.Streams {
 		copyMap[k] = v
@@ -202,7 +170,7 @@ func (t *Topic) GetAllStreamAdapters(ctx context.Context) map[string]streams.Str
 	return copyMap
 }
 
-func (t *Topic) GetTableAdapter() (*tables.TableSettings, error) {
+func (t *Topic[S]) GetTableAdapter() (*tables.TableSettings, error) {
 	table, exists := t.ChildObjects.Tables[t.Name]
 	if !exists {
 		return &table, ErrTableDoesNotExist
@@ -210,12 +178,45 @@ func (t *Topic) GetTableAdapter() (*tables.TableSettings, error) {
 	return &table, nil
 }
 
-func (t *Topic) GetAllTableAdapters(ctx context.Context) map[string]tables.TableSettings {
+func (t *Topic[S]) GetAllTableAdapters() map[string]tables.TableSettings {
 	copyMap := make(map[string]tables.TableSettings, len(t.ChildObjects.Tables))
 	for k, v := range t.ChildObjects.Tables {
 		copyMap[k] = v
 	}
 	return copyMap
+}
+
+func (t *Topic[S]) RegisterStream(streamName string) streams.StreamSettings {
+	partitions := uint8(t.Partitions)
+
+	streamSettings := streams.StreamSettings{
+		Name:        streamName,
+		SourceTopic: &t.Name,
+		Partitions:  &partitions,
+		DeleteFunc: func(ctx context.Context) {
+			delete(t.ChildObjects.Streams, streamName)
+		},
+	}
+
+	t.ChildObjects.Streams[streamName] = streamSettings
+	return streamSettings
+
+}
+
+func (t *Topic[S]) RegisterTable(tableName string) tables.TableSettings {
+	partitions := uint8(t.Partitions)
+
+	tableSettings := tables.TableSettings{
+		Name:        tableName,
+		SourceTopic: &t.Name,
+		Partitions:  &partitions,
+		DeleteFunc: func(ctx context.Context) {
+			delete(t.ChildObjects.Tables, tableName)
+		},
+	}
+
+	t.ChildObjects.Tables[tableName] = tableSettings
+	return tableSettings
 }
 
 func validateResponse(response []byte) error {

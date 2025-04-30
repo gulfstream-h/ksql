@@ -5,11 +5,11 @@ import (
 )
 
 type (
-	valueFormat int
+	ValueFormat int
 )
 
 const (
-	String = valueFormat(iota)
+	String = ValueFormat(iota)
 	Json
 	Integer
 	Long
@@ -23,7 +23,7 @@ var (
 	ErrUnknownValueFormat = errors.New("unknown value format have been provided")
 )
 
-func (v valueFormat) GetName() (string, error) {
+func (v ValueFormat) GetName() (string, error) {
 	switch v {
 	case String:
 		return "string", nil

@@ -1,13 +1,36 @@
 package tables
 
-import "context"
+import (
+	"context"
+	"ksql/formats"
+)
 
 type TableSettings struct {
-	TableName string
+	Name        string
+	SourceTopic *string
+	Partitions  *uint8
+	Format      formats.ValueFormat
+	DeleteFunc  func(context.Context)
 }
 
-func RegisterTable[T any](ctx context.Context, tableName TableSettings, schema T) {
-	// Register a table with the given name and schema
-	// This function should create a new table if it doesn't exist
-	// and register the schema for the table.
+func RegisterTable[S any](ctx context.Context, tableName string, settings *TableSettings) (*Table[S], error) {
+	projection, err := GetTableProjection(ctx, tableName)
+	if err != nil {
+		if settings.SourceTopic != nil {
+			stream, err := createTableRemotely[S](ctx, nil, settings.Name, *settings)
+			if err != nil {
+				return nil, err
+			}
+
+			return stream, nil
+		}
+
+		return nil, err
+	}
+
+	return &Table[S]{
+		sourceTopic: projection.SourceTopic,
+		partitions:  projection.Partitions,
+		format:      projection.Format,
+	}, nil
 }
