@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"ksql/nets"
+	"ksql/kernel/network"
 	"net"
 	"sync"
 	"time"
@@ -64,7 +64,7 @@ const (
 func (c kafkaConnection) ListStreams(ctx context.Context) {
 	showStreamsRequest := formatCommand(ShowStreamsCommand)
 
-	response, err := nets.Perform(
+	response, err := network.Perform(
 		ctx,
 		c.conn,
 		c.conn.RemoteAddr().String(),

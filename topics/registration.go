@@ -5,7 +5,6 @@ import (
 )
 
 type TopicSettings struct {
-	Name         string
 	Partitions   int
 	Replications int
 }

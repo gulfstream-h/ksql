@@ -1,4 +1,4 @@
-package nets
+package network
 
 import (
 	"bufio"
