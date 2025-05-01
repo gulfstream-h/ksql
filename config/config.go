@@ -6,6 +6,7 @@ import (
 
 type Config struct {
 	Brokers []string
+	Timeout int64
 }
 
 func Init(cfg Config) {

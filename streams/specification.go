@@ -7,6 +7,7 @@ import (
 	"ksql/formats"
 	"ksql/kernel/network"
 	"ksql/schema"
+	"ksql/topics"
 	"net"
 )
 
@@ -133,6 +134,10 @@ func getStreamProjection(
 	}
 
 	return &settings, nil
+}
+
+func (s *Stream[T]) ForwardToTopic() topics.Topic[T] {
+	return topics.Topic[T]{}
 }
 
 func (s *Stream[S]) SelectOnce(ctx context.Context, query string) (S, error) {
