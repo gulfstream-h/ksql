@@ -1,22 +1,35 @@
-package join
+package ksql
 
 import (
 	"fmt"
 	"ksql/schema"
 )
 
-type (
-	Joins int
-)
-
 // will be used in future commits
 const (
-	Inner = Joins(iota)
-	Left
-	Right
+	InnerJoin = Joins[schema.SearchField](iota)
+	LeftJoin
+	RightJoin
 )
 
-func InnerJoin[J schema.Joinable](fieldOne, fieldTwo J) (command string) {
+type (
+	Joins[J schema.Joinable] int
+)
+
+func (j Joins[J]) Join(F1, F2 J) string {
+	switch j {
+	case Joins[J](InnerJoin):
+		return innerJoin(F1, F2)
+	case Joins[J](LeftJoin):
+		return leftJoin(F1, F2)
+	case Joins[J](RightJoin):
+		return rightJoin(F1, F2)
+	default:
+		return ""
+	}
+}
+
+func innerJoin[J schema.Joinable](fieldOne, fieldTwo J) (command string) {
 	if fieldOne.CheckJoinCapability() && fieldTwo.CheckJoinCapability() {
 		command = fmt.Sprintf("JOIN %s ON %s.%s = %s.%s",
 			fieldTwo.Referer, fieldOne.Referer, fieldOne.FieldName, fieldTwo.Referer, fieldTwo.FieldName)
@@ -25,7 +38,7 @@ func InnerJoin[J schema.Joinable](fieldOne, fieldTwo J) (command string) {
 	return
 }
 
-func LeftJoin[J schema.Joinable](fieldOne, fieldTwo J) (command string) {
+func leftJoin[J schema.Joinable](fieldOne, fieldTwo J) (command string) {
 	if fieldOne.CheckJoinCapability() && fieldTwo.CheckJoinCapability() {
 		command = fmt.Sprintf("LEFT JOIN %s ON %s.%s = %s.%s",
 			fieldTwo.Referer, fieldOne.Referer, fieldOne.FieldName, fieldTwo.Referer, fieldTwo.FieldName)
@@ -34,7 +47,7 @@ func LeftJoin[J schema.Joinable](fieldOne, fieldTwo J) (command string) {
 	return
 }
 
-func RightJoin[J schema.Joinable](fieldOne, fieldTwo J) (command string) {
+func rightJoin[J schema.Joinable](fieldOne, fieldTwo J) (command string) {
 	if fieldOne.CheckJoinCapability() && fieldTwo.CheckJoinCapability() {
 		command = fmt.Sprintf("RIGHT JOIN %s ON %s.%s = %s.%s",
 			fieldTwo.Referer, fieldOne.Referer, fieldOne.FieldName, fieldTwo.Referer, fieldTwo.FieldName)

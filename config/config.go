@@ -5,8 +5,8 @@ import (
 )
 
 type Config struct {
-	Brokers    []string
-	TimeoutSec int64
+	KsqlDbServer string
+	TimeoutSec   int64
 }
 
 func Init(cfg Config) {

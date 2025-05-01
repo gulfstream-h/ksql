@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"github.com/fatih/structs"
-	"ksql/formats"
 	"ksql/kernel/network"
 	"ksql/schema"
 	"net"
@@ -16,7 +15,7 @@ type Table[S any] struct {
 	sourceStream *string
 	partitions   *uint8
 	remoteSchema *reflect.Type
-	format       formats.ValueFormat
+	format       schema.ValueFormat
 }
 
 var (
@@ -111,7 +110,7 @@ func getTableRemotely[S any](
 		table.partitions = &partitions
 	}
 	if _, ok := kinds["value_format"]; ok {
-		vf := formats.Json
+		vf := schema.Json
 		table.format = vf
 	}
 

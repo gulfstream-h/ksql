@@ -2,7 +2,7 @@ package streams
 
 import (
 	"context"
-	"ksql/formats"
+	"ksql/schema"
 )
 
 type StreamSettings struct {
@@ -10,7 +10,7 @@ type StreamSettings struct {
 	SourceTopic  *string
 	SourceStream *string
 	Partitions   *uint8
-	format       formats.ValueFormat
+	format       schema.ValueFormat
 	DeleteFunc   func(context.Context)
 }
 

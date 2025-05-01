@@ -2,14 +2,14 @@ package tables
 
 import (
 	"context"
-	"ksql/formats"
+	"ksql/schema"
 )
 
 type TableSettings struct {
 	Name        string
 	SourceTopic *string
 	Partitions  *uint8
-	Format      formats.ValueFormat
+	Format      schema.ValueFormat
 	DeleteFunc  func(context.Context)
 }
 
