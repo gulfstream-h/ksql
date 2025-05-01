@@ -17,6 +17,18 @@ const (
 	String
 )
 
+type Joinable interface {
+	SearchField
+}
+
+func (k KsqlKind) CheckJoinCapability() (capable bool) {
+	switch k {
+	case Bool, Int, Float, String:
+		capable = true
+	}
+	return
+}
+
 func (k KsqlKind) Marshal() (string, error) {
 	switch k {
 	case Bool:

@@ -7,6 +7,7 @@ import (
 	"ksql/streams"
 	"ksql/tables"
 	"net"
+	"reflect"
 	"strconv"
 	"strings"
 	"sync"
@@ -16,6 +17,7 @@ type Topic[S any] struct {
 	Name              string
 	Partitions        int
 	ReplicationFactor int
+	RemoteSchema      *reflect.Type
 	ChildObjects      ChildTopicObjects
 }
 

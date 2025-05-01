@@ -12,6 +12,8 @@ const (
 type SearchField struct {
 	FieldName string
 	Object    reflect.Type
+	Referer   string
+	KsqlKind
 }
 
 type CompatibilityReport struct {

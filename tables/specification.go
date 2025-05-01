@@ -8,12 +8,14 @@ import (
 	"ksql/kernel/network"
 	"ksql/schema"
 	"net"
+	"reflect"
 )
 
 type Table[S any] struct {
 	sourceTopic  *string
 	sourceStream *string
 	partitions   *uint8
+	remoteSchema *reflect.Type
 	format       formats.ValueFormat
 }
 

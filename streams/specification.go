@@ -9,12 +9,14 @@ import (
 	"ksql/schema"
 	"ksql/topics"
 	"net"
+	"reflect"
 )
 
 type Stream[T any] struct {
 	sourceTopic  *string
 	sourceStream *string
 	partitions   *uint8
+	remoteSchema *reflect.Type
 	vf           formats.ValueFormat
 }
 
