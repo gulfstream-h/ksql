@@ -50,7 +50,7 @@ func (sr *SingeHandler) GetType() string {
 func (sr *SocketHandler) Process(
 	resp *http.Response,
 	dst []byte,
-	mu *sync.Mutex,
+	_ *sync.Mutex,
 	cps *atomic.Int32) error {
 
 	defer cps.Add(-1)
@@ -58,17 +58,20 @@ func (sr *SocketHandler) Process(
 
 	scanner := bufio.NewScanner(resp.Body)
 	for scanner.Scan() {
-		if cps.Load() == sr.maxRPS {
-			return ErrRebalance
-		}
-
 		line := scanner.Text()
 
 		if len(line) == 0 {
+			if cps.Load() == sr.maxRPS {
+				return ErrRebalance
+			}
+
 			continue
 		}
 
 		dst = []byte(line)
+		if cps.Load() == sr.maxRPS {
+			return ErrRebalance
+		}
 	}
 
 	if err := scanner.Err(); err != nil {

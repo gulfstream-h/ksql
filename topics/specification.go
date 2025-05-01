@@ -115,7 +115,7 @@ func getTopicRemotely[S any](
 // brokers, replications.
 // Current request is send to the leader broker, if in-code check-up haven't found current topic
 // If the settings are empty, it won't create the topic
-func createTopicRemotely[S any](
+func createTopicRemotely[S interface{}](
 	ctx context.Context,
 	conn net.Conn,
 	name string,
