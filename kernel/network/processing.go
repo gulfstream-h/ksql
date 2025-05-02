@@ -28,9 +28,9 @@ func (sr *SingeHandler) Process(
 	resp *http.Response,
 	dst []byte,
 	_ *sync.Mutex,
-	cps *atomic.Int32) (err error) {
+	rps *atomic.Int32) (err error) {
 
-	defer cps.Add(-1)
+	defer rps.Add(-1)
 	defer resp.Body.Close()
 
 	dst, err = io.ReadAll(resp.Body)

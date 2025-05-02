@@ -9,13 +9,13 @@ type KafkaSerializer struct {
 }
 
 type SchemaSerializeAlgo interface {
-	Deserialize(data []byte) ([]schema.SearchField, error)
+	Serialize(data []byte) ([]schema.SearchField, error)
 }
 
 type SeparatorSerializeAlgo interface {
-	Deserialize(data []byte) ([]string, error)
+	Serialize(data []byte) ([]string, error)
 }
 
 type MetadataSerializeAlgo interface {
-	Deserialize(data []byte) (map[string]any, error)
+	Serialize(data []byte) (map[string]any, error)
 }
