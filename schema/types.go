@@ -112,3 +112,44 @@ func castType(kind reflect.Kind) (KsqlKind, error) {
 
 	return 0, errors.New("unpredictable reflect kind")
 }
+
+type (
+	ValueFormat int
+)
+
+const (
+	String = ValueFormat(iota)
+	Json
+	Integer
+	Long
+	Double
+	Float
+	Bytes
+	None
+)
+
+var (
+	ErrUnknownValueFormat = errors.New("unknown value format have been provided")
+)
+
+func (v ValueFormat) GetName() (string, error) {
+	switch v {
+	case String:
+		return "string", nil
+	case Json:
+		return "json", nil
+	case Integer:
+		return "integer", nil
+	case Long:
+		return "long", nil
+	case Double:
+		return "double", nil
+	case Float:
+		return "float", nil
+	case Bytes:
+		return "bytes", nil
+	case None:
+		return "none", nil
+	}
+	return "", ErrUnknownValueFormat
+}

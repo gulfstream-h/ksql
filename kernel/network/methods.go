@@ -60,6 +60,11 @@ balance:
 	return nil
 }
 
+var (
+	ErrCannotWriteData = errors.New("cannot write info by net")
+	ErrCannotReadData  = errors.New("cannot read data by net")
+)
+
 func (n *Network) validateResponse(response *http.Response) error {
 	if response.StatusCode != http.StatusOK {
 		return errors.New("invalid response")
@@ -67,8 +72,3 @@ func (n *Network) validateResponse(response *http.Response) error {
 
 	return nil
 }
-
-var (
-	ErrCannotWriteData = errors.New("cannot write info by net")
-	ErrCannotReadData  = errors.New("cannot read data by net")
-)
