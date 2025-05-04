@@ -5,6 +5,7 @@ import (
 	"errors"
 	"github.com/fatih/structs"
 	"ksql/kernel/network"
+	"ksql/proxy"
 	"ksql/schema"
 	"net"
 	"reflect"
@@ -123,6 +124,10 @@ func GetTableProjection(ctx context.Context, name string) (*TableSettings, error
 		return nil, errors.New("table does not exist")
 	}
 	return &tableSettings, nil
+}
+
+func (s *Table[S]) ToTopic(topicName string) proxy.Topic[S] {
+	return proxy.CreateTopicFromTable[S](topicName, s)
 }
 
 func validateResponse(response []byte) error {

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"github.com/fatih/structs"
 	"ksql/kernel/network"
+	"ksql/proxy"
 	"ksql/schema"
 	"net"
 	"reflect"
@@ -134,6 +135,10 @@ func getStreamProjection(
 	}
 
 	return &settings, nil
+}
+
+func (s *Stream[S]) ToTopic(topicName string) proxy.Topic[S] {
+	return proxy.CreateTopicFromStream[S](topicName, s)
 }
 
 func (s *Stream[S]) SelectOnce(ctx context.Context, query string) (S, error) {

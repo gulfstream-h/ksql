@@ -1,21 +1,49 @@
 package protocol
 
-import "ksql/schema"
+import "ksql/ksql"
 
 type KafkaSerializer struct {
-	SchemaAlgo    SchemaSerializeAlgo
-	SeparatorAlgo SeparatorSerializeAlgo
-	MetadataAlgo  MetadataSerializeAlgo
+	QueryAlgo    SchemaSerializeAlgo
+	SchemaAlgo   SchemaSerializeAlgo
+	JoinAlgo     JoinSerializeAlgo
+	AggAlgo      AggSerializeAlgo
+	MetadataAlgo MetadataSerializeAlgo
+}
+
+type (
+	QuerySerializeReport struct {
+		Query ksql.Query
+	}
+
+	SchemaSerializeReport struct {
+	}
+
+	JoinSerializeReport struct {
+	}
+
+	AggSerializeReport struct {
+	}
+
+	MetaSerializeReport struct {
+	}
+)
+
+type QuerySerializeAlgo interface {
+	Serialize([]byte) QuerySerializeReport
 }
 
 type SchemaSerializeAlgo interface {
-	Serialize(data []byte) ([]schema.SearchField, error)
+	Serialize([]byte) SchemaSerializeReport
 }
 
-type SeparatorSerializeAlgo interface {
-	Serialize(data []byte) ([]string, error)
+type JoinSerializeAlgo interface {
+	Serialize([]byte) JoinSerializeReport
+}
+
+type AggSerializeAlgo interface {
+	Serialize([]byte) AggSerializeReport
 }
 
 type MetadataSerializeAlgo interface {
-	Serialize(data []byte) (map[string]any, error)
+	Serialize([]byte) MetaSerializeReport
 }

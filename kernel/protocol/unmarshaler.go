@@ -2,33 +2,60 @@ package protocol
 
 import (
 	"errors"
+	"ksql/ksql"
 	"ksql/schema"
 )
 
 type KafkaDeserializer struct {
-	SchemaAlgo    SchemaDeserializeAlgo
-	SeparatorAlgo SeparatorDeserializeAlgo
-	MetadataAlgo  MetadataDeserializeAlgo
+	QueryAlgo    QueryDeserializeAlgo
+	SchemaAlgo   SchemaDeserializeAlgo
+	JoinAlgo     JoinDeserializeAlgo
+	AggAlgo      AggDeserializeAlgo
+	MetadataAlgo MetadataDeserializeAlgo
 }
 
 var (
-	ErrUnprocessableResponseEntity = errors.New(
+	ErrUnprocessable = errors.New(
 		"unprocessable kafka " +
 			"response entity")
 )
 
-type SchemaDeserializeAlgo interface {
-	Deserialize(data []byte) ([]schema.SearchField, error)
+type (
+	QueryDeserializeReport struct {
+		Query ksql.Query
+		From  string
+	}
+
+	SchemaDeserializeReport struct {
+		fields map[string]schema.SearchField
+	}
+
+	JoinDeserializeReport struct {
+	}
+
+	AggDeserializeReport struct {
+	}
+
+	MetaDeserializeReport struct {
+	}
+)
+
+type QueryDeserializeAlgo interface {
+	Deserialize([]byte) QueryDeserializeReport
 }
 
-type SeparatorDeserializeAlgo interface {
-	Deserialize(data []byte) ([]string, error)
+type SchemaDeserializeAlgo interface {
+	Deserialize([]byte) SchemaDeserializeReport
+}
+
+type JoinDeserializeAlgo interface {
+	Deserialize([]byte) JoinDeserializeReport
+}
+
+type AggDeserializeAlgo interface {
+	Deserialize([]byte) AggDeserializeReport
 }
 
 type MetadataDeserializeAlgo interface {
-	Deserialize(data []byte) (map[string]any, error)
-}
-
-func ShowTopicsDeserialize() {
-
+	Deserialize([]byte) MetaDeserializeReport
 }

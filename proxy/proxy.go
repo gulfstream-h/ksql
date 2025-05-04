@@ -6,10 +6,16 @@ import (
 	"ksql/topics"
 )
 
-func CreateTopicFromStream[S any](topicName string, table tables.Table[S]) *tables.Table[S] {
-	return &tables.Table[S]{}
+// CRUTCH for import cycle not allowed :))))
+
+type (
+	Topic[S any] topics.Topic[S]
+)
+
+func CreateTopicFromStream[S any](topicName string, stream *streams.Stream[S]) Topic[S] {
+	return Topic[S](topics.Topic[S]{})
 }
 
-func CreateTopicFromTable[S any](topicName string, stream streams.Stream[S]) *topics.Topic[S] {
-	return &topics.Topic[S]{}
+func CreateTopicFromTable[S any](topicName string, table *tables.Table[S]) Topic[S] {
+	return Topic[S](topics.Topic[S]{})
 }
