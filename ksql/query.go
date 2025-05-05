@@ -1,7 +1,8 @@
 package ksql
 
 type (
-	Query int
+	Query     int
+	Reference int
 )
 
 const (
@@ -10,4 +11,10 @@ const (
 	CREATE
 	SELECT
 	INSERT
+)
+
+const (
+	STREAM = Reference(iota)
+	TABLE
+	TOPIC
 )

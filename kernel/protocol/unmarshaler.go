@@ -23,7 +23,9 @@ var (
 type (
 	QueryDeserializeReport struct {
 		Query ksql.Query
-		From  string
+		Ref   ksql.Reference
+		Name  string
+		CTE   map[string]QuerySerializeReport
 	}
 
 	SchemaDeserializeReport struct {
