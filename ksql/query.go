@@ -8,6 +8,7 @@ type (
 const (
 	LIST = Query(iota)
 	DESCRIBE
+	DROP
 	CREATE
 	SELECT
 	INSERT

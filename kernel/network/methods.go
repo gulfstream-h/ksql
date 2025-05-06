@@ -2,6 +2,7 @@ package network
 
 import (
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 )
@@ -66,8 +67,17 @@ var (
 )
 
 func (n *Network) validateResponse(response *http.Response) error {
+	var (
+		text []byte
+	)
+
+	if response.Body != nil {
+		defer response.Body.Close()
+		text, _ = io.ReadAll(response.Body)
+	}
+
 	if response.StatusCode != http.StatusOK {
-		return errors.New("invalid response")
+		return fmt.Errorf("unexpected status code: %d. response: %s", response.StatusCode, text)
 	}
 
 	return nil

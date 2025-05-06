@@ -9,7 +9,7 @@ type TopicSettings struct {
 	Replications int
 }
 
-func RegisterTopic[T any](ctx context.Context, topicName string, makeSettings *TopicSettings) (*Topic[T], error) {
+func Register[T any](ctx context.Context, topicName string, makeSettings *TopicSettings) (*Topic[T], error) {
 	settings, err := GetTopicProjection(ctx, topicName)
 	if err != nil {
 		if makeSettings != nil {

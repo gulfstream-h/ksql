@@ -14,7 +14,7 @@ type StreamSettings struct {
 	DeleteFunc   func(context.Context)
 }
 
-func RegisterStream[S any](ctx context.Context, settings StreamSettings) (*Stream[S], error) {
+func Register[S any](ctx context.Context, settings StreamSettings) (*Stream[S], error) {
 	projection, err := getStreamProjection(ctx, settings.Name)
 	if err != nil {
 		if settings.SourceTopic != nil {

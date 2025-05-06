@@ -44,32 +44,80 @@ func (qa QueryRestAnalysis) Deserialize(query []byte) protocol.QueryDeserializeR
 		return r
 	}
 
-	if strings.Contains(q, "CREATE") {
-		r.Query = ksql.CREATE
+	if strings.Contains(q, "DROP") {
+		r.Query = ksql.DROP
 
-		regex := regexp.MustCompile(`(?i)\bCREATE\s+(STREAM|TABLE)\s+\w+\s+AS\b`)
-
-		createQuery := regex.FindString(q)
-
-		if strings.Contains(createQuery, "STREAM") {
+		if strings.Contains(q, "STREAM") {
 			r.Ref = ksql.STREAM
-			createQuery, _ = strings.CutPrefix(createQuery, "STREAM")
-			createQuery, _ = strings.CutSuffix(createQuery, "AS")
+			q, _ = strings.CutPrefix(q, "STREAM")
 		}
 
-		if strings.Contains(createQuery, "TABLE") {
+		if strings.Contains(q, "TABLE") {
 			r.Ref = ksql.TABLE
-			createQuery, _ = strings.CutPrefix(createQuery, "TABLE")
-			createQuery, _ = strings.CutSuffix(createQuery, "AS")
+			q, _ = strings.CutPrefix(q, "TABLE")
 		}
 
-		r.Name = strings.TrimSpace(createQuery)
+		if strings.Contains(q, "TOPIC") {
+			r.Ref = ksql.TOPIC
+			q, _ = strings.CutPrefix(q, "TOPIC")
+		}
+
+		r.Name = strings.TrimSpace(q)
 
 		return r
 	}
 
+	if strings.Contains(q, "CREATE") {
+		r.Query = ksql.CREATE
+
+		if strings.Contains(q, "AS") &&
+			strings.Contains(q, "SELECT") {
+
+			regex := regexp.MustCompile(`(?i)\bCREATE\s+(STREAM|TABLE)\s+\w+\s+AS\b`)
+
+			createQuery := regex.FindString(q)
+
+			if strings.Contains(createQuery, "STREAM") {
+				r.Ref = ksql.STREAM
+				createQuery, _ = strings.CutPrefix(createQuery, "STREAM")
+				createQuery, _ = strings.CutSuffix(createQuery, "AS")
+			}
+
+			if strings.Contains(createQuery, "TABLE") {
+				r.Ref = ksql.TABLE
+				createQuery, _ = strings.CutPrefix(createQuery, "TABLE")
+				createQuery, _ = strings.CutSuffix(createQuery, "AS")
+			}
+
+			r.Name = strings.TrimSpace(createQuery)
+
+			r.PostProcessing = regex.ReplaceAllString(q, "")
+
+			return r
+		}
+	}
+
+	if strings.Contains(q, "INSERT") {
+		r.Query = ksql.INSERT
+		q, _ = strings.CutPrefix(q, "INSERT INTO")
+		if strings.Contains(q, "WITH") {
+			name, _ := strings.CutSuffix(q, "WITH")
+			r.Name = strings.TrimSpace(name)
+		}
+
+		if strings.Contains(q, "SELECT") {
+			name, _ := strings.CutSuffix(q, "SELECT")
+			r.Name = strings.TrimSpace(name)
+			q, _ = strings.CutPrefix(q, name)
+			r.PostProcessing = q
+		}
+	}
+
 	regex := regexp.MustCompile(`(?is)^WITH\s+(?:.|\s)*?\)\s*`)
 	result := regex.ReplaceAllString(q, "")
+
+	cteQuery, _ := strings.CutPrefix(regex.FindString(q), "WITH")
+	parseCTE(cteQuery, r.CTE)
 
 	if strings.Contains(result, "SELECT") {
 		r.Query = ksql.SELECT
@@ -89,9 +137,64 @@ func (qa QueryRestAnalysis) Deserialize(query []byte) protocol.QueryDeserializeR
 		return r
 	}
 
-	if strings.Contains(result, "INSERT") {
-		r.Query = ksql.INSERT
+	return r
+}
+
+func parseCTE(
+	query string,
+	cte map[string]protocol.QueryDeserializeReport) {
+
+	cteName, _ := strings.CutSuffix(query, "AS")
+
+	rawSchema := strings.TrimSpace(trimBetween(query, "SELECT", "FROM"))
+
+	fromSchema := strings.TrimSpace(getNextWord(query))
+
+	report := protocol.QueryDeserializeReport{
+		Query:     ksql.SELECT,
+		Name:      fromSchema,
+		RawSchema: rawSchema,
 	}
 
-	return r
+	if strings.Contains(query, "),") {
+		report.PostProcessing = trimBetween(query, fromSchema, "),")
+		query, _ = strings.CutPrefix(query, "),")
+
+		cte[cteName] = report
+		parseCTE(query, cte)
+
+		return
+	}
+
+	if strings.Contains(query, ")") {
+		report.PostProcessing = trimBetween(query, fromSchema, ")")
+		query, _ = strings.CutPrefix(query, ")")
+
+		cte[cteName] = report
+
+		return
+	}
+}
+
+func trimBetween(
+	query string,
+	start string,
+	end string) string {
+
+	leftTrimmed, _ := strings.CutPrefix(query, start)
+	rightTrimmed, _ := strings.CutSuffix(leftTrimmed, end)
+
+	return rightTrimmed
+}
+
+func getNextWord(query string) string {
+	rawQuery, _ := strings.CutPrefix(query, "FROM")
+
+	fields := strings.Split(rawQuery, " ")
+
+	if len(fields) < 2 {
+		return ""
+	}
+
+	return fields[1]
 }

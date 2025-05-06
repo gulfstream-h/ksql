@@ -7,11 +7,11 @@ import (
 )
 
 type KafkaDeserializer struct {
-	QueryAlgo    QueryDeserializeAlgo
-	SchemaAlgo   SchemaDeserializeAlgo
-	JoinAlgo     JoinDeserializeAlgo
-	AggAlgo      AggDeserializeAlgo
-	MetadataAlgo MetadataDeserializeAlgo
+	QueryAlgo       QueryDeserializeAlgo
+	SchemaAlgo      SchemaDeserializeAlgo
+	JoinAlgo        JoinDeserializeAlgo
+	ConditionalAlgo ConditionalDeserializeAlgo
+	MetadataAlgo    MetadataDeserializeAlgo
 }
 
 var (
@@ -22,10 +22,12 @@ var (
 
 type (
 	QueryDeserializeReport struct {
-		Query ksql.Query
-		Ref   ksql.Reference
-		Name  string
-		CTE   map[string]QuerySerializeReport
+		Query          ksql.Query
+		Ref            ksql.Reference
+		Name           string
+		RawSchema      string
+		PostProcessing string
+		CTE            map[string]QueryDeserializeReport
 	}
 
 	SchemaDeserializeReport struct {
@@ -35,7 +37,7 @@ type (
 	JoinDeserializeReport struct {
 	}
 
-	AggDeserializeReport struct {
+	ConditionalDeserializeReport struct {
 	}
 
 	MetaDeserializeReport struct {
@@ -54,8 +56,8 @@ type JoinDeserializeAlgo interface {
 	Deserialize([]byte) JoinDeserializeReport
 }
 
-type AggDeserializeAlgo interface {
-	Deserialize([]byte) AggDeserializeReport
+type ConditionalDeserializeAlgo interface {
+	Deserialize([]byte) ConditionalDeserializeReport
 }
 
 type MetadataDeserializeAlgo interface {

@@ -13,7 +13,7 @@ type TableSettings struct {
 	DeleteFunc  func(context.Context)
 }
 
-func RegisterTable[S any](ctx context.Context, tableName string, settings *TableSettings) (*Table[S], error) {
+func Register[S any](ctx context.Context, tableName string, settings *TableSettings) (*Table[S], error) {
 	projection, err := GetTableProjection(ctx, tableName)
 	if err != nil {
 		if settings.SourceTopic != nil {
