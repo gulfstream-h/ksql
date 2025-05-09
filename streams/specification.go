@@ -3,8 +3,9 @@ package streams
 import (
 	"context"
 	"errors"
-	"github.com/fatih/structs"
 	"ksql/kernel/network"
+	"ksql/kernel/protocol"
+	"ksql/ksql"
 	"ksql/proxy"
 	"ksql/schema"
 	"net"
@@ -12,6 +13,7 @@ import (
 )
 
 type Stream[T any] struct {
+	name         string
 	sourceTopic  *string
 	sourceStream *string
 	partitions   *uint8
@@ -27,46 +29,39 @@ var (
 	ErrStreamDoesNotExist = errors.New("stream does not exist")
 )
 
-func createStreamRemotely[T any](
+func ListStreams() {
+	protocol.KafkaSerializer{
+		QueryAlgo: ksql.Query{
+			Query: ksql.LIST,
+			Ref:   ksql.STREAM,
+		},
+	}.Query()
+}
+
+func GetStream[T any](
 	ctx context.Context,
-	conn net.Conn,
+	stream string,
+	settings StreamSettings) {
+
+}
+
+func CreateStream[T any](
+	ctx context.Context,
 	streamName string,
 	settings StreamSettings) (*Stream[T], error) {
 
-	fields := structs.Fields(settings)
-
-	format, err := settings.format.GetName()
-	if err != nil {
-		return nil, err
-	}
-
-	var (
-		command = "CREATE STREAM " + streamName + " (" + fields[0].Name() + " " + fields[0].Kind().String() + ")" +
-			" WITH (" + *settings.SourceTopic + ", " + format + ")"
-	)
-
-	//CREATE STREAM input_stream (
-	//	key VARCHAR,
-	//	value VARCHAR
-	//) WITH (
-	//	KAFKA_TOPIC='input-topic',
-	//	VALUE_FORMAT='JSON',
-	//	KEY_FORMAT='KAFKA'
-	//);
-
-	response, err := network.Perform(
-		ctx,
-		conn,
-		conn.RemoteAddr().String(),
-		len(command),
-		command)
-	if err != nil {
-		return nil, err
-	}
-
-	if err = validateResponse(response); err != nil {
-		return nil, err
-	}
+	protocol.KafkaSerializer{
+		QueryAlgo: ksql.Query{
+			Query: ksql.CREATE,
+			Ref:   ksql.STREAM,
+			Name:  streamName,
+		},
+		SchemaAlgo: nil,
+		MetadataAlgo: ksql.With{
+			Topic:       *settings.SourceTopic,
+			ValueFormat: "JSON",
+		},
+	}.Query()
 
 	return &Stream[T]{
 		sourceTopic:  settings.SourceTopic,
@@ -74,6 +69,12 @@ func createStreamRemotely[T any](
 		partitions:   settings.Partitions,
 		vf:           settings.format,
 	}, nil
+}
+
+func CreateStreamAsSelect[T any](
+	ctx context.Context,
+	streamName string) {
+
 }
 
 func getStreamRemotely[T any](
@@ -137,8 +138,31 @@ func getStreamProjection(
 	return &settings, nil
 }
 
+func (s *Stream[S]) Describe() {
+	protocol.KafkaSerializer{
+		QueryAlgo: ksql.Query{
+			Query: ksql.DESCRIBE,
+			Name:  s.name,
+		},
+	}.Query()
+}
+
+func (s *Stream[S]) Drop() {
+	protocol.KafkaSerializer{
+		QueryAlgo: ksql.Query{
+			Query: ksql.DROP,
+			Ref:   ksql.STREAM,
+			Name:  s.name,
+		},
+	}.Query()
+}
+
 func (s *Stream[S]) ToTopic(topicName string) proxy.Topic[S] {
 	return proxy.CreateTopicFromStream[S](topicName, s)
+}
+
+func (s *Stream[S]) ToTable(tableName string) proxy.Table[S] {
+	return proxy.CreateTableFromStream[S](tableName, s)
 }
 
 func (s *Stream[S]) SelectOnce(ctx context.Context, query string) (S, error) {
@@ -169,12 +193,4 @@ func (s *Stream[S]) SelectWithEmit(ctx context.Context, query string) (<-chan S,
 	}()
 
 	return valuesC, nil
-}
-
-func validateResponse(response []byte) error {
-	if string(response) == "ERROR" {
-		return errors.New("error creating stream")
-	}
-
-	return nil
 }

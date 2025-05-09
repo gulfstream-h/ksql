@@ -1,12 +1,19 @@
 package ksql
 
+type Query struct {
+	Query QueryType
+	Ref   Reference
+	Name  string
+	CTE   map[string]Query
+}
+
 type (
-	Query     int
+	QueryType int
 	Reference int
 )
 
 const (
-	LIST = Query(iota)
+	LIST = QueryType(iota)
 	DESCRIBE
 	DROP
 	CREATE

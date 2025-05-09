@@ -38,15 +38,6 @@ func createTableRemotely[S any](ctx context.Context, conn net.Conn, tableName st
 	command := "CREATE TABLE " + tableName + " (" + fields[0].Name() + " " + fields[0].Kind().String() + ")" +
 		" WITH (" + *settings.SourceTopic + ", " + format + ")"
 
-	//CREATE TABLE input_table (
-	//	key VARCHAR,
-	//	value VARCHAR
-	//) WITH (
-	//	KAFKA_TOPIC='input-topic',
-	//	VALUE_FORMAT='JSON',
-	//	KEY_FORMAT='KAFKA'
-	//);
-
 	response, err := network.Perform(
 		ctx,
 		conn,
@@ -54,10 +45,6 @@ func createTableRemotely[S any](ctx context.Context, conn net.Conn, tableName st
 		len(command),
 		command)
 	if err != nil {
-		return nil, err
-	}
-
-	if err = validateResponse(response); err != nil {
 		return nil, err
 	}
 
@@ -130,6 +117,6 @@ func (s *Table[S]) ToTopic(topicName string) proxy.Topic[S] {
 	return proxy.CreateTopicFromTable[S](topicName, s)
 }
 
-func validateResponse(response []byte) error {
-	return nil
+func (s *Table[S]) ToStream(streamName string) proxy.Stream[S] {
+	return proxy.CreateStreamFromTable[S](streamName, s)
 }

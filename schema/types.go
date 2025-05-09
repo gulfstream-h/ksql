@@ -29,19 +29,19 @@ func (k KsqlKind) CheckJoinCapability() (capable bool) {
 	return
 }
 
-func (k KsqlKind) Marshal() (string, error) {
+func (k KsqlKind) Marshal() string {
 	switch k {
 	case Bool:
-		return "BOOL", nil
+		return "BOOL"
 	case Int:
-		return "INT", nil
+		return "INT"
 	case Float:
-		return "FLOAT", nil
+		return "FLOAT"
 	case String:
-		return "STRING", nil
+		return "STRING"
 	}
 
-	return "", errors.New("unpredictable type")
+	return ""
 }
 
 func Unmarshal(pairs []string) map[string]KsqlKind {

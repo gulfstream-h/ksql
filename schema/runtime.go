@@ -11,8 +11,10 @@ const (
 
 type SearchField struct {
 	FieldName string
+	Value     string
 	Object    reflect.Type
 	Referer   string
+	Aggregate *string
 	KsqlKind
 }
 
