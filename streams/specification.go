@@ -194,3 +194,24 @@ func (s *Stream[S]) SelectWithEmit(ctx context.Context, query string) (<-chan S,
 
 	return valuesC, nil
 }
+
+func (s *Stream[S]) Insert(ctx context.Context, fields map[string]string) error {
+	protocol.KafkaSerializer{
+		QueryAlgo: ksql.Query{
+			Query: ksql.INSERT,
+			Ref:   ksql.STREAM,
+			Name:  s.name,
+			CTE:   nil,
+		},
+		SchemaAlgo:   nil,
+		JoinAlgo:     ksql.Join{},
+		CondAlgo:     ksql.Cond{},
+		GroupBy:      nil,
+		MetadataAlgo: ksql.With{},
+		CTE:          nil,
+	}.Query()
+}
+
+func (s *Stream[S]) InsertAs(ctx context.Context, serializer protocol.KafkaSerializer) {
+
+}

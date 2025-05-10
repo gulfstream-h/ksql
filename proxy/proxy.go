@@ -1,6 +1,9 @@
 package proxy
 
 import (
+	"ksql/kernel/protocol"
+	"ksql/ksql"
+	"ksql/schema"
 	"ksql/streams"
 	"ksql/tables"
 	"ksql/topics"
@@ -12,7 +15,27 @@ type (
 	Topic[S any]  topics.Topic[S]
 	Stream[S any] streams.Stream[S]
 	Table[S any]  tables.Table[S]
+	QueryPlan     protocol.KafkaSerializer
 )
+
+func BuildQueryPlan(
+	queryAlgo ksql.Query,
+	fields []schema.SearchField,
+	joinAlgo ksql.Join,
+	CondAlgo ksql.Cond,
+	GroupBy []schema.SearchField,
+	MetadataAlgo ksql.With,
+) QueryPlan {
+	return QueryPlan(protocol.KafkaSerializer{
+		QueryAlgo:    queryAlgo,
+		SchemaAlgo:   fields,
+		JoinAlgo:     joinAlgo,
+		CondAlgo:     CondAlgo,
+		GroupBy:      GroupBy,
+		MetadataAlgo: MetadataAlgo,
+		CTE:          nil,
+	})
+}
 
 func CreateTopicFromStream[S any](topicName string, stream *streams.Stream[S]) Topic[S] {
 	return Topic[S](topics.Topic[S]{})

@@ -18,21 +18,21 @@ var (
 )
 
 type QueryDeserializeAlgo interface {
-	Deserialize([]byte) ksql.Query
+	Deserialize(string) ksql.Query
 }
 
 type SchemaDeserializeAlgo interface {
-	Deserialize([]byte) ksql.FullSchema
+	Deserialize(string) ksql.FullSchema
 }
 
 type JoinDeserializeAlgo interface {
-	Deserialize([]byte) ksql.Join
+	Deserialize(string) ksql.Join
 }
 
 type ConditionalDeserializeAlgo interface {
-	Deserialize([]byte) ksql.Cond
+	Deserialize(string) ksql.Cond
 }
 
 type MetadataDeserializeAlgo interface {
-	Deserialize([]byte) ksql.With
+	Deserialize(string) ksql.With
 }

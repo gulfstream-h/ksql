@@ -6,8 +6,8 @@ import (
 )
 
 type Cond struct {
-	WhereClause  []schema.SearchField
-	HavingClause []schema.SearchField
+	WhereClause  []WhereEx
+	HavingClause []HavingEx
 }
 
 type WhereEx struct {

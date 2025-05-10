@@ -3,8 +3,9 @@ package ksql
 import "ksql/schema"
 
 type JoinEx struct {
-	Field string
-	Ref   Reference
+	Field   string
+	RefName string
+	Ref     Reference
 }
 
 type Join struct {
