@@ -5,190 +5,136 @@ import (
 	"ksql/schema"
 )
 
-const (
-	SelectBuilder = Builder(iota)
-)
-
 type (
 	Builder int
 )
 
-type (
-	fieldsLayer struct {
-		fields FullSchema
-	}
-
-	joinLayer struct {
-		join   Join
-		fields fieldsLayer
-	}
-
-	fromLayer struct {
-		join   joinLayer
-		fields fieldsLayer
-		query  Query
-	}
-
-	condLayer struct {
-		join      Join
-		fields    fieldsLayer
-		query     Query
-		groupedBy []string
-		cond      Cond
-	}
-
-	metadataLayer struct {
-		query  Query
-		fields FullSchema
-		join   Join
-		cond   Cond
-		with   With
-	}
+var (
+	SelectBuilder Builder
 )
 
+type builderContext struct {
+	query     Query
+	fields    FullSchema
+	join      Join
+	cond      Cond
+	groupedBy []string
+	with      With
+}
+
+type fieldsLayer struct {
+	ctx *builderContext
+}
+
+type joinLayer struct {
+	ctx *builderContext
+}
+
+type fromLayer struct {
+	ctx *builderContext
+}
+
+type condLayer struct {
+	ctx *builderContext
+}
+
+type metadataLayer struct {
+	ctx *builderContext
+}
+
 func (sb Builder) Fields(fields ...string) fieldsLayer {
-	return fieldsLayer{fields: FullSchema{fields: nil}}
+	return fieldsLayer{
+		ctx: &builderContext{
+			fields: FullSchema{fields: nil},
+		},
+	}
 }
 
 func (fl fieldsLayer) From(from string, kind Reference) fromLayer {
-	return fromLayer{
-		joinLayer{},
-		fl,
-		Query{
-			Query: SELECT,
-			Ref:   kind,
-			Name:  from,
-		}}
+	fl.ctx.query = Query{
+		Query: SELECT,
+		Ref:   kind,
+		Name:  from,
+	}
+	return fromLayer{ctx: fl.ctx}
 }
 
 func (f fieldsLayer) Join(joinKind Joins, selectField, joinField JoinEx) joinLayer {
-	return joinLayer{
-		Join{
-			Kind: joinKind,
-			SelectField: schema.SearchField{
-				FieldName: selectField.Field,
-				Referer:   selectField.RefName,
-			},
-			JoinField: schema.SearchField{
-				FieldName: joinField.Field,
-				Referer:   joinField.RefName,
-			},
+	f.ctx.join = Join{
+		Kind: joinKind,
+		SelectField: schema.SearchField{
+			FieldName: selectField.Field,
+			Referer:   selectField.RefName,
 		},
-		f,
+		JoinField: schema.SearchField{
+			FieldName: joinField.Field,
+			Referer:   joinField.RefName,
+		},
 	}
+	return joinLayer{ctx: f.ctx}
 }
 
 func (jl joinLayer) From(from string, kind Reference) fromLayer {
-	return fromLayer{
-		jl,
-		jl.fields,
-		Query{
-			Query: SELECT,
-			Ref:   kind,
-			Name:  from,
-		}}
-}
-
-func (fl fromLayer) With(with With) metadataLayer {
-	return metadataLayer{
-		fl.query,
-		fl.fields.fields,
-		fl.join.join,
-		Cond{},
-		with,
+	jl.ctx.query = Query{
+		Query: SELECT,
+		Ref:   kind,
+		Name:  from,
 	}
+	return fromLayer{ctx: jl.ctx}
 }
 
 func (fl fromLayer) GroupBy(groupBy ...string) condLayer {
-	return condLayer{
-		groupedBy: groupBy,
-	}
+	fl.ctx.groupedBy = groupBy
+	return condLayer{ctx: fl.ctx}
 }
 
 func (fl fromLayer) Where(cond ...WhereEx) condLayer {
-	return condLayer{
-		join:      fl.join.join,
-		fields:    fl.fields,
-		query:     fl.query,
-		groupedBy: nil,
-		cond: Cond{
-			cond,
-			nil,
-		},
+	fl.ctx.cond = Cond{
+		WhereClause: cond,
 	}
+	return condLayer{ctx: fl.ctx}
 }
 
 func (cl condLayer) Where(cond ...WhereEx) condLayer {
-	return condLayer{
-		join:      cl.join,
-		fields:    cl.fields,
-		query:     cl.query,
-		groupedBy: cl.groupedBy,
-		cond: Cond{
-			WhereClause:  cond,
-			HavingClause: cl.cond.HavingClause,
-		},
-	}
+	cl.ctx.cond.WhereClause = cond
+	return condLayer{ctx: cl.ctx}
 }
 
-func (cl condLayer) Having(cond ...HavingEx) condLayer {
-	return condLayer{
-		join:      cl.join,
-		fields:    cl.fields,
-		query:     cl.query,
-		groupedBy: cl.groupedBy,
-		cond: Cond{
-			WhereClause:  cl.cond.WhereClause,
-			HavingClause: cond,
-		},
-	}
+func (cl condLayer) Having(having ...HavingEx) condLayer {
+	cl.ctx.cond.HavingClause = having
+	return condLayer{ctx: cl.ctx}
 }
 
 func (cl condLayer) With(with With) metadataLayer {
-	return metadataLayer{
-		query:  cl.query,
-		fields: cl.fields.fields,
-		join:   cl.join,
-		cond:   cl.cond,
-		with:   with,
-	}
+	cl.ctx.with = with
+	return metadataLayer{ctx: cl.ctx}
 }
 
 func (m metadataLayer) Build() proxy.QueryPlan {
-	return proxy.
-		BuildQueryPlan(
-			m.query,
-			m.fields.fields,
-			m.join,
-			m.cond,
-			m.fields.fields,
-			m.with,
-		)
+	return proxy.BuildQueryPlan(
+		m.ctx.query,
+		m.ctx.fields.fields,
+		m.ctx.join,
+		m.ctx.cond,
+		m.ctx.fields.fields,
+		m.ctx.with,
+	)
 }
 
 func a() {
 	SelectBuilder.
 		Fields("name", "sum(amount)").
 		Join(Left,
-			JoinEx{
-				Field:   "name",
-				RefName: "example_stream",
-				Ref:     STREAM,
-			},
-			JoinEx{
-				Field:   "name",
-				RefName: "join_table",
-				Ref:     TABLE,
-			}).
+			JoinEx{Field: "name", RefName: "example_stream", Ref: STREAM},
+			JoinEx{Field: "name", RefName: "join_table", Ref: TABLE},
+		).
 		From("example_stream", STREAM).
 		GroupBy("name", "age", "salary").
-		Where(
-			WhereEx{FieldName: "name"}.Equal("my_name")).
-		Having(
-			HavingEx{FieldName: "sum(amount)"}.Equal("100")).
-		With(
-			With{
-				Topic:       "example_topic",
-				ValueFormat: "JSON"}).
+		Where(WhereEx{FieldName: "name"}.Equal("my_name")).
+		Having(HavingEx{FieldName: "sum(amount)"}.Equal("100")).
+		With(With{
+			Topic:       "example_topic",
+			ValueFormat: "JSON",
+		}).
 		Build()
 }
