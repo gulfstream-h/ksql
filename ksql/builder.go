@@ -1,7 +1,7 @@
 package ksql
 
 import (
-	"ksql/proxy"
+	"ksql/constants"
 	"ksql/schema"
 )
 
@@ -20,7 +20,7 @@ type builderContext struct {
 	cond      Cond
 	groupedBy []string
 	with      With
-	cte       []proxy.QueryPlan
+	cte       []constants.QueryPlan
 }
 
 type cteLayer struct {
@@ -47,7 +47,7 @@ type metadataLayer struct {
 	ctx *builderContext
 }
 
-func (sb Builder) WithCTE(ctes ...proxy.QueryPlan) cteLayer {
+func (sb Builder) WithCTE(ctes ...constants.QueryPlan) cteLayer {
 	return cteLayer{
 		ctx: &builderContext{
 			cte: ctes,
@@ -128,15 +128,15 @@ func (cl condLayer) With(with With) metadataLayer {
 	return metadataLayer{ctx: cl.ctx}
 }
 
-func (m metadataLayer) Build() proxy.QueryPlan {
-	return proxy.BuildQueryPlan(
-		m.ctx.query,
-		m.ctx.fields.fields,
-		m.ctx.join,
-		m.ctx.cond,
-		m.ctx.fields.fields,
-		m.ctx.with,
-	)
+func (m metadataLayer) Build() (plan constants.QueryPlan) {
+	plan.QueryAlgo = m.ctx.query
+	plan.SchemaAlgo = m.ctx.fields.fields
+	plan.JoinAlgo = m.ctx.join
+	plan.CondAlgo = m.ctx.cond
+	plan.GroupBy = m.ctx.fields.fields
+	plan.MetadataAlgo = m.ctx.with
+
+	return
 }
 
 func a() {

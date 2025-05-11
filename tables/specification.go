@@ -5,10 +5,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"ksql/constants"
 	"ksql/kernel/network"
 	"ksql/kernel/protocol"
 	"ksql/ksql"
-	"ksql/proxy"
 	"ksql/schema"
 	"net/http"
 	"reflect"
@@ -193,7 +193,7 @@ func CreateTableAsSelect[S any](
 	ctx context.Context,
 	tableName string,
 	settings TableSettings,
-	query proxy.QueryPlan) (*Table[S], error) {
+	query constants.QueryPlan) (*Table[S], error) {
 
 	var (
 		s S
@@ -298,10 +298,12 @@ func (s *Table[S]) SelectWithEmit(
 	return valuesC, nil
 }
 
-func (s *Table[S]) ToTopic(topicName string) proxy.Topic[S] {
-	return proxy.CreateTopicFromTable[S](topicName, s)
+func (s *Table[S]) ToTopic(topicName string) (topic constants.Topic[S]) {
+	topic.Name = topicName
+	return
 }
 
-func (s *Table[S]) ToStream(streamName string) proxy.Stream[S] {
-	return proxy.CreateStreamFromTable[S](streamName, s)
+func (s *Table[S]) ToStream(streamName string) (stream constants.Stream[S]) {
+	stream.Name = streamName
+	return
 }

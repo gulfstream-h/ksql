@@ -17,12 +17,6 @@ type StreamSettings struct {
 	DeleteFunc   func(context.Context)
 }
 
-var (
-	streamsProjections = make(
-		map[string]StreamSettings,
-	)
-)
-
 func Register[S any](
 	ctx context.Context,
 	settings StreamSettings) (
@@ -42,15 +36,4 @@ func Register[S any](
 	}
 
 	return stream, nil
-}
-
-func GetStreamProjection(
-	streamName string) (StreamSettings, error) {
-
-	settings, exists := streamsProjections[streamName]
-	if !exists {
-		return StreamSettings{}, ErrStreamDoesNotExist
-	}
-
-	return settings, nil
 }

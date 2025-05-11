@@ -16,12 +16,6 @@ type TableSettings struct {
 	DeleteFunc  func(context.Context)
 }
 
-var (
-	tablesProjections = make(
-		map[string]TableSettings,
-	)
-)
-
 func Register[S any](
 	ctx context.Context,
 	settings TableSettings) (
@@ -41,15 +35,4 @@ func Register[S any](
 	}
 
 	return table, nil
-}
-
-func GetTableProjection(
-	tableName string) (TableSettings, error) {
-
-	settings, exists := tablesProjections[tableName]
-	if !exists {
-		return TableSettings{}, ErrTableDoesNotExist
-	}
-
-	return settings, nil
 }

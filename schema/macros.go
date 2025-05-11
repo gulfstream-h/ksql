@@ -1,7 +1,7 @@
 package schema
 
 import (
-	"ksql/proxy"
+	"ksql/constants"
 	"reflect"
 )
 
@@ -44,19 +44,19 @@ func GetSchemeFields(
 
 	switch kind {
 	case STREAM:
-		stream, err := proxy.FindStreamSettings(name)
-		if err != nil {
+		settings, exists := constants.StreamsProjections[name]
+		if !exists {
 			return nil
 		}
 
-		return GetTypeFields(stream.Name, stream.Schema)
+		return GetTypeFields(settings.Name, settings.Schema)
 	case TABLE:
-		table, err := proxy.FindTableSettings(name)
-		if err != nil {
+		settings, exists := constants.TablesProjections[name]
+		if !exists {
 			return nil
 		}
 
-		GetTypeFields(table.Name, table.Schema)
+		GetTypeFields(settings.Name, settings.Schema)
 	}
 
 	return nil
