@@ -12,10 +12,14 @@ import (
 // CRUTCH for import cycle not allowed :))))
 
 type (
+	QueryPlan protocol.KafkaSerializer
+
+	StreamSettings streams.StreamSettings
+	TableSettings  tables.TableSettings
+
 	Topic[S any]  topics.Topic[S]
 	Stream[S any] streams.Stream[S]
 	Table[S any]  tables.Table[S]
-	QueryPlan     protocol.KafkaSerializer
 )
 
 func BuildQueryPlan(
@@ -35,6 +39,24 @@ func BuildQueryPlan(
 		MetadataAlgo: MetadataAlgo,
 		CTE:          nil,
 	})
+}
+
+func FindStreamSettings(name string) (StreamSettings, error) {
+	settings, err := streams.GetStreamProjection(name)
+	if err != nil {
+		return StreamSettings{}, err
+	}
+
+	return StreamSettings(settings), nil
+}
+
+func FindTableSettings(name string) (TableSettings, error) {
+	settings, err := tables.GetTableProjection(name)
+	if err != nil {
+		return TableSettings{}, err
+	}
+
+	return TableSettings(settings), nil
 }
 
 func CreateTopicFromStream[S any](topicName string, stream *streams.Stream[S]) Topic[S] {

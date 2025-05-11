@@ -3,14 +3,38 @@ package schema
 import (
 	"fmt"
 	"github.com/fatih/structs"
-	"strings"
+	"reflect"
 )
 
 type (
 	Schema interface{}
 )
 
-func Serialize[T Schema](schema T) {
+const (
+	ksqlTag = "ksql"
+)
+
+func createProjection(
+	fieldsList map[string]KsqlKind) reflect.Type {
+
+	var (
+		fields = make([]reflect.StructField, 0, len(fieldsList))
+	)
+
+	for name, kind := range fieldsList {
+		fields = append(fields, reflect.StructField{
+			Name: name,
+			Type: reflect.TypeOf(getKindExample(kind)),
+			Tag:  reflect.StructTag(fmt.Sprintf("%s:%s", ksqlTag, name)),
+		})
+	}
+
+	return reflect.StructOf(fields)
+}
+
+func SerializeProvidedStruct[T Schema](
+	schema T) map[string]KsqlKind {
+
 	var (
 		values map[string]KsqlKind
 	)
@@ -18,7 +42,7 @@ func Serialize[T Schema](schema T) {
 	fields := structs.Fields(schema)
 
 	for _, field := range fields {
-		tag := field.Tag("ksql")
+		tag := field.Tag(ksqlTag)
 		kind := field.Kind()
 
 		ksqlKind, err := castType(kind)
@@ -28,72 +52,29 @@ func Serialize[T Schema](schema T) {
 
 		values[tag] = ksqlKind
 	}
-}
-
-func Deserialize(src []byte, dst any) map[string]KsqlKind {
-	srcLiteral, found := strings.CutPrefix(string(src), "(")
-	if !found {
-		return nil
-	}
-
-	srcLiteral, found = strings.CutSuffix(string(src), ")")
-	if !found {
-		return nil
-	}
-
-	switch dst.(type) {
-	case struct{}:
-	default:
-		return nil
-	}
-
-	pairs := strings.Split(srcLiteral, ",")
-
-	if pairs == nil || len(pairs) == 0 {
-		return nil
-	}
-
-	values := Unmarshal(pairs)
-
-	fields := structs.Fields(dst)
-	for _, field := range fields {
-		tag := field.Tag("ksql")
-		ksqlKind, ok := values[tag]
-		if !ok {
-			continue
-		}
-
-		fieldKind, err := castType(field.Kind())
-		if err != nil {
-			delete(values, tag)
-			continue
-		}
-
-		if ksqlKind != fieldKind {
-			delete(values, tag)
-			continue
-		}
-	}
 
 	return values
 }
 
-func FormatRegistry(fields map[string]KsqlKind) []byte {
+func SerializeRemoteSchema(
+	fields map[string]string) map[string]KsqlKind {
+
 	var (
-		information string
+		schemaFields = make(map[string]KsqlKind)
 	)
 
-	information += "("
-
-	for name, kind := range fields {
-		kindLiteral, err := kind.Marshal()
-		if err != nil {
-			continue
+	for k, v := range fields {
+		switch v {
+		case "INT":
+			schemaFields[k] = Int
+		case "FLOAT":
+			schemaFields[k] = Float
+		case "VARCHAR":
+			schemaFields[k] = String
+		case "BOOL":
+			schemaFields[k] = Bool
 		}
-		information += fmt.Sprintf("%s %s", name, kindLiteral)
 	}
 
-	information += ")"
-
-	return []byte(information)
+	return schemaFields
 }

@@ -126,16 +126,15 @@ func getStreamRemotely[T any](
 	return stream, nil
 }
 
-func getStreamProjection(
-	ctx context.Context,
-	streamName string) (*StreamSettings, error) {
+func GetStreamProjection(
+	streamName string) (StreamSettings, error) {
 
 	settings, exists := existingStreams[streamName]
 	if !exists {
-		return nil, ErrStreamDoesNotExist
+		return StreamSettings{}, ErrStreamDoesNotExist
 	}
 
-	return &settings, nil
+	return settings, nil
 }
 
 func (s *Stream[S]) Describe() {

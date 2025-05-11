@@ -1,4 +1,4 @@
-package dao
+package dto
 
 type FieldSchema struct {
 	Type         string      `json:"type"`

@@ -3,6 +3,7 @@ package streams
 import (
 	"context"
 	"ksql/schema"
+	"reflect"
 )
 
 type StreamSettings struct {
@@ -10,6 +11,7 @@ type StreamSettings struct {
 	SourceTopic  *string
 	SourceStream *string
 	Partitions   *uint8
+	Schema       reflect.Type
 	format       schema.ValueFormat
 	DeleteFunc   func(context.Context)
 }

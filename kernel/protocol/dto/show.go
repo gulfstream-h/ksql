@@ -1,4 +1,4 @@
-package dao
+package dto
 
 type Topic struct {
 	Name     string `json:"name"`

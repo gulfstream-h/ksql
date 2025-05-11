@@ -105,12 +105,12 @@ func getTableRemotely[S any](
 	return table, nil
 }
 
-func GetTableProjection(ctx context.Context, name string) (*TableSettings, error) {
+func GetTableProjection(name string) (TableSettings, error) {
 	tableSettings, exist := existingTables[name]
 	if !exist {
-		return nil, errors.New("table does not exist")
+		return TableSettings{}, errors.New("table does not exist")
 	}
-	return &tableSettings, nil
+	return tableSettings, nil
 }
 
 func (s *Table[S]) ToTopic(topicName string) proxy.Topic[S] {
