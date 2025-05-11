@@ -14,18 +14,18 @@ const (
 	ksqlTag = "ksql"
 )
 
-func createProjection(
-	fieldsList map[string]KsqlKind) reflect.Type {
+func SerializeFields(
+	fieldsList []SearchField) reflect.Type {
 
 	var (
 		fields = make([]reflect.StructField, 0, len(fieldsList))
 	)
 
-	for name, kind := range fieldsList {
+	for _, field := range fieldsList {
 		fields = append(fields, reflect.StructField{
-			Name: name,
-			Type: reflect.TypeOf(getKindExample(kind)),
-			Tag:  reflect.StructTag(fmt.Sprintf("%s:%s", ksqlTag, name)),
+			Name: field.FieldName,
+			Type: reflect.TypeOf(field.KsqlKind.example()),
+			Tag:  reflect.StructTag(fmt.Sprintf("%s:%s", ksqlTag, field.FieldName)),
 		})
 	}
 
@@ -33,7 +33,7 @@ func createProjection(
 }
 
 func SerializeProvidedStruct[T Schema](
-	schema T) map[string]KsqlKind {
+	schema T) reflect.Type {
 
 	var (
 		values map[string]KsqlKind
@@ -45,7 +45,7 @@ func SerializeProvidedStruct[T Schema](
 		tag := field.Tag(ksqlTag)
 		kind := field.Kind()
 
-		ksqlKind, err := castType(kind)
+		ksqlKind, err := Ksql(kind)
 		if err != nil {
 			continue
 		}
@@ -53,11 +53,11 @@ func SerializeProvidedStruct[T Schema](
 		values[tag] = ksqlKind
 	}
 
-	return values
+	return createProjection(values)
 }
 
 func SerializeRemoteSchema(
-	fields map[string]string) map[string]KsqlKind {
+	fields map[string]string) reflect.Type {
 
 	var (
 		schemaFields = make(map[string]KsqlKind)
@@ -76,5 +76,23 @@ func SerializeRemoteSchema(
 		}
 	}
 
-	return schemaFields
+	return createProjection(schemaFields)
+}
+
+func createProjection(
+	fieldsList map[string]KsqlKind) reflect.Type {
+
+	var (
+		fields = make([]reflect.StructField, 0, len(fieldsList))
+	)
+
+	for name, kind := range fieldsList {
+		fields = append(fields, reflect.StructField{
+			Name: name,
+			Type: reflect.TypeOf(kind.example()),
+			Tag:  reflect.StructTag(fmt.Sprintf("%s:%s", ksqlTag, name)),
+		})
+	}
+
+	return reflect.StructOf(fields)
 }

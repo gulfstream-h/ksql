@@ -2,6 +2,7 @@ package streams
 
 import (
 	"context"
+	"errors"
 	"ksql/schema"
 	"reflect"
 )
@@ -16,25 +17,38 @@ type StreamSettings struct {
 	DeleteFunc   func(context.Context)
 }
 
-func Register[S any](ctx context.Context, settings StreamSettings) (*Stream[S], error) {
-	projection, err := getStreamProjection(ctx, settings.Name)
+var (
+	streamsProjections = make(map[string]StreamSettings)
+)
+
+func Register[S any](
+	ctx context.Context,
+	settings StreamSettings) (
+	*Stream[S], error) {
+
+	var (
+		stream *Stream[S]
+		err    error
+	)
+
+	stream, err = GetStream[S](ctx, settings.Name, settings)
 	if err != nil {
-		if settings.SourceTopic != nil {
-			stream, err := createStreamRemotely[S](ctx, nil, settings.Name, settings)
-			if err != nil {
-				return nil, err
-			}
-
-			return stream, nil
+		if errors.Is(err, ErrStreamDoesNotExist) {
+			return CreateStream[S](ctx, settings.Name, settings)
 		}
-
 		return nil, err
 	}
 
-	return &Stream[S]{
-		sourceTopic:  projection.SourceTopic,
-		sourceStream: projection.SourceStream,
-		partitions:   projection.Partitions,
-		vf:           projection.format,
-	}, nil
+	return stream, nil
+}
+
+func GetStreamProjection(
+	streamName string) (StreamSettings, error) {
+
+	settings, exists := streamsProjections[streamName]
+	if !exists {
+		return StreamSettings{}, ErrStreamDoesNotExist
+	}
+
+	return settings, nil
 }

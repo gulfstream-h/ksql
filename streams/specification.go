@@ -3,31 +3,22 @@ package streams
 import (
 	"context"
 	"errors"
-	"ksql/kernel/network"
+	"fmt"
 	"ksql/kernel/protocol"
 	"ksql/ksql"
 	"ksql/proxy"
 	"ksql/schema"
-	"net"
 	"reflect"
 )
 
-type Stream[T any] struct {
-	name         string
+type Stream[S any] struct {
+	Name         string
 	sourceTopic  *string
 	sourceStream *string
 	partitions   *uint8
 	remoteSchema *reflect.Type
 	vf           schema.ValueFormat
 }
-
-var (
-	existingStreams = make(map[string]StreamSettings)
-)
-
-var (
-	ErrStreamDoesNotExist = errors.New("stream does not exist")
-)
 
 func ListStreams() {
 	protocol.KafkaSerializer{
@@ -38,110 +29,11 @@ func ListStreams() {
 	}.Query()
 }
 
-func GetStream[T any](
-	ctx context.Context,
-	stream string,
-	settings StreamSettings) {
-
-}
-
-func CreateStream[T any](
-	ctx context.Context,
-	streamName string,
-	settings StreamSettings) (*Stream[T], error) {
-
-	protocol.KafkaSerializer{
-		QueryAlgo: ksql.Query{
-			Query: ksql.CREATE,
-			Ref:   ksql.STREAM,
-			Name:  streamName,
-		},
-		SchemaAlgo: nil,
-		MetadataAlgo: ksql.With{
-			Topic:       *settings.SourceTopic,
-			ValueFormat: "JSON",
-		},
-	}.Query()
-
-	return &Stream[T]{
-		sourceTopic:  settings.SourceTopic,
-		sourceStream: &streamName,
-		partitions:   settings.Partitions,
-		vf:           settings.format,
-	}, nil
-}
-
-func CreateStreamAsSelect[T any](
-	ctx context.Context,
-	streamName string) {
-
-}
-
-func getStreamRemotely[T any](
-	ctx context.Context,
-	conn net.Conn,
-	streamName string) (*Stream[T], error) {
-
-	var (
-		command = "DESCRIBE " + streamName
-	)
-
-	response, err := network.Perform(
-		ctx,
-		conn,
-		conn.RemoteAddr().String(),
-		len(command),
-		command)
-	if err != nil {
-		return nil, err
-	}
-
-	var (
-		dst T
-	)
-
-	kinds := schema.Deserialize(response, &dst)
-
-	stream := &Stream[T]{}
-
-	if _, ok := kinds["topic"]; ok {
-		srcTopic := "topic"
-		stream.sourceTopic = &srcTopic
-	}
-
-	if _, ok := kinds["stream"]; ok {
-		srcStream := "stream"
-		stream.sourceStream = &srcStream
-	}
-
-	if _, ok := kinds["partitions"]; ok {
-		partitions := uint8(1)
-		stream.partitions = &partitions
-	}
-	if _, ok := kinds["value_format"]; ok {
-		vf := schema.Json
-		stream.vf = vf
-	}
-
-	return stream, nil
-}
-
-func GetStreamProjection(
-	streamName string) (StreamSettings, error) {
-
-	settings, exists := existingStreams[streamName]
-	if !exists {
-		return StreamSettings{}, ErrStreamDoesNotExist
-	}
-
-	return settings, nil
-}
-
 func (s *Stream[S]) Describe() {
 	protocol.KafkaSerializer{
 		QueryAlgo: ksql.Query{
 			Query: ksql.DESCRIBE,
-			Name:  s.name,
+			Name:  s.Name,
 		},
 	}.Query()
 }
@@ -151,33 +43,251 @@ func (s *Stream[S]) Drop() {
 		QueryAlgo: ksql.Query{
 			Query: ksql.DROP,
 			Ref:   ksql.STREAM,
-			Name:  s.name,
+			Name:  s.Name,
 		},
 	}.Query()
 }
 
-func (s *Stream[S]) ToTopic(topicName string) proxy.Topic[S] {
-	return proxy.CreateTopicFromStream[S](topicName, s)
+func GetStream[S any](
+	ctx context.Context,
+	stream string,
+	settings StreamSettings) (*Stream[S], error) {
+
+	var (
+		s S
+	)
+
+	scheme := schema.SerializeProvidedStruct(s)
+
+	protocol.KafkaSerializer{
+		QueryAlgo: ksql.Query{
+			Query: ksql.DESCRIBE,
+			Name:  stream,
+		},
+	}.Query()
+
+	// TODO make request
+	var (
+		responseSchema map[string]string
+	)
+
+	if responseSchema == nil {
+		return nil, ErrStreamDoesNotExist
+	}
+
+	remoteSchema := schema.SerializeRemoteSchema(responseSchema)
+	matchMap, diffMap := schema.CompareStructs(scheme, remoteSchema)
+
+	if len(matchMap) == 0 {
+		fmt.Println(diffMap)
+		return nil, errors.New("schemes doesnt match")
+	}
+
+	return &Stream[S]{
+		Name:         stream,
+		sourceStream: nil,
+		partitions:   settings.Partitions,
+		remoteSchema: &scheme,
+		vf:           settings.format,
+	}, nil
 }
 
-func (s *Stream[S]) ToTable(tableName string) proxy.Table[S] {
-	return proxy.CreateTableFromStream[S](tableName, s)
+func CreateStream[S any](
+	ctx context.Context,
+	streamName string,
+	settings StreamSettings) (*Stream[S], error) {
+
+	var (
+		s S
+	)
+
+	rmSchema := schema.SerializeProvidedStruct(s)
+
+	protocol.KafkaSerializer{
+		QueryAlgo: ksql.Query{
+			Query: ksql.CREATE,
+			Ref:   ksql.STREAM,
+			Name:  streamName,
+		},
+		SchemaAlgo: schema.GetTypeFields(
+			streamName,
+			rmSchema,
+		),
+		MetadataAlgo: ksql.With{
+			Topic:       *settings.SourceTopic,
+			ValueFormat: schema.JSON.String(),
+		},
+	}.Query()
+
+	return &Stream[S]{
+		sourceTopic:  settings.SourceTopic,
+		sourceStream: &streamName,
+		partitions:   settings.Partitions,
+		remoteSchema: &rmSchema,
+		vf:           settings.format,
+	}, nil
 }
 
-func (s *Stream[S]) SelectOnce(ctx context.Context, query string) (S, error) {
+func CreateStreamAsSelect[S any](
+	ctx context.Context,
+	streamName string,
+	settings StreamSettings,
+	query proxy.QueryPlan) (*Stream[S], error) {
+
+	var (
+		s S
+	)
+
+	scheme := schema.SerializeProvidedStruct(s)
+	rmScheme := schema.SerializeFields(query.SchemaAlgo)
+
+	matchMap, diffMap := schema.CompareStructs(scheme, rmScheme)
+
+	if len(matchMap) == 0 {
+		fmt.Println(diffMap)
+		return nil, errors.New("schemes doesnt match")
+	}
+
+	protocol.KafkaSerializer{
+		QueryAlgo: ksql.Query{
+			Query: ksql.CREATE,
+			Ref:   ksql.STREAM,
+			Name:  streamName,
+		},
+		SchemaAlgo: query.SchemaAlgo,
+		MetadataAlgo: ksql.With{
+			Topic:       *settings.SourceTopic,
+			ValueFormat: schema.JSON.String(),
+		},
+		CTE: map[string]protocol.KafkaSerializer{
+			"AS": protocol.KafkaSerializer(query),
+		},
+	}.Query()
+
+	return &Stream[S]{
+		sourceTopic:  settings.SourceTopic,
+		sourceStream: &streamName,
+		partitions:   settings.Partitions,
+		remoteSchema: &scheme,
+		vf:           settings.format,
+	}, nil
+
+}
+
+func (s *Stream[S]) Insert(
+	ctx context.Context,
+	fields map[string]string) error {
+
+	scheme := *s.remoteSchema
+
+	remoteProjection := schema.GetTypeFieldsAsMap(
+		s.Name,
+		scheme,
+	)
+
+	var (
+		searchFields []schema.SearchField
+	)
+
+	for key, value := range fields {
+		field, ok := remoteProjection[key]
+		if !ok {
+			continue
+		}
+
+		field.Value = value
+
+		searchFields = append(searchFields, field)
+	}
+
+	protocol.KafkaSerializer{
+		SchemaAlgo: searchFields,
+		QueryAlgo: ksql.Query{
+			Query: ksql.INSERT,
+			Ref:   ksql.STREAM,
+			Name:  s.Name,
+		},
+	}.Query()
+
+	return nil
+}
+
+func (s *Stream[S]) InsertAs(
+	ctx context.Context,
+	query protocol.KafkaSerializer) error {
+
+	scheme := *s.remoteSchema
+	rmScheme := schema.SerializeFields(query.SchemaAlgo)
+
+	matchMap, diffMap := schema.CompareStructs(scheme, rmScheme)
+
+	if len(matchMap) == 0 {
+		fmt.Println(diffMap)
+		return errors.New("schemes doesnt match")
+	}
+
+	protocol.KafkaSerializer{
+		SchemaAlgo: query.SchemaAlgo,
+		QueryAlgo: ksql.Query{
+			Query: ksql.INSERT,
+			Ref:   ksql.STREAM,
+			Name:  s.Name,
+		},
+		CTE: map[string]protocol.KafkaSerializer{
+			"AS": query,
+		},
+	}.Query()
+
+	return nil
+}
+
+func (s *Stream[S]) SelectOnce(
+	ctx context.Context) (S, error) {
+
 	var (
 		value S
 	)
 
+	protocol.KafkaSerializer{
+		QueryAlgo: ksql.Query{
+			Query: ksql.SELECT,
+			Ref:   ksql.STREAM,
+			Name:  s.Name,
+		},
+		SchemaAlgo: schema.GetTypeFields(
+			s.Name,
+			*s.remoteSchema,
+		),
+		MetadataAlgo: ksql.With{
+			ValueFormat: schema.JSON.String(),
+		},
+	}.Query()
+
 	return value, nil
 }
 
-func (s *Stream[S]) SelectWithEmit(ctx context.Context, query string) (<-chan S, error) {
+func (s *Stream[S]) SelectWithEmit(
+	ctx context.Context) (<-chan S, error) {
 
 	var (
 		value   S
 		valuesC = make(chan S)
 	)
+
+	protocol.KafkaSerializer{
+		QueryAlgo: ksql.Query{
+			Query: ksql.SELECT,
+			Ref:   ksql.STREAM,
+			Name:  s.Name,
+		},
+		SchemaAlgo: schema.GetTypeFields(
+			s.Name,
+			*s.remoteSchema,
+		),
+		MetadataAlgo: ksql.With{
+			ValueFormat: schema.JSON.String(),
+		},
+	}.Query()
 
 	go func() {
 		for {
@@ -194,23 +304,10 @@ func (s *Stream[S]) SelectWithEmit(ctx context.Context, query string) (<-chan S,
 	return valuesC, nil
 }
 
-func (s *Stream[S]) Insert(ctx context.Context, fields map[string]string) error {
-	protocol.KafkaSerializer{
-		QueryAlgo: ksql.Query{
-			Query: ksql.INSERT,
-			Ref:   ksql.STREAM,
-			Name:  s.name,
-			CTE:   nil,
-		},
-		SchemaAlgo:   nil,
-		JoinAlgo:     ksql.Join{},
-		CondAlgo:     ksql.Cond{},
-		GroupBy:      nil,
-		MetadataAlgo: ksql.With{},
-		CTE:          nil,
-	}.Query()
+func (s *Stream[S]) ToTopic(topicName string) proxy.Topic[S] {
+	return proxy.CreateTopicFromStream[S](topicName, s)
 }
 
-func (s *Stream[S]) InsertAs(ctx context.Context, serializer protocol.KafkaSerializer) {
-
+func (s *Stream[S]) ToTable(tableName string) proxy.Table[S] {
+	return proxy.CreateTableFromStream[S](tableName, s)
 }

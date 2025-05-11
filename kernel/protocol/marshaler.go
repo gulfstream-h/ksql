@@ -7,15 +7,17 @@ import (
 	"strings"
 )
 
-type KafkaSerializer struct {
-	QueryAlgo    ksql.Query
-	SchemaAlgo   []schema.SearchField
-	JoinAlgo     ksql.Join
-	CondAlgo     ksql.Cond
-	GroupBy      []schema.SearchField
-	MetadataAlgo ksql.With
-	CTE          map[string]KafkaSerializer
-}
+type (
+	KafkaSerializer struct {
+		QueryAlgo    ksql.Query
+		SchemaAlgo   []schema.SearchField
+		JoinAlgo     ksql.Join
+		CondAlgo     ksql.Cond
+		GroupBy      []schema.SearchField
+		MetadataAlgo ksql.With
+		CTE          map[string]KafkaSerializer
+	}
+)
 
 func (ks KafkaSerializer) writeCTE() {
 	var (
@@ -45,7 +47,6 @@ func (ks KafkaSerializer) writeQuery() {
 	switch ks.QueryAlgo.Query {
 	case ksql.LIST:
 		str.WriteString("LIST ")
-
 		switch ks.QueryAlgo.Ref {
 		case ksql.TOPIC:
 			str.WriteString("TOPICS;")
@@ -125,7 +126,7 @@ func (ks KafkaSerializer) writeSchema() {
 
 			str.WriteString(field.FieldName)
 			str.WriteString(" ")
-			str.WriteString(field.KsqlKind.Marshal())
+			str.WriteString(field.KsqlKind.GetKafkaRepresentation())
 
 			iter++
 		}
@@ -172,11 +173,6 @@ func (ks KafkaSerializer) writeJoin() {
 		return
 	}
 
-	if !sf.CheckJoinCapability() ||
-		!jf.CheckJoinCapability() {
-		return
-	}
-
 	str.WriteString(sf.Referer)
 	str.WriteString(".")
 	str.WriteString(sf.FieldName)
@@ -200,7 +196,7 @@ func (ks KafkaSerializer) writeCond() {
 			str.WriteString(" AND ")
 		}
 
-		str.WriteString("")
+		str.WriteString(fmt.Sprintf("%s.%s", field.Referer, field.FieldName))
 	}
 
 	for i, field := range ks.GroupBy {
@@ -210,7 +206,7 @@ func (ks KafkaSerializer) writeCond() {
 			str.WriteString(",")
 		}
 
-		str.WriteString("")
+		str.WriteString(fmt.Sprintf("%s.%s", field.Referer, field.FieldName))
 	}
 
 	for i, field := range ks.CondAlgo.HavingClause {
@@ -220,7 +216,7 @@ func (ks KafkaSerializer) writeCond() {
 			str.WriteString(" AND ")
 		}
 
-		str.WriteString("")
+		str.WriteString(fmt.Sprintf("%s.%s", field.Referer, field.FieldName))
 	}
 }
 

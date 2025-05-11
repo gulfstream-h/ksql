@@ -7,11 +7,12 @@ import (
 	"strings"
 )
 
-type QueryRestAnalysis struct{}
+type (
+	QueryRestAnalysis struct{}
+)
 
-func (qa QueryRestAnalysis) Deserialize(query []byte) protocol.QueryDeserializeReport {
+func (qa QueryRestAnalysis) Deserialize(q string) ksql.Query {
 	var (
-		q = string(query)
 		r protocol.QueryDeserializeReport
 	)
 

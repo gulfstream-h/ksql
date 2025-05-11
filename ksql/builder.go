@@ -181,9 +181,11 @@ func a() {
 				Ref:     TABLE,
 			}).
 		From("example_stream", STREAM).
-		GroupBy("name").
-		Where(WhereEx{}).
-		Having(HavingEx{}).
+		GroupBy("name", "age", "salary").
+		Where(
+			WhereEx{FieldName: "name"}.Equal("my_name")).
+		Having(
+			HavingEx{FieldName: "sum(amount)"}.Equal("100")).
 		With(
 			With{
 				Topic:       "example_topic",

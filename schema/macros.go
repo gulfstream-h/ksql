@@ -12,13 +12,35 @@ type SearchField struct {
 	KsqlKind
 }
 
-func GetSchemeFields(
+func GetTypeFields(
 	name string,
-	kind ResourceKind) []SearchField {
+	remoteStruct reflect.Type) []SearchField {
 
 	var (
 		fields []SearchField
 	)
+
+	for i := 0; i < remoteStruct.NumField(); i++ {
+		fs := remoteStruct.Field(i)
+
+		ksqlKind, err := Ksql(fs.Type.Kind())
+		if err != nil {
+			continue
+		}
+
+		fields = append(fields, SearchField{
+			FieldName: fs.Tag.Get(ksqlTag),
+			Referer:   name,
+			KsqlKind:  ksqlKind,
+		})
+	}
+
+	return fields
+}
+
+func GetSchemeFields(
+	name string,
+	kind ResourceKind) []SearchField {
 
 	switch kind {
 	case STREAM:
@@ -27,45 +49,14 @@ func GetSchemeFields(
 			return nil
 		}
 
-		for i := 0; i < stream.Schema.NumField(); i++ {
-			fs := stream.Schema.Field(i)
-
-			ksqlKind, err := castType(fs.Type.Kind())
-			if err != nil {
-				continue
-			}
-
-			fields = append(fields, SearchField{
-				FieldName: fs.Tag.Get(ksqlTag),
-				Referer:   name,
-				KsqlKind:  ksqlKind,
-			})
-		}
-
-		return fields
-
+		return GetTypeFields(stream.Name, stream.Schema)
 	case TABLE:
 		table, err := proxy.FindTableSettings(name)
 		if err != nil {
 			return nil
 		}
 
-		for i := 0; i < table.Schema.NumField(); i++ {
-			fs := table.Schema.Field(i)
-
-			ksqlKind, err := castType(fs.Type.Kind())
-			if err != nil {
-				continue
-			}
-
-			fields = append(fields, SearchField{
-				FieldName: fs.Tag.Get(ksqlTag),
-				Referer:   name,
-				KsqlKind:  ksqlKind,
-			})
-		}
-
-		return fields
+		GetTypeFields(table.Name, table.Schema)
 	}
 
 	return nil
@@ -124,4 +115,30 @@ func CompareFields(
 	}
 
 	return &report, nil
+}
+
+func GetTypeFieldsAsMap(
+	name string,
+	remoteStruct reflect.Type) map[string]SearchField {
+
+	var (
+		fields map[string]SearchField
+	)
+
+	for i := 0; i < remoteStruct.NumField(); i++ {
+		fs := remoteStruct.Field(i)
+
+		ksqlKind, err := Ksql(fs.Type.Kind())
+		if err != nil {
+			continue
+		}
+
+		fields[fs.Name] = SearchField{
+			FieldName: fs.Tag.Get(ksqlTag),
+			Referer:   name,
+			KsqlKind:  ksqlKind,
+		}
+	}
+
+	return fields
 }

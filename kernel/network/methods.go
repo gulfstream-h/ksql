@@ -28,12 +28,13 @@ balance:
 		}
 	}
 
-	if rawResponse, err = n.httpClient.Do(&request); err != nil {
+	if rawResponse, err = n.httpClient.Do(
+		&request); err != nil {
 		return err
 	}
 
-	if err = n.validateResponse(rawResponse); err != nil {
-		rawResponse.Body.Close()
+	if err = n.validateResponse(
+		rawResponse); err != nil {
 		return err
 	}
 
@@ -46,9 +47,14 @@ balance:
 		body,
 		&n.mu,
 		&n.rps); err != nil {
-		if errors.Is(err, io.EOF) {
+
+		if errors.Is(
+			err,
+			io.EOF) {
+
 			return nil
 		}
+
 		if errors.Is(err, ErrRebalance) {
 			n.mu.Lock()
 			n.mu.Unlock()

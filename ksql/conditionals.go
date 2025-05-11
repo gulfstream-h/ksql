@@ -11,20 +11,21 @@ type Cond struct {
 }
 
 type WhereEx struct {
-	schema.SearchField
-	comp  string
-	equal string
+	FieldName string
+	schema    schema.SearchField
+	comp      string
+	equal     string
 }
 
-func (ex *WhereEx) Equal(values ...string) {
+func (ex WhereEx) Equal(values ...string) WhereEx {
 	if len(values) == 0 {
-		return
+		return ex
 	}
 
 	if len(values) == 1 {
 		ex.comp = "="
 		ex.equal = values[0]
-		return
+		return ex
 	}
 
 	ex.comp = "in"
@@ -40,23 +41,26 @@ func (ex *WhereEx) Equal(values ...string) {
 	}
 
 	fields += ")"
+
+	return ex
 }
 
 type HavingEx struct {
-	schema.SearchField
-	comp  string
-	equal string
+	FieldName string
+	schema    schema.SearchField
+	comp      string
+	equal     string
 }
 
-func (ex *HavingEx) Equal(values ...string) {
+func (ex HavingEx) Equal(values ...string) HavingEx {
 	if len(values) == 0 {
-		return
+		return ex
 	}
 
 	if len(values) == 1 {
 		ex.comp = "="
 		ex.equal = values[0]
-		return
+		return ex
 	}
 
 	ex.comp = "in"
@@ -72,4 +76,6 @@ func (ex *HavingEx) Equal(values ...string) {
 	}
 
 	fields += ")"
+
+	return ex
 }

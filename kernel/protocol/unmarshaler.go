@@ -13,6 +13,10 @@ type KafkaDeserializer struct {
 	MetadataAlgo    MetadataDeserializeAlgo
 }
 
+func (kd KafkaDeserializer) Deserialize() {
+
+}
+
 var (
 	ErrUnprocessable = errors.New("unprocessable entity")
 )

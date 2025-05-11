@@ -133,10 +133,6 @@ func createTopicRemotely[S interface{}](
 		return nil, err
 	}
 
-	if err = validateResponse(response); err != nil {
-		return nil, err
-	}
-
 	return &Topic[S]{
 		Name:              name,
 		Partitions:        settings.Partitions,
@@ -201,8 +197,8 @@ func (t *Topic[S]) RegisterStream(streamName string) streams.StreamSettings {
 	}
 
 	t.ChildObjects.Streams[streamName] = streamSettings
-	return streamSettings
 
+	return streamSettings
 }
 
 func (t *Topic[S]) RegisterTable(tableName string) tables.TableSettings {
@@ -219,11 +215,4 @@ func (t *Topic[S]) RegisterTable(tableName string) tables.TableSettings {
 
 	t.ChildObjects.Tables[tableName] = tableSettings
 	return tableSettings
-}
-
-func validateResponse(response []byte) error {
-	if strings.Contains(string(response), "error") {
-		return errors.New("error creating topic: " + string(response))
-	}
-	return nil
 }

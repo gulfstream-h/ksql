@@ -16,17 +16,40 @@ const (
 	String
 )
 
-type ResourceKind int
+type (
+	ResourceKind int
+)
 
 const (
 	STREAM = ResourceKind(iota)
 	TABLE
 )
 
-func castType(kind reflect.Kind) (KsqlKind, error) {
+type (
+	ValueFormat int
+)
+
+const (
+	JSON = ValueFormat(iota)
+)
+
+func (vf ValueFormat) String() string {
+	switch vf {
+	case JSON:
+		return "JSON"
+	default:
+		return "UNKNOWN"
+	}
+}
+
+var (
+	ErrType = errors.New("type isn't supported at now")
+)
+
+func Ksql(kind reflect.Kind) (KsqlKind, error) {
 	switch kind {
 	case reflect.Invalid:
-		return 0, errors.New("invalid format isn't supported in ksql yet")
+		return 0, ErrType
 	case reflect.Bool:
 		return Bool, nil
 	case
@@ -66,14 +89,29 @@ func castType(kind reflect.Kind) (KsqlKind, error) {
 		reflect.Complex64,
 		reflect.Complex128:
 
-		return 0, errors.New("type isn't supported now")
+		return 0, ErrType
 	}
 
-	return 0, errors.New("unpredictable reflect kind")
+	return 0, ErrType
 }
 
-func getKindExample(kind KsqlKind) any {
-	switch kind {
+func (k KsqlKind) GetKafkaRepresentation() string {
+	switch k {
+	case Int:
+		return "INT"
+	case Bool:
+		return "BOOL"
+	case Float:
+		return "FLOAT"
+	case String:
+		return "VARCHAR"
+	default:
+		return ""
+	}
+}
+
+func (k KsqlKind) example() any {
+	switch k {
 	case Bool:
 		return true
 	case Int:

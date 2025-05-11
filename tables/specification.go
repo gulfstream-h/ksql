@@ -12,6 +12,7 @@ import (
 )
 
 type Table[S any] struct {
+	Name         string
 	sourceTopic  *string
 	sourceStream *string
 	partitions   *uint8

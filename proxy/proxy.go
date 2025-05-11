@@ -60,17 +60,25 @@ func FindTableSettings(name string) (TableSettings, error) {
 }
 
 func CreateTopicFromStream[S any](topicName string, stream *streams.Stream[S]) Topic[S] {
-	return Topic[S](topics.Topic[S]{})
+	return Topic[S](topics.Topic[S]{
+		Name: topicName,
+	})
 }
 
 func CreateTopicFromTable[S any](topicName string, table *tables.Table[S]) Topic[S] {
-	return Topic[S](topics.Topic[S]{})
+	return Topic[S](topics.Topic[S]{
+		Name: topicName,
+	})
 }
 
 func CreateStreamFromTable[S any](streamName string, table *tables.Table[S]) Stream[S] {
-	return Stream[S](streams.Stream[S]{})
+	return Stream[S](streams.Stream[S]{
+		Name: streamName,
+	})
 }
 
 func CreateTableFromStream[S any](tableName string, stream *streams.Stream[S]) Table[S] {
-	return Table[S](tables.Table[S]{})
+	return Table[S](tables.Table[S]{
+		Name: tableName,
+	})
 }

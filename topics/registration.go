@@ -2,6 +2,7 @@ package topics
 
 import (
 	"context"
+	"errors"
 )
 
 type TopicSettings struct {
@@ -9,7 +10,16 @@ type TopicSettings struct {
 	Replications int
 }
 
-func Register[T any](ctx context.Context, topicName string, makeSettings *TopicSettings) (*Topic[T], error) {
+var (
+	ErrTopicWithoutSettings = errors.New("cannot create topic without partitions number")
+)
+
+func Register[T any](
+	ctx context.Context,
+	topicName string,
+	makeSettings *TopicSettings,
+) (*Topic[T], error) {
+
 	settings, err := GetTopicProjection(ctx, topicName)
 	if err != nil {
 		if makeSettings != nil {
@@ -18,8 +28,9 @@ func Register[T any](ctx context.Context, topicName string, makeSettings *TopicS
 				return nil, err
 			}
 
-			return topic, nil
+			return topic, ErrTopicWithoutSettings
 		}
+
 	}
 
 	return &Topic[T]{

@@ -1,3 +1,11 @@
 package ddl
 
-type
+import "ksql/ksql"
+
+type (
+	MetadataRestAnalysis struct{}
+)
+
+func (ma MetadataRestAnalysis) Deserialize(query string) ksql.With {
+
+}

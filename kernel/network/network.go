@@ -1,10 +1,15 @@
 package network
 
 import (
+	"ksql/config"
 	"net/http"
 	"sync"
 	"sync/atomic"
 	"time"
+)
+
+var (
+	Net Network
 )
 
 type Network struct {
@@ -16,19 +21,17 @@ type Network struct {
 	timeoutSec *int64
 }
 
-func New(
-	host string,
-	timeoutSec *int64) *Network {
-
+func InitNet(config config.Config) {
 	client := http.Client{}
 
-	if timeoutSec != nil {
-		client.Timeout = time.Duration(*timeoutSec) * time.Second
+	if config.TimeoutSec != nil {
+		client.Timeout = time.Duration(*config.TimeoutSec) * time.Second
 	}
 
-	return &Network{
-		host:       host,
+	Net = Network{
+		host:       config.KsqlDbServer,
 		httpClient: &client,
-		timeoutSec: timeoutSec,
+		maxRps:     int32(config.MaxConnTCP),
+		timeoutSec: config.TimeoutSec,
 	}
 }
