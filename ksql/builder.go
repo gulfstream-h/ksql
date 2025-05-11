@@ -20,6 +20,11 @@ type builderContext struct {
 	cond      Cond
 	groupedBy []string
 	with      With
+	cte       []proxy.QueryPlan
+}
+
+type cteLayer struct {
+	ctx *builderContext
 }
 
 type fieldsLayer struct {
@@ -42,12 +47,25 @@ type metadataLayer struct {
 	ctx *builderContext
 }
 
+func (sb Builder) WithCTE(ctes ...proxy.QueryPlan) cteLayer {
+	return cteLayer{
+		ctx: &builderContext{
+			cte: ctes,
+		},
+	}
+}
+
 func (sb Builder) Fields(fields ...string) fieldsLayer {
 	return fieldsLayer{
 		ctx: &builderContext{
 			fields: FullSchema{fields: nil},
 		},
 	}
+}
+
+func (cl cteLayer) Fields(fields ...string) fieldsLayer {
+	cl.ctx.fields = FullSchema{fields: nil}
+	return fieldsLayer{ctx: cl.ctx}
 }
 
 func (fl fieldsLayer) From(from string, kind Reference) fromLayer {
@@ -122,7 +140,15 @@ func (m metadataLayer) Build() proxy.QueryPlan {
 }
 
 func a() {
+	cte1 := SelectBuilder.
+		Fields("name").
+		From("ex", TABLE).
+		Where().
+		With(With{}).
+		Build()
+
 	SelectBuilder.
+		WithCTE(cte1).
 		Fields("name", "sum(amount)").
 		Join(Left,
 			JoinEx{Field: "name", RefName: "example_stream", Ref: STREAM},

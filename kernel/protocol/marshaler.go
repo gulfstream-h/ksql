@@ -27,7 +27,12 @@ func (ks KafkaSerializer) writeCTE() {
 
 	for k, v := range ks.CTE {
 		if iter == 0 {
-			str.WriteString("WITH ")
+			if ks.QueryAlgo.Query == ksql.SELECT {
+				str.WriteString("WITH ")
+			} else {
+				str.WriteString("AS ")
+			}
+
 		} else {
 			str.WriteString(",")
 		}
@@ -196,7 +201,7 @@ func (ks KafkaSerializer) writeCond() {
 			str.WriteString(" AND ")
 		}
 
-		str.WriteString(fmt.Sprintf("%s.%s", field.Referer, field.FieldName))
+		str.WriteString(field.FieldName)
 	}
 
 	for i, field := range ks.GroupBy {
@@ -216,7 +221,7 @@ func (ks KafkaSerializer) writeCond() {
 			str.WriteString(" AND ")
 		}
 
-		str.WriteString(fmt.Sprintf("%s.%s", field.Referer, field.FieldName))
+		str.WriteString(field.FieldName)
 	}
 }
 

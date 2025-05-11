@@ -8,7 +8,7 @@ import (
 )
 
 func (n *Network) PerformRequest(
-	request http.Request,
+	request *http.Request,
 	processor processor) (
 	err error) {
 
@@ -29,7 +29,7 @@ balance:
 	}
 
 	if rawResponse, err = n.httpClient.Do(
-		&request); err != nil {
+		request); err != nil {
 		return err
 	}
 
@@ -45,7 +45,6 @@ balance:
 	if err = processor.Process(
 		rawResponse,
 		body,
-		&n.mu,
 		&n.rps); err != nil {
 
 		if errors.Is(

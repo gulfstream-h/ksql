@@ -11,8 +11,14 @@ import (
 )
 
 type (
-	SingeHandler  struct{ maxRPS int32 }
-	SocketHandler struct{ maxRPS int32 }
+	SingeHandler struct {
+		maxRPS int32
+	}
+
+	SocketHandler struct {
+		mu     *sync.Mutex
+		maxRPS int32
+	}
 )
 
 const (
@@ -27,7 +33,6 @@ var (
 func (sr *SingeHandler) Process(
 	resp *http.Response,
 	dst []byte,
-	_ *sync.Mutex,
 	rps *atomic.Int32) (err error) {
 
 	defer rps.Add(-1)
@@ -50,7 +55,6 @@ func (sr *SingeHandler) GetType() string {
 func (sr *SocketHandler) Process(
 	resp *http.Response,
 	dst []byte,
-	_ *sync.Mutex,
 	cps *atomic.Int32) error {
 
 	defer cps.Add(-1)
@@ -86,6 +90,6 @@ func (sr *SocketHandler) GetType() string {
 }
 
 type processor interface {
-	Process(*http.Response, []byte, *sync.Mutex, *atomic.Int32) error
+	Process(*http.Response, []byte, *atomic.Int32) error
 	GetType() string
 }

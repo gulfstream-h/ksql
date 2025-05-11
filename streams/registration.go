@@ -18,7 +18,9 @@ type StreamSettings struct {
 }
 
 var (
-	streamsProjections = make(map[string]StreamSettings)
+	streamsProjections = make(
+		map[string]StreamSettings,
+	)
 )
 
 func Register[S any](

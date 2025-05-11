@@ -1,13 +1,13 @@
 package ddl
 
 import (
-	"ksql/ksql"
+	"ksql/schema"
 )
 
 type (
 	SchemaRestAnalysis struct{}
 )
 
-func (s SchemaRestAnalysis) Deserialize(schema string) ksql.FullSchema {
-	return ksql.FullSchema{}
+func (s SchemaRestAnalysis) Deserialize(schema string) []schema.SearchField {
+	return nil
 }

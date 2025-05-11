@@ -2,6 +2,7 @@ package tables
 
 import (
 	"context"
+	"errors"
 	"ksql/schema"
 	"reflect"
 )
@@ -15,29 +16,40 @@ type TableSettings struct {
 	DeleteFunc  func(context.Context)
 }
 
+var (
+	tablesProjections = make(
+		map[string]TableSettings,
+	)
+)
+
 func Register[S any](
 	ctx context.Context,
-	tableName string,
-	settings *TableSettings) (
+	settings TableSettings) (
 	*Table[S], error) {
 
-	projection, err := GetTableProjection(tableName)
+	var (
+		table *Table[S]
+		err   error
+	)
+
+	table, err = GetTable[S](ctx, settings.Name, settings)
 	if err != nil {
-		if settings.SourceTopic != nil {
-			stream, err := createTableRemotely[S](ctx, nil, settings.Name, *settings)
-			if err != nil {
-				return nil, err
-			}
-
-			return stream, nil
+		if errors.Is(err, ErrTableDoesNotExist) {
+			return CreateTable[S](ctx, settings.Name, settings)
 		}
-
 		return nil, err
 	}
 
-	return &Table[S]{
-		sourceTopic: projection.SourceTopic,
-		partitions:  projection.Partitions,
-		format:      projection.Format,
-	}, nil
+	return table, nil
+}
+
+func GetTableProjection(
+	tableName string) (TableSettings, error) {
+
+	settings, exists := tablesProjections[tableName]
+	if !exists {
+		return TableSettings{}, ErrTableDoesNotExist
+	}
+
+	return settings, nil
 }

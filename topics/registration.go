@@ -2,40 +2,33 @@ package topics
 
 import (
 	"context"
-	"errors"
 )
 
-type TopicSettings struct {
-	Partitions   int
-	Replications int
-}
+type (
+	TopicSettings struct {
+		Partitions   int
+		Replications int
+	}
+)
 
 var (
-	ErrTopicWithoutSettings = errors.New("cannot create topic without partitions number")
+	topicProjections = make(
+		map[string]TopicSettings,
+	)
 )
 
-func Register[T any](
+func init() {
+	// TODO list and save all topics
+}
+
+func GetTopicProjection(
 	ctx context.Context,
-	topicName string,
-	makeSettings *TopicSettings,
-) (*Topic[T], error) {
+	name string) (*TopicSettings, error) {
 
-	settings, err := GetTopicProjection(ctx, topicName)
-	if err != nil {
-		if makeSettings != nil {
-			topic, err := createTopicRemotely[T](ctx, nil, topicName, *settings)
-			if err != nil {
-				return nil, err
-			}
-
-			return topic, ErrTopicWithoutSettings
-		}
-
+	topicSettings, exist := topicProjections[name]
+	if !exist {
+		return nil, ErrTopicNotExist
 	}
 
-	return &Topic[T]{
-		Name:              topicName,
-		Partitions:        settings.Partitions,
-		ReplicationFactor: settings.Replications,
-	}, nil
+	return &topicSettings, nil
 }

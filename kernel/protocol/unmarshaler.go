@@ -2,7 +2,9 @@ package protocol
 
 import (
 	"errors"
+	"ksql/kernel/protocol/ddl"
 	"ksql/ksql"
+	"ksql/schema"
 )
 
 type KafkaDeserializer struct {
@@ -13,8 +15,32 @@ type KafkaDeserializer struct {
 	MetadataAlgo    MetadataDeserializeAlgo
 }
 
-func (kd KafkaDeserializer) Deserialize() {
+func RestKafkaDeserializer() *KafkaDeserializer {
+	return &KafkaDeserializer{
+		QueryAlgo:       ddl.QueryRestAnalysis{},
+		SchemaAlgo:      ddl.SchemaRestAnalysis{},
+		JoinAlgo:        ddl.JoinRestAnalysis{},
+		ConditionalAlgo: ddl.CondRestAnalysis{},
+		MetadataAlgo:    ddl.MetadataRestAnalysis{},
+	}
+}
 
+func (kd KafkaDeserializer) Deserialize(
+	query string) KafkaSerializer {
+
+	var (
+		ks KafkaSerializer
+	)
+
+	ks.CTE = nil
+	ks.QueryAlgo = kd.QueryAlgo.Deserialize("")
+	ks.SchemaAlgo = kd.SchemaAlgo.Deserialize("")
+	ks.JoinAlgo = kd.JoinAlgo.Deserialize("")
+	ks.CondAlgo = kd.ConditionalAlgo.Deserialize("")
+	ks.GroupBy = nil
+	ks.MetadataAlgo = kd.MetadataAlgo.Deserialize("")
+
+	return ks
 }
 
 var (
@@ -26,7 +52,7 @@ type QueryDeserializeAlgo interface {
 }
 
 type SchemaDeserializeAlgo interface {
-	Deserialize(string) ksql.FullSchema
+	Deserialize(string) []schema.SearchField
 }
 
 type JoinDeserializeAlgo interface {

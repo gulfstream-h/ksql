@@ -1,13 +1,16 @@
 package streams
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
+	"ksql/kernel/network"
 	"ksql/kernel/protocol"
 	"ksql/ksql"
 	"ksql/proxy"
 	"ksql/schema"
+	"net/http"
 	"reflect"
 )
 
@@ -21,31 +24,89 @@ type Stream[S any] struct {
 }
 
 func ListStreams() {
-	protocol.KafkaSerializer{
-		QueryAlgo: ksql.Query{
-			Query: ksql.LIST,
-			Ref:   ksql.STREAM,
-		},
-	}.Query()
+	query := []byte(
+		protocol.KafkaSerializer{
+			QueryAlgo: ksql.Query{
+				Query: ksql.LIST,
+				Ref:   ksql.STREAM,
+			}}.
+			Query())
+
+	req, err := http.NewRequest(
+		"POST",
+		"localhost:8080",
+		bytes.NewReader(query))
+	if err != nil {
+		return
+	}
+
+	req.Header.Set(
+		"Content-Type",
+		"application/json")
+
+	if err = network.Net.PerformRequest(
+		req,
+		&network.SingeHandler{},
+	); err != nil {
+		return
+	}
 }
 
 func (s *Stream[S]) Describe() {
-	protocol.KafkaSerializer{
+	query := []byte(protocol.KafkaSerializer{
 		QueryAlgo: ksql.Query{
 			Query: ksql.DESCRIBE,
 			Name:  s.Name,
 		},
-	}.Query()
+	}.Query())
+
+	req, err := http.NewRequest(
+		"POST",
+		"localhost:8080",
+		bytes.NewReader(query))
+	if err != nil {
+		return
+	}
+
+	req.Header.Set(
+		"Content-Type",
+		"application/json")
+
+	if err = network.Net.PerformRequest(
+		req,
+		&network.SingeHandler{},
+	); err != nil {
+		return
+	}
 }
 
 func (s *Stream[S]) Drop() {
-	protocol.KafkaSerializer{
+	query := []byte(protocol.KafkaSerializer{
 		QueryAlgo: ksql.Query{
 			Query: ksql.DROP,
 			Ref:   ksql.STREAM,
 			Name:  s.Name,
 		},
-	}.Query()
+	}.Query())
+
+	req, err := http.NewRequest(
+		"POST",
+		"localhost:8080",
+		bytes.NewReader(query))
+	if err != nil {
+		return
+	}
+
+	req.Header.Set(
+		"Content-Type",
+		"application/json")
+
+	if err = network.Net.PerformRequest(
+		req,
+		&network.SingeHandler{},
+	); err != nil {
+		return
+	}
 }
 
 func GetStream[S any](
