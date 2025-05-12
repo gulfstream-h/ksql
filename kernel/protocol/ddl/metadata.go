@@ -7,5 +7,5 @@ type (
 )
 
 func (ma MetadataRestAnalysis) Deserialize(query string) ksql.With {
-
+	return ksql.With{}
 }

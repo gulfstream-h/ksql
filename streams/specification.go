@@ -23,7 +23,7 @@ type Stream[S any] struct {
 	vf           schema.ValueFormat
 }
 
-func ListStreams() {
+func ListStreams(ctx context.Context) {
 	query := []byte(
 		protocol.KafkaSerializer{
 			QueryAlgo: ksql.Query{
@@ -32,6 +32,10 @@ func ListStreams() {
 			}}.
 			Query())
 
+	var (
+		pipeline = make(chan []byte)
+	)
+
 	req, err := http.NewRequest(
 		"POST",
 		"localhost:8080",
@@ -44,15 +48,29 @@ func ListStreams() {
 		"Content-Type",
 		"application/json")
 
-	if err = network.Net.PerformRequest(
-		req,
-		&network.SingeHandler{},
-	); err != nil {
+	go func() {
+		network.Net.PerformRequest(
+			req,
+			&network.SingeHandler{
+				MaxRPS:   100,
+				Pipeline: pipeline,
+			},
+		)
+	}()
+
+	select {
+	case <-ctx.Done():
 		return
+	case val, ok := <-pipeline:
+		if !ok {
+			return
+		}
+
+		fmt.Println(string(val))
 	}
 }
 
-func (s *Stream[S]) Describe() {
+func (s *Stream[S]) Describe(ctx context.Context) {
 	query := []byte(protocol.KafkaSerializer{
 		QueryAlgo: ksql.Query{
 			Query: ksql.DESCRIBE,
@@ -60,6 +78,10 @@ func (s *Stream[S]) Describe() {
 		},
 	}.Query())
 
+	var (
+		pipeline = make(chan []byte)
+	)
+
 	req, err := http.NewRequest(
 		"POST",
 		"localhost:8080",
@@ -72,15 +94,29 @@ func (s *Stream[S]) Describe() {
 		"Content-Type",
 		"application/json")
 
-	if err = network.Net.PerformRequest(
-		req,
-		&network.SingeHandler{},
-	); err != nil {
+	go func() {
+		network.Net.PerformRequest(
+			req,
+			&network.SingeHandler{
+				MaxRPS:   100,
+				Pipeline: pipeline,
+			},
+		)
+	}()
+
+	select {
+	case <-ctx.Done():
 		return
+	case val, ok := <-pipeline:
+		if !ok {
+			return
+		}
+
+		fmt.Println(string(val))
 	}
 }
 
-func (s *Stream[S]) Drop() {
+func (s *Stream[S]) Drop(ctx context.Context) {
 	query := []byte(protocol.KafkaSerializer{
 		QueryAlgo: ksql.Query{
 			Query: ksql.DROP,
@@ -89,6 +125,10 @@ func (s *Stream[S]) Drop() {
 		},
 	}.Query())
 
+	var (
+		pipeline = make(chan []byte)
+	)
+
 	req, err := http.NewRequest(
 		"POST",
 		"localhost:8080",
@@ -101,11 +141,25 @@ func (s *Stream[S]) Drop() {
 		"Content-Type",
 		"application/json")
 
-	if err = network.Net.PerformRequest(
-		req,
-		&network.SingeHandler{},
-	); err != nil {
+	go func() {
+		network.Net.PerformRequest(
+			req,
+			&network.SingeHandler{
+				MaxRPS:   100,
+				Pipeline: pipeline,
+			},
+		)
+	}()
+
+	select {
+	case <-ctx.Done():
 		return
+	case val, ok := <-pipeline:
+		if !ok {
+			return
+		}
+
+		fmt.Println(string(val))
 	}
 }
 

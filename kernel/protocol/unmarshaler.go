@@ -1,7 +1,6 @@
 package protocol
 
 import (
-	"errors"
 	"ksql/kernel/protocol/ddl"
 	"ksql/ksql"
 	"ksql/schema"
@@ -11,6 +10,7 @@ type KafkaDeserializer struct {
 	QueryAlgo       QueryDeserializeAlgo
 	SchemaAlgo      SchemaDeserializeAlgo
 	JoinAlgo        JoinDeserializeAlgo
+	GroupByAlgo     GroupByDeserializeAlgo
 	ConditionalAlgo ConditionalDeserializeAlgo
 	MetadataAlgo    MetadataDeserializeAlgo
 }
@@ -21,6 +21,7 @@ func RestKafkaDeserializer() *KafkaDeserializer {
 		SchemaAlgo:      ddl.SchemaRestAnalysis{},
 		JoinAlgo:        ddl.JoinRestAnalysis{},
 		ConditionalAlgo: ddl.CondRestAnalysis{},
+		GroupByAlgo:     ddl.SchemaRestAnalysis{},
 		MetadataAlgo:    ddl.MetadataRestAnalysis{},
 	}
 }
@@ -37,15 +38,28 @@ func (kd KafkaDeserializer) Deserialize(
 	ks.SchemaAlgo = kd.SchemaAlgo.Deserialize("")
 	ks.JoinAlgo = kd.JoinAlgo.Deserialize("")
 	ks.CondAlgo = kd.ConditionalAlgo.Deserialize("")
-	ks.GroupBy = nil
+	ks.GroupBy = kd.GroupByAlgo.Deserialize("")
 	ks.MetadataAlgo = kd.MetadataAlgo.Deserialize("")
 
 	return ks
 }
 
-var (
-	ErrUnprocessable = errors.New("unprocessable entity")
-)
+func deserializeCTE(
+	partialQuery string,
+	kd KafkaDeserializer) map[string]KafkaSerializer {
+
+	var (
+		cte map[string]KafkaSerializer
+	)
+
+}
+
+func deserializeAs(
+	partialQuery string,
+	kd KafkaDeserializer) map[string]KafkaSerializer {
+
+	return map[string]KafkaSerializer{"AS": kd.Deserialize(partialQuery)}
+}
 
 type QueryDeserializeAlgo interface {
 	Deserialize(string) ksql.Query
@@ -57,6 +71,10 @@ type SchemaDeserializeAlgo interface {
 
 type JoinDeserializeAlgo interface {
 	Deserialize(string) ksql.Join
+}
+
+type GroupByDeserializeAlgo interface {
+	Deserialize(string) []schema.SearchField
 }
 
 type ConditionalDeserializeAlgo interface {

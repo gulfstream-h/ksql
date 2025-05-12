@@ -3,6 +3,7 @@ package topics
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"ksql/kernel/network"
 	"ksql/kernel/protocol"
 	"ksql/ksql"
@@ -23,7 +24,7 @@ type ChildTopicObjects struct {
 	Tables  map[string]tables.TableSettings
 }
 
-func (t *Topic[S]) ListTopics() {
+func (t *Topic[S]) ListTopics(ctx context.Context) {
 	query := []byte(
 		protocol.KafkaSerializer{
 			QueryAlgo: ksql.Query{
@@ -31,6 +32,10 @@ func (t *Topic[S]) ListTopics() {
 				Ref:   ksql.TOPIC,
 			}}.
 			Query())
+
+	var (
+		pipeline = make(chan []byte)
+	)
 
 	req, err := http.NewRequest(
 		"POST",
@@ -44,11 +49,25 @@ func (t *Topic[S]) ListTopics() {
 		"Content-Type",
 		"application/json")
 
-	if err = network.Net.PerformRequest(
-		req,
-		&network.SingeHandler{},
-	); err != nil {
+	go func() {
+		network.Net.PerformRequest(
+			req,
+			&network.SingeHandler{
+				MaxRPS:   100,
+				Pipeline: pipeline,
+			},
+		)
+	}()
+
+	select {
+	case <-ctx.Done():
 		return
+	case val, ok := <-pipeline:
+		if !ok {
+			return
+		}
+
+		fmt.Println(string(val))
 	}
 }
 

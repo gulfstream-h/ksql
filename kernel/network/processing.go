@@ -2,32 +2,27 @@ package network
 
 import (
 	"bufio"
-	"errors"
 	"fmt"
 	"io"
 	"net/http"
-	"sync"
 	"sync/atomic"
 )
 
 type (
 	SingeHandler struct {
-		maxRPS int32
+		MaxRPS   int32
+		Pipeline chan<- []byte
 	}
 
 	SocketHandler struct {
-		mu     *sync.Mutex
-		maxRPS int32
+		MaxRPS   int32
+		Pipeline chan<- []byte
 	}
 )
 
 const (
 	single = "single"
 	socket = "socket"
-)
-
-var (
-	ErrRebalance = errors.New("too many requests for long polling streams. Rebalance in second...")
 )
 
 func (sr *SingeHandler) Process(
@@ -43,7 +38,7 @@ func (sr *SingeHandler) Process(
 		return fmt.Errorf("error reading response body: %w", err)
 	}
 
-	fmt.Printf("Received data: %s\n", dst)
+	sr.Pipeline <- dst
 
 	return nil
 }
@@ -65,7 +60,7 @@ func (sr *SocketHandler) Process(
 		line := scanner.Text()
 
 		if len(line) == 0 {
-			if cps.Load() == sr.maxRPS {
+			if cps.Load() == sr.MaxRPS {
 				return ErrRebalance
 			}
 
@@ -73,7 +68,7 @@ func (sr *SocketHandler) Process(
 		}
 
 		dst = []byte(line)
-		if cps.Load() == sr.maxRPS {
+		if cps.Load() == sr.MaxRPS {
 			return ErrRebalance
 		}
 	}

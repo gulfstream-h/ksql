@@ -23,7 +23,7 @@ type Table[S any] struct {
 	format       schema.ValueFormat
 }
 
-func ListTables() {
+func ListTables(ctx context.Context) {
 	query := []byte(
 		protocol.KafkaSerializer{
 			QueryAlgo: ksql.Query{
@@ -32,6 +32,10 @@ func ListTables() {
 			}}.
 			Query())
 
+	var (
+		pipeline = make(chan []byte)
+	)
+
 	req, err := http.NewRequest(
 		"POST",
 		"localhost:8080",
@@ -44,15 +48,29 @@ func ListTables() {
 		"Content-Type",
 		"application/json")
 
-	if err = network.Net.PerformRequest(
-		req,
-		&network.SingeHandler{},
-	); err != nil {
+	go func() {
+		network.Net.PerformRequest(
+			req,
+			&network.SingeHandler{
+				MaxRPS:   100,
+				Pipeline: pipeline,
+			},
+		)
+	}()
+
+	select {
+	case <-ctx.Done():
 		return
+	case val, ok := <-pipeline:
+		if !ok {
+			return
+		}
+
+		fmt.Println(string(val))
 	}
 }
 
-func (s *Table[S]) Describe() {
+func (s *Table[S]) Describe(ctx context.Context) {
 	query := []byte(protocol.KafkaSerializer{
 		QueryAlgo: ksql.Query{
 			Query: ksql.DESCRIBE,
@@ -60,6 +78,10 @@ func (s *Table[S]) Describe() {
 		},
 	}.Query())
 
+	var (
+		pipeline = make(chan []byte)
+	)
+
 	req, err := http.NewRequest(
 		"POST",
 		"localhost:8080",
@@ -72,15 +94,29 @@ func (s *Table[S]) Describe() {
 		"Content-Type",
 		"application/json")
 
-	if err = network.Net.PerformRequest(
-		req,
-		&network.SingeHandler{},
-	); err != nil {
+	go func() {
+		network.Net.PerformRequest(
+			req,
+			&network.SingeHandler{
+				MaxRPS:   100,
+				Pipeline: pipeline,
+			},
+		)
+	}()
+
+	select {
+	case <-ctx.Done():
 		return
+	case val, ok := <-pipeline:
+		if !ok {
+			return
+		}
+
+		fmt.Println(string(val))
 	}
 }
 
-func (s *Table[S]) Drop() {
+func (s *Table[S]) Drop(ctx context.Context) {
 	query := []byte(protocol.KafkaSerializer{
 		QueryAlgo: ksql.Query{
 			Query: ksql.DROP,
@@ -89,6 +125,10 @@ func (s *Table[S]) Drop() {
 		},
 	}.Query())
 
+	var (
+		pipeline = make(chan []byte)
+	)
+
 	req, err := http.NewRequest(
 		"POST",
 		"localhost:8080",
@@ -101,11 +141,25 @@ func (s *Table[S]) Drop() {
 		"Content-Type",
 		"application/json")
 
-	if err = network.Net.PerformRequest(
-		req,
-		&network.SingeHandler{},
-	); err != nil {
+	go func() {
+		network.Net.PerformRequest(
+			req,
+			&network.SingeHandler{
+				MaxRPS:   100,
+				Pipeline: pipeline,
+			},
+		)
+	}()
+
+	select {
+	case <-ctx.Done():
 		return
+	case val, ok := <-pipeline:
+		if !ok {
+			return
+		}
+
+		fmt.Println(string(val))
 	}
 }
 

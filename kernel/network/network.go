@@ -1,6 +1,7 @@
 package network
 
 import (
+	"errors"
 	"ksql/config"
 	"net/http"
 	"sync"
@@ -35,3 +36,7 @@ func InitNet(config config.Config) {
 		timeoutSec: config.TimeoutSec,
 	}
 }
+
+var (
+	ErrRebalance = errors.New("too many requests for long polling streams. Rebalance in second...")
+)
