@@ -8,6 +8,6 @@ type (
 	SchemaRestAnalysis struct{}
 )
 
-func (s SchemaRestAnalysis) Deserialize(schema string) []schema.SearchField {
+func (s SchemaRestAnalysis) Deserialize(partialQuery string) []schema.SearchField {
 	return nil
 }
