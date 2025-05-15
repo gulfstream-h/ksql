@@ -4,6 +4,8 @@ import (
 	"ksql/kernel/protocol/ddl"
 	"ksql/ksql"
 	"ksql/schema"
+	"regexp"
+	"strings"
 )
 
 type KafkaDeserializer struct {
@@ -33,12 +35,73 @@ func (kd KafkaDeserializer) Deserialize(
 		ks KafkaSerializer
 	)
 
-	ks.QueryAlgo = kd.QueryAlgo.Deserialize("")
-	ks.SchemaAlgo = kd.SchemaAlgo.Deserialize("")
-	ks.JoinAlgo = kd.JoinAlgo.Deserialize("")
-	ks.CondAlgo = kd.ConditionalAlgo.Deserialize("")
-	ks.GroupBy = kd.GroupByAlgo.Deserialize("")
-	ks.MetadataAlgo = kd.MetadataAlgo.Deserialize("")
+	reg, err := regexp.Compile(cteRegular)
+	if err != nil {
+		return ks
+	}
+
+	cteQuery := reg.FindString(query)
+
+	deserializeCTE(cteQuery, kd)
+
+	partialQuery := reg.ReplaceAllString(query, "")
+
+	switch {
+	case strings.Contains(partialQuery, "CREATE"):
+		reg, err = regexp.Compile(createRegular)
+	case strings.Contains(partialQuery, "INSERT"):
+		reg, err = regexp.Compile(insertRegular)
+	case strings.Contains(partialQuery, "SELECT"):
+		reg, err = regexp.Compile(selectRegular)
+	default:
+		return ks
+	}
+
+	if err != nil {
+		return ks
+	}
+
+	ks.QueryAlgo = kd.QueryAlgo.Deserialize(reg.FindString(partialQuery))
+	partialQuery = reg.ReplaceAllString(partialQuery, "")
+
+	reg, err = regexp.Compile(schemeRegular)
+	if err != nil {
+		return ks
+	}
+	ks.SchemaAlgo = kd.SchemaAlgo.Deserialize(reg.FindString(partialQuery))
+	partialQuery = reg.ReplaceAllString(partialQuery, "")
+
+	reg, err = regexp.Compile(joinsRegular)
+	if err != nil {
+		return ks
+	}
+
+	ks.JoinAlgo = kd.JoinAlgo.Deserialize(reg.FindString(partialQuery))
+	partialQuery = reg.ReplaceAllString(partialQuery, "")
+
+	reg, err = regexp.Compile(whereRegular)
+	if err != nil {
+		return ks
+	}
+
+	ks.CondAlgo = kd.ConditionalAlgo.Deserialize(reg.FindString(partialQuery))
+	partialQuery = reg.ReplaceAllString(partialQuery, "")
+
+	reg, err = regexp.Compile(groupByRegular)
+	if err != nil {
+		return ks
+	}
+
+	ks.GroupBy = kd.GroupByAlgo.Deserialize(reg.FindString(partialQuery))
+	partialQuery = reg.ReplaceAllString(partialQuery, "")
+
+	reg, err = regexp.Compile(metadataRegular)
+	if err != nil {
+		return ks
+	}
+
+	ks.MetadataAlgo = kd.MetadataAlgo.Deserialize(reg.FindString(partialQuery))
+	partialQuery = reg.ReplaceAllString(partialQuery, "")
 
 	return ks
 }
