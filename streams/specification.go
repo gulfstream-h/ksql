@@ -275,7 +275,7 @@ func CreateStreamAsSelect[S any](
 			ValueFormat: schema.JSON.String(),
 		},
 		CTE: map[string]protocol.KafkaSerializer{
-			"AS": protocol.KafkaSerializer(query),
+			"AS": query,
 		},
 	}.Query()
 
