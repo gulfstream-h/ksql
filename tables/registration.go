@@ -3,6 +3,7 @@ package tables
 import (
 	"context"
 	"errors"
+	"ksql/constants"
 	"ksql/schema"
 	"reflect"
 )
@@ -28,7 +29,7 @@ func Register[S any](
 
 	table, err = GetTable[S](ctx, settings.Name, settings)
 	if err != nil {
-		if errors.Is(err, ErrTableDoesNotExist) {
+		if errors.Is(err, constants.ErrTableDoesNotExist) {
 			return CreateTable[S](ctx, settings.Name, settings)
 		}
 		return nil, err

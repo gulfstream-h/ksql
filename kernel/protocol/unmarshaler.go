@@ -23,7 +23,7 @@ func RestKafkaDeserializer() *KafkaDeserializer {
 		SchemaAlgo:      ddl.SchemaRestAnalysis{},
 		JoinAlgo:        ddl.JoinRestAnalysis{},
 		ConditionalAlgo: ddl.CondRestAnalysis{},
-		GroupByAlgo:     ddl.SchemaRestAnalysis{},
+		GroupByAlgo:     ddl.GroupRestAnalysis{},
 		MetadataAlgo:    ddl.MetadataRestAnalysis{},
 	}
 }
@@ -46,12 +46,19 @@ func (kd KafkaDeserializer) Deserialize(
 
 	partialQuery := reg.ReplaceAllString(query, "")
 
+	var (
+		qt ksql.QueryType
+	)
+
 	switch {
 	case strings.Contains(partialQuery, "CREATE"):
+		qt = ksql.CREATE
 		reg, err = regexp.Compile(createRegular)
 	case strings.Contains(partialQuery, "INSERT"):
+		qt = ksql.INSERT
 		reg, err = regexp.Compile(insertRegular)
 	case strings.Contains(partialQuery, "SELECT"):
+		qt = ksql.SELECT
 		reg, err = regexp.Compile(selectRegular)
 	default:
 		return ks
@@ -61,14 +68,14 @@ func (kd KafkaDeserializer) Deserialize(
 		return ks
 	}
 
-	ks.QueryAlgo = kd.QueryAlgo.Deserialize(reg.FindString(partialQuery))
+	ks.QueryAlgo = kd.QueryAlgo.Deserialize(reg.FindString(partialQuery), qt)
 	partialQuery = reg.ReplaceAllString(partialQuery, "")
 
 	reg, err = regexp.Compile(schemeRegular)
 	if err != nil {
 		return ks
 	}
-	ks.SchemaAlgo = kd.SchemaAlgo.Deserialize(reg.FindString(partialQuery))
+	ks.SchemaAlgo = kd.SchemaAlgo.Deserialize(reg.FindString(partialQuery), qt)
 	partialQuery = reg.ReplaceAllString(partialQuery, "")
 
 	reg, err = regexp.Compile(joinsRegular)
@@ -84,8 +91,18 @@ func (kd KafkaDeserializer) Deserialize(
 		return ks
 	}
 
-	ks.CondAlgo = kd.ConditionalAlgo.Deserialize(reg.FindString(partialQuery))
+	whereClause := reg.FindString(partialQuery)
 	partialQuery = reg.ReplaceAllString(partialQuery, "")
+
+	reg, err = regexp.Compile(havingRegular)
+	if err != nil {
+		return ks
+	}
+
+	havingClause := reg.FindString(partialQuery)
+	partialQuery = reg.ReplaceAllString(partialQuery, "")
+
+	ks.CondAlgo = kd.ConditionalAlgo.Deserialize(whereClause, havingClause)
 
 	reg, err = regexp.Compile(groupByRegular)
 	if err != nil {
@@ -132,7 +149,7 @@ const (
 )
 
 type QueryDeserializeAlgo interface {
-	Deserialize(string) ksql.Query
+	Deserialize(string, ksql.QueryType) ksql.Query
 }
 
 const (
@@ -140,7 +157,7 @@ const (
 )
 
 type SchemaDeserializeAlgo interface {
-	Deserialize(string) []schema.SearchField
+	Deserialize(string, ksql.QueryType) []schema.SearchField
 }
 
 const (
@@ -165,7 +182,7 @@ const (
 )
 
 type ConditionalDeserializeAlgo interface {
-	Deserialize(string) ksql.Cond
+	Deserialize(string, string) ksql.Cond
 }
 
 const (

@@ -2,6 +2,7 @@ package topics
 
 import (
 	"context"
+	"ksql/constants"
 )
 
 type (
@@ -27,7 +28,7 @@ func GetTopicProjection(
 
 	topicSettings, exist := topicProjections[name]
 	if !exist {
-		return nil, ErrTopicNotExist
+		return nil, constants.ErrTopicNotExist
 	}
 
 	return &topicSettings, nil

@@ -1,6 +1,7 @@
 package constants
 
 import (
+	"errors"
 	"ksql/kernel/protocol"
 	"ksql/streams"
 	"ksql/tables"
@@ -27,4 +28,10 @@ var (
 	TablesProjections = make(
 		map[string]TableSettings,
 	)
+)
+
+var (
+	ErrTopicNotExist      = errors.New("topic doesn't exist")
+	ErrStreamDoesNotExist = errors.New("stream does not exist")
+	ErrTableDoesNotExist  = errors.New("table does not exist")
 )

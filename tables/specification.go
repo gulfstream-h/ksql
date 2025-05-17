@@ -187,7 +187,7 @@ func GetTable[S any](
 	)
 
 	if responseSchema == nil {
-		return nil, ErrTableDoesNotExist
+		return nil, constants.ErrTableDoesNotExist
 	}
 
 	remoteSchema := schema.SerializeRemoteSchema(responseSchema)

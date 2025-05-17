@@ -187,7 +187,7 @@ func GetStream[S any](
 	)
 
 	if responseSchema == nil {
-		return nil, ErrStreamDoesNotExist
+		return nil, constants.ErrStreamDoesNotExist
 	}
 
 	remoteSchema := schema.SerializeRemoteSchema(responseSchema)

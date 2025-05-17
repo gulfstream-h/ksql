@@ -3,6 +3,7 @@ package streams
 import (
 	"context"
 	"errors"
+	"ksql/constants"
 	"ksql/schema"
 	"reflect"
 )
@@ -29,7 +30,7 @@ func Register[S any](
 
 	stream, err = GetStream[S](ctx, settings.Name, settings)
 	if err != nil {
-		if errors.Is(err, ErrStreamDoesNotExist) {
+		if errors.Is(err, constants.ErrStreamDoesNotExist) {
 			return CreateStream[S](ctx, settings.Name, settings)
 		}
 		return nil, err
