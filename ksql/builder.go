@@ -78,6 +78,36 @@ func (fl fieldsLayer) From(from string, kind Reference) fromLayer {
 }
 
 func (f fieldsLayer) Join(joinKind Joins, selectField, joinField JoinEx) joinLayer {
+	var (
+		sf schema.SearchField
+		jf schema.SearchField
+	)
+
+	selectScheme := schema.GetSchemeFields(selectField.Field, schema.ResourceKind(selectField.Ref))
+	for _, field := range selectScheme {
+		if field.FieldName == selectField.Field {
+			sf = field
+			break
+		}
+	}
+
+	joinScheme := schema.GetSchemeFields(selectField.Field, schema.ResourceKind(selectField.Ref))
+	for _, field := range joinScheme {
+		if field.FieldName == selectField.Field {
+			jf = field
+			break
+		}
+	}
+
+	analysis, err := schema.CompareFields(sf, jf)
+	if err != nil {
+		return joinLayer{}
+	}
+
+	if !analysis.CompatibilityByType {
+		return joinLayer{}
+	}
+
 	f.ctx.join = Join{
 		Kind: joinKind,
 		SelectField: schema.SearchField{
@@ -107,6 +137,7 @@ func (fl fromLayer) GroupBy(groupBy ...string) condLayer {
 }
 
 func (fl fromLayer) Where(cond ...WhereEx) condLayer {
+
 	fl.ctx.cond = Cond{
 		WhereClause: cond,
 	}

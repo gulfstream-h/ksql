@@ -5,9 +5,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	jsoniter "github.com/json-iterator/go"
 	"ksql/constants"
 	"ksql/kernel/network"
 	"ksql/kernel/protocol"
+	"ksql/kernel/protocol/dao"
+	"ksql/kernel/protocol/dto"
 	"ksql/ksql"
 	"ksql/schema"
 	"net/http"
@@ -23,7 +26,7 @@ type Stream[S any] struct {
 	vf           schema.ValueFormat
 }
 
-func ListStreams(ctx context.Context) {
+func ListStreams(ctx context.Context) dto.ShowStreams {
 	query := []byte(
 		protocol.KafkaSerializer{
 			QueryAlgo: ksql.Query{
@@ -41,7 +44,7 @@ func ListStreams(ctx context.Context) {
 		"localhost:8080",
 		bytes.NewReader(query))
 	if err != nil {
-		return
+		return dto.ShowStreams{}
 	}
 
 	req.Header.Set(
@@ -60,17 +63,25 @@ func ListStreams(ctx context.Context) {
 
 	select {
 	case <-ctx.Done():
-		return
+		return dto.ShowStreams{}
 	case val, ok := <-pipeline:
 		if !ok {
-			return
+			return dto.ShowStreams{}
 		}
 
-		fmt.Println(string(val))
+		var (
+			streams dao.ShowStreams
+		)
+
+		if err = jsoniter.Unmarshal(val, &streams); err != nil {
+			return dto.ShowStreams{}
+		}
+
+		return streams.DTO()
 	}
 }
 
-func (s *Stream[S]) Describe(ctx context.Context) {
+func (s *Stream[S]) Describe(ctx context.Context) dto.RelationDescription {
 	query := []byte(protocol.KafkaSerializer{
 		QueryAlgo: ksql.Query{
 			Query: ksql.DESCRIBE,
@@ -87,7 +98,7 @@ func (s *Stream[S]) Describe(ctx context.Context) {
 		"localhost:8080",
 		bytes.NewReader(query))
 	if err != nil {
-		return
+		return dto.RelationDescription{}
 	}
 
 	req.Header.Set(
@@ -106,17 +117,25 @@ func (s *Stream[S]) Describe(ctx context.Context) {
 
 	select {
 	case <-ctx.Done():
-		return
+		return dto.RelationDescription{}
 	case val, ok := <-pipeline:
 		if !ok {
-			return
+			return dto.RelationDescription{}
 		}
 
-		fmt.Println(string(val))
+		var (
+			describe dao.DescribeResponse
+		)
+
+		if err = jsoniter.Unmarshal(val, &describe); err != nil {
+			return dto.RelationDescription{}
+		}
+
+		return describe.DTO()
 	}
 }
 
-func (s *Stream[S]) Drop(ctx context.Context) {
+func (s *Stream[S]) Drop(ctx context.Context) error {
 	query := []byte(protocol.KafkaSerializer{
 		QueryAlgo: ksql.Query{
 			Query: ksql.DROP,
@@ -134,7 +153,7 @@ func (s *Stream[S]) Drop(ctx context.Context) {
 		"localhost:8080",
 		bytes.NewReader(query))
 	if err != nil {
-		return
+		return err
 	}
 
 	req.Header.Set(
@@ -153,13 +172,25 @@ func (s *Stream[S]) Drop(ctx context.Context) {
 
 	select {
 	case <-ctx.Done():
-		return
+		return errors.New("context is done")
 	case val, ok := <-pipeline:
 		if !ok {
-			return
+			return errors.New("drop response channel is closed")
 		}
 
-		fmt.Println(string(val))
+		var (
+			drop dao.DropInfo
+		)
+
+		if err = jsoniter.Unmarshal(val, &drop); err != nil {
+			return fmt.Errorf("cannot unmarshal drop response: %w", err)
+		}
+
+		if drop.CommandStatus.Status != "SUCCESS" {
+			return fmt.Errorf("cannot drop stream: %w", drop.CommandStatus.Status)
+		}
+
+		return nil
 	}
 }
 
@@ -174,17 +205,22 @@ func GetStream[S any](
 
 	scheme := schema.SerializeProvidedStruct(s)
 
-	protocol.KafkaSerializer{
-		QueryAlgo: ksql.Query{
-			Query: ksql.DESCRIBE,
-			Name:  stream,
-		},
-	}.Query()
+	streamInstance := &Stream[S]{
+		Name:         stream,
+		sourceStream: nil,
+		partitions:   settings.Partitions,
+		remoteSchema: &scheme,
+		vf:           settings.format,
+	}
+	desc := streamInstance.Describe(ctx)
 
-	// TODO make request
 	var (
-		responseSchema map[string]string
+		responseSchema = map[string]string{}
 	)
+
+	for _, field := range desc.Fields {
+		responseSchema[field.Name] = field.Kind
+	}
 
 	if responseSchema == nil {
 		return nil, constants.ErrStreamDoesNotExist
@@ -198,13 +234,7 @@ func GetStream[S any](
 		return nil, errors.New("schemes doesnt match")
 	}
 
-	return &Stream[S]{
-		Name:         stream,
-		sourceStream: nil,
-		partitions:   settings.Partitions,
-		remoteSchema: &scheme,
-		vf:           settings.format,
-	}, nil
+	return streamInstance, nil
 }
 
 func CreateStream[S any](
@@ -218,7 +248,7 @@ func CreateStream[S any](
 
 	rmSchema := schema.SerializeProvidedStruct(s)
 
-	protocol.KafkaSerializer{
+	query := []byte(protocol.KafkaSerializer{
 		QueryAlgo: ksql.Query{
 			Query: ksql.CREATE,
 			Ref:   ksql.STREAM,
@@ -232,15 +262,68 @@ func CreateStream[S any](
 			Topic:       *settings.SourceTopic,
 			ValueFormat: schema.JSON.String(),
 		},
-	}.Query()
+	}.Query())
 
-	return &Stream[S]{
-		sourceTopic:  settings.SourceTopic,
-		sourceStream: &streamName,
-		partitions:   settings.Partitions,
-		remoteSchema: &rmSchema,
-		vf:           settings.format,
-	}, nil
+	var (
+		pipeline = make(chan []byte)
+	)
+
+	req, err := http.NewRequest(
+		"POST",
+		"localhost:8080",
+		bytes.NewReader(query))
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Set(
+		"Content-Type",
+		"application/json")
+
+	go func() {
+		network.Net.PerformRequest(
+			req,
+			&network.SingeHandler{
+				MaxRPS:   100,
+				Pipeline: pipeline,
+			},
+		)
+	}()
+
+	select {
+	case <-ctx.Done():
+		return nil, errors.New("context is done")
+	case val, ok := <-pipeline:
+		if !ok {
+			return nil, errors.New("drop response channel is closed")
+		}
+
+		var (
+			create dao.CreateRelationResponse
+		)
+
+		if err = jsoniter.Unmarshal(val, &create); err != nil {
+			return nil, fmt.Errorf("cannot unmarshal create response: %w", err)
+		}
+
+		if len(create) < 1 {
+			return nil, fmt.Errorf("unsuccessful response")
+		}
+
+		status := create[0]
+
+		if status.CommandStatus.Status != "SUCCESSFUL" {
+			return nil, fmt.Errorf("unsuccesful respose. msg: %s", status.CommandStatus.Message)
+		}
+
+		return &Stream[S]{
+			sourceTopic:  settings.SourceTopic,
+			sourceStream: &streamName,
+			partitions:   settings.Partitions,
+			remoteSchema: &rmSchema,
+			vf:           settings.format,
+		}, nil
+	}
 }
 
 func CreateStreamAsSelect[S any](
@@ -263,7 +346,7 @@ func CreateStreamAsSelect[S any](
 		return nil, errors.New("schemes doesnt match")
 	}
 
-	protocol.KafkaSerializer{
+	q := []byte(protocol.KafkaSerializer{
 		QueryAlgo: ksql.Query{
 			Query: ksql.CREATE,
 			Ref:   ksql.STREAM,
@@ -277,16 +360,68 @@ func CreateStreamAsSelect[S any](
 		CTE: map[string]protocol.KafkaSerializer{
 			"AS": query,
 		},
-	}.Query()
+	}.Query())
 
-	return &Stream[S]{
-		sourceTopic:  settings.SourceTopic,
-		sourceStream: &streamName,
-		partitions:   settings.Partitions,
-		remoteSchema: &scheme,
-		vf:           settings.format,
-	}, nil
+	var (
+		pipeline = make(chan []byte)
+	)
 
+	req, err := http.NewRequest(
+		"POST",
+		"localhost:8080",
+		bytes.NewReader(q))
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Set(
+		"Content-Type",
+		"application/json")
+
+	go func() {
+		network.Net.PerformRequest(
+			req,
+			&network.SingeHandler{
+				MaxRPS:   100,
+				Pipeline: pipeline,
+			},
+		)
+	}()
+
+	select {
+	case <-ctx.Done():
+		return nil, errors.New("context is done")
+	case val, ok := <-pipeline:
+		if !ok {
+			return nil, errors.New("drop response channel is closed")
+		}
+
+		var (
+			create dao.CreateRelationResponse
+		)
+
+		if err = jsoniter.Unmarshal(val, &create); err != nil {
+			return nil, fmt.Errorf("cannot unmarshal create response: %w", err)
+		}
+
+		if len(create) < 1 {
+			return nil, fmt.Errorf("unsuccessful response")
+		}
+
+		status := create[0]
+
+		if status.CommandStatus.Status != "SUCCESSFUL" {
+			return nil, fmt.Errorf("unsuccesful respose. msg: %s", status.CommandStatus.Message)
+		}
+
+		return &Stream[S]{
+			sourceTopic:  settings.SourceTopic,
+			sourceStream: &streamName,
+			partitions:   settings.Partitions,
+			remoteSchema: &scheme,
+			vf:           settings.format,
+		}, nil
+	}
 }
 
 func (s *Stream[S]) Insert(
@@ -315,16 +450,64 @@ func (s *Stream[S]) Insert(
 		searchFields = append(searchFields, field)
 	}
 
-	protocol.KafkaSerializer{
+	query := []byte(protocol.KafkaSerializer{
 		SchemaAlgo: searchFields,
 		QueryAlgo: ksql.Query{
 			Query: ksql.INSERT,
 			Ref:   ksql.STREAM,
 			Name:  s.Name,
 		},
-	}.Query()
+	}.Query())
 
-	return nil
+	var (
+		pipeline = make(chan []byte)
+	)
+
+	req, err := http.NewRequest(
+		"POST",
+		"localhost:8080",
+		bytes.NewReader(query))
+	if err != nil {
+		return err
+	}
+
+	req.Header.Set(
+		"Content-Type",
+		"application/json")
+
+	go func() {
+		network.Net.PerformRequest(
+			req,
+			&network.SingeHandler{
+				MaxRPS:   100,
+				Pipeline: pipeline,
+			},
+		)
+	}()
+
+	select {
+	case <-ctx.Done():
+		return errors.New("context is done")
+	case val, ok := <-pipeline:
+		if !ok {
+			return errors.New("insert response channel is closed")
+		}
+
+		var (
+			insert dao.CreateRelationResponse
+		)
+
+		if err = jsoniter.Unmarshal(val, &insert); err != nil {
+			return fmt.Errorf("cannot unmarshal insert response: %w", err)
+		}
+
+		if len(insert) == 0 {
+			return nil
+		}
+
+		return errors.New("unpredictable error occurred while inserting")
+	}
+
 }
 
 func (s *Stream[S]) InsertAs(
@@ -341,7 +524,7 @@ func (s *Stream[S]) InsertAs(
 		return errors.New("schemes doesnt match")
 	}
 
-	protocol.KafkaSerializer{
+	q := []byte(protocol.KafkaSerializer{
 		SchemaAlgo: query.SchemaAlgo,
 		QueryAlgo: ksql.Query{
 			Query: ksql.INSERT,
@@ -351,9 +534,56 @@ func (s *Stream[S]) InsertAs(
 		CTE: map[string]protocol.KafkaSerializer{
 			"AS": query,
 		},
-	}.Query()
+	}.Query())
 
-	return nil
+	var (
+		pipeline = make(chan []byte)
+	)
+
+	req, err := http.NewRequest(
+		"POST",
+		"localhost:8080",
+		bytes.NewReader(q))
+	if err != nil {
+		return err
+	}
+
+	req.Header.Set(
+		"Content-Type",
+		"application/json")
+
+	go func() {
+		network.Net.PerformRequest(
+			req,
+			&network.SingeHandler{
+				MaxRPS:   100,
+				Pipeline: pipeline,
+			},
+		)
+	}()
+
+	select {
+	case <-ctx.Done():
+		return errors.New("context is done")
+	case val, ok := <-pipeline:
+		if !ok {
+			return errors.New("insert response channel is closed")
+		}
+
+		var (
+			insert dao.CreateRelationResponse
+		)
+
+		if err = jsoniter.Unmarshal(val, &insert); err != nil {
+			return fmt.Errorf("cannot unmarshal insert response: %w", err)
+		}
+
+		if len(insert) == 0 {
+			return nil
+		}
+
+		return errors.New("unpredictable error occurred while inserting")
+	}
 }
 
 func (s *Stream[S]) SelectOnce(
@@ -363,7 +593,7 @@ func (s *Stream[S]) SelectOnce(
 		value S
 	)
 
-	protocol.KafkaSerializer{
+	query := []byte(protocol.KafkaSerializer{
 		QueryAlgo: ksql.Query{
 			Query: ksql.SELECT,
 			Ref:   ksql.STREAM,
@@ -376,9 +606,49 @@ func (s *Stream[S]) SelectOnce(
 		MetadataAlgo: ksql.With{
 			ValueFormat: schema.JSON.String(),
 		},
-	}.Query()
+	}.Query())
 
-	return value, nil
+	var (
+		pipeline = make(chan []byte)
+	)
+
+	req, err := http.NewRequest(
+		"POST",
+		"localhost:8080",
+		bytes.NewReader(query))
+	if err != nil {
+		return value, err
+	}
+
+	req.Header.Set(
+		"Content-Type",
+		"application/json")
+
+	go func() {
+		network.Net.PerformRequest(
+			req,
+			&network.SingeHandler{
+				MaxRPS:   100,
+				Pipeline: pipeline,
+			},
+		)
+	}()
+
+	select {
+	case <-ctx.Done():
+		return value, errors.New("context is done")
+	case val, ok := <-pipeline:
+		if !ok {
+			return value, errors.New("select response channel is closed")
+		}
+
+		if err = jsoniter.Unmarshal(val, &value); err != nil {
+			return value, fmt.Errorf("cannot unmarshal select response: %w", err)
+		}
+
+		return value, nil
+	}
+
 }
 
 func (s *Stream[S]) SelectWithEmit(
@@ -389,7 +659,7 @@ func (s *Stream[S]) SelectWithEmit(
 		valuesC = make(chan S)
 	)
 
-	protocol.KafkaSerializer{
+	query := []byte(protocol.KafkaSerializer{
 		QueryAlgo: ksql.Query{
 			Query: ksql.SELECT,
 			Ref:   ksql.STREAM,
@@ -402,29 +672,59 @@ func (s *Stream[S]) SelectWithEmit(
 		MetadataAlgo: ksql.With{
 			ValueFormat: schema.JSON.String(),
 		},
-	}.Query()
+	}.Query())
+
+	var (
+		pipeline = make(chan []byte)
+	)
+
+	req, err := http.NewRequest(
+		"POST",
+		"localhost:8080",
+		bytes.NewReader(query))
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Set(
+		"Content-Type",
+		"application/json")
 
 	go func() {
-		for {
-			select {
-			case <-ctx.Done():
-				close(valuesC)
-				return
-			default:
-				valuesC <- value
-			}
-		}
+		network.Net.PerformRequest(
+			req,
+			&network.SocketHandler{
+				MaxRPS:   100,
+				Pipeline: pipeline,
+			},
+		)
 	}()
 
-	return valuesC, nil
+	select {
+	case <-ctx.Done():
+		return nil, errors.New("context is done")
+	case val, ok := <-pipeline:
+		if !ok {
+			return nil, errors.New("select response channel is closed")
+		}
+
+		if err = jsoniter.Unmarshal(val, &value); err != nil {
+			return nil, fmt.Errorf("cannot unmarshal select response: %w", err)
+		}
+
+		return valuesC, nil
+	}
 }
 
 func (s *Stream[S]) ToTopic(topicName string) (topic constants.Topic[S]) {
 	topic.Name = topicName
+	topic.Partitions = int(*s.partitions)
+
 	return
 }
 
 func (s *Stream[S]) ToTable(tableName string) (table constants.Table[S]) {
 	table.Name = tableName
+
 	return
 }

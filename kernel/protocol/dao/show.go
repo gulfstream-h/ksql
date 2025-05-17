@@ -1,5 +1,7 @@
 package dao
 
+import "ksql/kernel/protocol/dto"
+
 type Topic struct {
 	Name     string `json:"name"`
 	Replicas []int  `json:"replicaInfo"`
@@ -26,7 +28,7 @@ type Stream struct {
 type ShowStreams struct {
 	KafkaType string   `json:"type"`
 	Command   string   `json:"statementText"`
-	Streams   []string `json:"streams"`
+	Streams   []Stream `json:"streams"`
 	Warnings  []any    `json:"warnings"`
 }
 
@@ -45,4 +47,40 @@ type ShowTables struct {
 	StatementText string  `json:"statementText"`
 	Tables        []Table `json:"tables"`
 	Warnings      []any   `json:"warnings"`
+}
+
+func (st ShowTopics) DTO() dto.ShowTopics {
+	topicInfos := make([]dto.TopicInfo, len(st.Topics))
+	for i, topic := range st.Topics {
+		topicInfos[i] = dto.TopicInfo{Name: topic.Name}
+	}
+	return dto.ShowTopics{Topics: topicInfos}
+}
+
+func (ss ShowStreams) DTO() dto.ShowStreams {
+	streamsInfos := make([]dto.RelationInfo, len(ss.Streams))
+	for i, stream := range ss.Streams {
+		streamsInfos[i] = dto.RelationInfo{
+			Name:        stream.Name,
+			Topic:       stream.Topic,
+			KeyFormat:   stream.KeyFormat,
+			ValueFormat: stream.ValueFormat,
+			Windowed:    stream.IsWindowed,
+		}
+	}
+	return dto.ShowStreams{Streams: streamsInfos}
+}
+
+func (ss ShowTables) DTO() dto.ShowTables {
+	tableInfos := make([]dto.RelationInfo, len(ss.Tables))
+	for i, table := range ss.Tables {
+		tableInfos[i] = dto.RelationInfo{
+			Name:        table.Name,
+			Topic:       table.Topic,
+			KeyFormat:   table.KeyFormat,
+			ValueFormat: table.ValueFormat,
+			Windowed:    table.IsWindowed,
+		}
+	}
+	return dto.ShowTables{Tables: tableInfos}
 }

@@ -5,9 +5,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	jsoniter "github.com/json-iterator/go"
 	"ksql/constants"
 	"ksql/kernel/network"
 	"ksql/kernel/protocol"
+	"ksql/kernel/protocol/dao"
+	"ksql/kernel/protocol/dto"
 	"ksql/ksql"
 	"ksql/schema"
 	"net/http"
@@ -23,7 +26,7 @@ type Table[S any] struct {
 	format       schema.ValueFormat
 }
 
-func ListTables(ctx context.Context) {
+func ListTables(ctx context.Context) dto.ShowTables {
 	query := []byte(
 		protocol.KafkaSerializer{
 			QueryAlgo: ksql.Query{
@@ -41,7 +44,7 @@ func ListTables(ctx context.Context) {
 		"localhost:8080",
 		bytes.NewReader(query))
 	if err != nil {
-		return
+		return dto.ShowTables{}
 	}
 
 	req.Header.Set(
@@ -60,17 +63,25 @@ func ListTables(ctx context.Context) {
 
 	select {
 	case <-ctx.Done():
-		return
+		return dto.ShowTables{}
 	case val, ok := <-pipeline:
 		if !ok {
-			return
+			return dto.ShowTables{}
 		}
 
-		fmt.Println(string(val))
+		var (
+			tables dao.ShowTables
+		)
+
+		if err = jsoniter.Unmarshal(val, &tables); err != nil {
+			return dto.ShowTables{}
+		}
+
+		return tables.DTO()
 	}
 }
 
-func (s *Table[S]) Describe(ctx context.Context) {
+func (s *Table[S]) Describe(ctx context.Context) dto.RelationDescription {
 	query := []byte(protocol.KafkaSerializer{
 		QueryAlgo: ksql.Query{
 			Query: ksql.DESCRIBE,
@@ -87,7 +98,7 @@ func (s *Table[S]) Describe(ctx context.Context) {
 		"localhost:8080",
 		bytes.NewReader(query))
 	if err != nil {
-		return
+		return dto.RelationDescription{}
 	}
 
 	req.Header.Set(
@@ -106,13 +117,21 @@ func (s *Table[S]) Describe(ctx context.Context) {
 
 	select {
 	case <-ctx.Done():
-		return
+		return dto.RelationDescription{}
 	case val, ok := <-pipeline:
 		if !ok {
-			return
+			return dto.RelationDescription{}
 		}
 
-		fmt.Println(string(val))
+		var (
+			describe dao.DescribeResponse
+		)
+
+		if err = jsoniter.Unmarshal(val, &describe); err != nil {
+			return dto.RelationDescription{}
+		}
+
+		return describe.DTO()
 	}
 }
 

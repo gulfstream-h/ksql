@@ -3,9 +3,11 @@ package topics
 import (
 	"bytes"
 	"context"
-	"fmt"
+	jsoniter "github.com/json-iterator/go"
 	"ksql/kernel/network"
 	"ksql/kernel/protocol"
+	"ksql/kernel/protocol/dao"
+	"ksql/kernel/protocol/dto"
 	"ksql/ksql"
 	"ksql/streams"
 	"ksql/tables"
@@ -20,11 +22,11 @@ type Topic[S any] struct {
 }
 
 type ChildTopicObjects struct {
-	Streams map[string]streams.StreamSettings
-	Tables  map[string]tables.TableSettings
+	Streams map[string]struct{}
+	Tables  map[string]struct{}
 }
 
-func (t *Topic[S]) ListTopics(ctx context.Context) {
+func ListTopics(ctx context.Context) dto.ShowTopics {
 	query := []byte(
 		protocol.KafkaSerializer{
 			QueryAlgo: ksql.Query{
@@ -42,7 +44,7 @@ func (t *Topic[S]) ListTopics(ctx context.Context) {
 		"localhost:8080",
 		bytes.NewReader(query))
 	if err != nil {
-		return
+		return dto.ShowTopics{}
 	}
 
 	req.Header.Set(
@@ -61,13 +63,21 @@ func (t *Topic[S]) ListTopics(ctx context.Context) {
 
 	select {
 	case <-ctx.Done():
-		return
+		return dto.ShowTopics{}
 	case val, ok := <-pipeline:
 		if !ok {
-			return
+			return dto.ShowTopics{}
 		}
 
-		fmt.Println(string(val))
+		var (
+			topics dao.ShowTopics
+		)
+
+		if err = jsoniter.Unmarshal(val, &topics); err != nil {
+			return dto.ShowTopics{}
+		}
+
+		return topics.DTO()
 	}
 }
 
@@ -83,7 +93,7 @@ func (t *Topic[S]) RegisterStream(streamName string) streams.StreamSettings {
 		},
 	}
 
-	t.ChildObjects.Streams[streamName] = streamSettings
+	t.ChildObjects.Streams[streamName] = struct{}{}
 
 	return streamSettings
 }
@@ -100,23 +110,23 @@ func (t *Topic[S]) RegisterTable(tableName string) tables.TableSettings {
 		},
 	}
 
-	t.ChildObjects.Tables[tableName] = tableSettings
+	t.ChildObjects.Tables[tableName] = struct{}{}
 
 	return tableSettings
 }
 
-func (t *Topic[S]) GetAllStreamAdapters() map[string]streams.StreamSettings {
-	copyMap := make(map[string]streams.StreamSettings, len(t.ChildObjects.Streams))
-	for k, v := range t.ChildObjects.Streams {
-		copyMap[k] = v
+func (t *Topic[S]) GetAllStreamAdapters() map[string]struct{} {
+	copyMap := make(map[string]struct{}, len(t.ChildObjects.Streams))
+	for k := range t.ChildObjects.Streams {
+		copyMap[k] = struct{}{}
 	}
 	return copyMap
 }
 
-func (t *Topic[S]) GetAllTableAdapters() map[string]tables.TableSettings {
-	copyMap := make(map[string]tables.TableSettings, len(t.ChildObjects.Tables))
-	for k, v := range t.ChildObjects.Tables {
-		copyMap[k] = v
+func (t *Topic[S]) GetAllTableAdapters() map[string]struct{} {
+	copyMap := make(map[string]struct{}, len(t.ChildObjects.Tables))
+	for k := range t.ChildObjects.Tables {
+		copyMap[k] = struct{}{}
 	}
 	return copyMap
 }

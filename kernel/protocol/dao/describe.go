@@ -1,5 +1,7 @@
 package dao
 
+import "ksql/kernel/protocol/dto"
+
 type FieldSchema struct {
 	Type         string      `json:"type"`
 	Fields       []any       `json:"fields"`
@@ -47,4 +49,21 @@ type DescribeResponse struct {
 	StatementText     string            `json:"statementText"`
 	SourceDescription SourceDescription `json:"sourceDescription"`
 	Warnings          []any             `json:"warnings"`
+}
+
+func (dr DescribeResponse) DTO() dto.RelationDescription {
+	fields := make([]dto.Field, len(dr.SourceDescription.Fields))
+
+	return dto.RelationDescription{
+		Name:             dr.SourceDescription.Name,
+		Fields:           fields,
+		Kind:             dr.SourceDescription.Type,
+		KeyFormat:        dr.SourceDescription.KeyFormat,
+		ValueFormat:      dr.SourceDescription.ValueFormat,
+		Topic:            dr.SourceDescription.Topic,
+		Partitions:       dr.SourceDescription.Partitions,
+		Replication:      dr.SourceDescription.Replication,
+		CreatedByCommand: dr.SourceDescription.Statement,
+	}
+
 }
