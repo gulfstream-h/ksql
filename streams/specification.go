@@ -16,6 +16,9 @@ import (
 	"reflect"
 )
 
+// Stream - is full-functional type,
+// providing all ksql-supported operations
+// via referred to type functions calls
 type Stream[S any] struct {
 	Name         string
 	sourceTopic  *string
@@ -25,6 +28,9 @@ type Stream[S any] struct {
 	format       kinds.ValueFormat
 }
 
+// ListStreams - responses with all streams list
+// in the current ksqlDB instance. Also it reloads
+// map of available projections
 func ListStreams(ctx context.Context) (dto.ShowStreams, error) {
 	query := protocol.KafkaSerializer{
 		QueryAlgo: ksql.Query{
@@ -68,6 +74,9 @@ func ListStreams(ctx context.Context) (dto.ShowStreams, error) {
 	}
 }
 
+// Describe - responses with stream description.
+// Can be used for table schema and query by which
+// it was created
 func (s *Stream[S]) Describe(ctx context.Context) (dto.RelationDescription, error) {
 	query := protocol.KafkaSerializer{
 		QueryAlgo: ksql.Query{
@@ -112,6 +121,8 @@ func (s *Stream[S]) Describe(ctx context.Context) (dto.RelationDescription, erro
 	}
 }
 
+// Drop - drops stream from ksqlDB instance
+// with parent topic. Also deletes projection from list
 func (s *Stream[S]) Drop(ctx context.Context) error {
 	query := protocol.KafkaSerializer{
 		QueryAlgo: ksql.Query{
@@ -158,6 +169,10 @@ func (s *Stream[S]) Drop(ctx context.Context) error {
 	}
 }
 
+// GetStream - gets table from ksqlDB instance
+// by receiving http description from settings
+// current command return difference between
+// struct tags and remote schema
 func GetStream[S any](
 	ctx context.Context,
 	stream string,
@@ -207,6 +222,9 @@ func GetStream[S any](
 	return streamInstance, nil
 }
 
+// CreateStream - creates stream in ksqlDB instance
+// after creating, user should call
+// select or select with emit to get data from it
 func CreateStream[S any](
 	ctx context.Context,
 	streamName string,
@@ -283,6 +301,10 @@ func CreateStream[S any](
 	}
 }
 
+// CreateStreamAsSelect - creates table in ksqlDB instance
+// with user built query
+// after creating, user should call
+// select or select with emit to get data from it
 func CreateStreamAsSelect[S any](
 	ctx context.Context,
 	streamName string,
@@ -368,6 +390,8 @@ func CreateStreamAsSelect[S any](
 	}
 }
 
+// Insert - provides insertion to stream functionality
+// written fields are defined by user
 func (s *Stream[S]) Insert(
 	ctx context.Context,
 	fields map[string]string) error {
@@ -442,6 +466,9 @@ func (s *Stream[S]) Insert(
 
 }
 
+// InsertAs - provides insertion to stream functionality
+// written fields are pre-fetched from select query, that
+// is built by user
 func (s *Stream[S]) InsertAs(
 	ctx context.Context,
 	query protocol.KafkaSerializer) error {
@@ -505,6 +532,9 @@ func (s *Stream[S]) InsertAs(
 	}
 }
 
+// SelectOnce - performs select query
+// and return only one http answer
+// channel is closed almost immediately
 func (s *Stream[S]) SelectOnce(
 	ctx context.Context) (S, error) {
 
@@ -557,6 +587,10 @@ func (s *Stream[S]) SelectOnce(
 	}
 }
 
+// SelectWithEmit - performs
+// select with emit request
+// answer is received for every new record
+// and propagated to channel
 func (s *Stream[S]) SelectWithEmit(
 	ctx context.Context) (<-chan S, error) {
 
@@ -617,6 +651,8 @@ func (s *Stream[S]) SelectWithEmit(
 	return valuesC, nil
 }
 
+// ToTopic - propagates stream data to new topic
+// stream scheme is fully extended to new topic
 func (s *Stream[S]) ToTopic(topicName string) (topic static.Topic[S]) {
 	topic.Name = topicName
 	topic.Partitions = int(*s.partitions)
@@ -624,6 +660,8 @@ func (s *Stream[S]) ToTopic(topicName string) (topic static.Topic[S]) {
 	return
 }
 
+// ToTable - propagates stream data to new table
+// and shares schema with it
 func (s *Stream[S]) ToTable(tableName string) (table static.Table[S]) {
 	static.StreamsProjections[tableName] = static.StreamSettings{
 		Name:        tableName,

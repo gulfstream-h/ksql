@@ -8,6 +8,9 @@ import (
 	"reflect"
 )
 
+// StreamSettings - describes the settings of stream
+// it's not bound to any specific structure
+// so can be easily called from any space
 type StreamSettings struct {
 	Name         string
 	SourceTopic  *string
@@ -19,6 +22,9 @@ type StreamSettings struct {
 	DeleteFunc   func(context.Context)
 }
 
+// Register - registers a full-functional table
+// with the provided settings. Also it is bound to
+// user provided generic scheme for select operations
 func Register[S any](
 	ctx context.Context,
 	settings StreamSettings) (

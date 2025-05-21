@@ -125,7 +125,7 @@ func (s *Table[S]) Describe(ctx context.Context) (dto.RelationDescription, error
 }
 
 // Drop - drops table from ksqlDB instance
-// with inherited topic
+// with parent topic. Also deletes projection from list
 func (s *Table[S]) Drop(ctx context.Context) error {
 	query := protocol.KafkaSerializer{
 		QueryAlgo: ksql.Query{
@@ -172,6 +172,10 @@ func (s *Table[S]) Drop(ctx context.Context) error {
 	}
 }
 
+// GetTable - gets table from ksqlDB instance
+// by receiving http description from settings
+// current command return difference between
+// struct tags and remote schema
 func GetTable[S any](
 	ctx context.Context,
 	table string,
@@ -221,6 +225,9 @@ func GetTable[S any](
 	return tableInstance, nil
 }
 
+// CreateTable - creates table in ksqlDB instance
+// after creating, user should call
+// select or select with emit to get data from it
 func CreateTable[S any](
 	ctx context.Context,
 	tableName string,
@@ -297,6 +304,10 @@ func CreateTable[S any](
 	}
 }
 
+// CreateTableAsSelect - creates table in ksqlDB instance
+// with user built query
+// after creating, user should call
+// select or select with emit to get data from it
 func CreateTableAsSelect[S any](
 	ctx context.Context,
 	tableName string,
@@ -382,6 +393,9 @@ func CreateTableAsSelect[S any](
 	}
 }
 
+// SelectOnce - performs select query
+// and return only one http answer
+// channel is closed almost immediately
 func (s *Table[S]) SelectOnce(
 	ctx context.Context) (S, error) {
 
@@ -434,6 +448,10 @@ func (s *Table[S]) SelectOnce(
 	}
 }
 
+// SelectWithEmit - performs
+// select with emit request
+// answer is received for every new record
+// and propagated to channel
 func (s *Table[S]) SelectWithEmit(
 	ctx context.Context) (<-chan S, error) {
 
@@ -494,6 +512,8 @@ func (s *Table[S]) SelectWithEmit(
 	return valuesC, nil
 }
 
+// ToTopic - propagates table data to new topic
+// table scheme is fully extended to new topic
 func (s *Table[S]) ToTopic(topicName string) (topic static.Topic[S]) {
 	topic.Name = topicName
 	topic.Partitions = int(*s.partitions)
@@ -501,6 +521,8 @@ func (s *Table[S]) ToTopic(topicName string) (topic static.Topic[S]) {
 	return
 }
 
+// ToStream - propagates table data to new stream
+// and shares schema with it
 func (s *Table[S]) ToStream(streamName string) (stream static.Stream[S]) {
 	static.StreamsProjections[streamName] = static.StreamSettings{
 		Name:        streamName,
