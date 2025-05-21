@@ -3,18 +3,14 @@ package schema
 import (
 	"fmt"
 	"github.com/fatih/structs"
+	"ksql/kinds"
+	"ksql/static"
 	"reflect"
 )
 
-type (
-	Schema interface{}
-)
-
-const (
-	ksqlTag = "ksql"
-)
-
-func SerializeFields(
+// SerializeFieldsToStruct - creates struct from composition
+// of fields. Can be used for new schemas creation
+func SerializeFieldsToStruct(
 	fieldsList []SearchField) reflect.Type {
 
 	var (
@@ -23,29 +19,96 @@ func SerializeFields(
 
 	for _, field := range fieldsList {
 		fields = append(fields, reflect.StructField{
-			Name: field.FieldName,
-			Type: reflect.TypeOf(field.KsqlKind.example()),
-			Tag:  reflect.StructTag(fmt.Sprintf("%s:%s", ksqlTag, field.FieldName)),
+			Name: field.Name,
+			Type: reflect.TypeOf(field.Kind.Example()),
+			Tag: reflect.StructTag(fmt.Sprintf("%s:%s",
+				static.KSQL, field.Name)),
 		})
 	}
 
 	return reflect.StructOf(fields)
 }
 
-func SerializeProvidedStruct[T Schema](
-	schema T) reflect.Type {
+// DeserializeStructToFieldsDictionary - returns map of SearchField
+// from in-code serialized struct or from runtime generated structure
+// current fields describes all required info for DDL
+// it can be useful for faster search & comparison in structs
+func DeserializeStructToFieldsDictionary(
+	structName string,
+	runtimeStruct reflect.Type,
+) map[string]SearchField {
 
 	var (
-		values map[string]KsqlKind
+		fields map[string]SearchField
+	)
+
+	for i := 0; i < runtimeStruct.NumField(); i++ {
+		field := runtimeStruct.Field(i)
+
+		ksqlKind, err := kinds.ToKsql(field.Type.Kind())
+		if err != nil {
+			continue
+		}
+
+		tag := field.Tag.Get(static.KSQL)
+
+		fields[tag] = SearchField{
+			Name:     tag,
+			Relation: structName,
+			Kind:     ksqlKind,
+		}
+	}
+
+	return fields
+
+}
+
+// DeserializeStructToFields - returns array of SearchField
+// from in-code serialized struct or from runtime generated structure
+// current fields describes all required info for DDL
+func DeserializeStructToFields(
+	structName string,
+	runtimeStruct reflect.Type,
+) []SearchField {
+
+	var (
+		fields []SearchField
+	)
+
+	for i := 0; i < runtimeStruct.NumField(); i++ {
+		field := runtimeStruct.Field(i)
+
+		ksqlKind, err := kinds.ToKsql(field.Type.Kind())
+		if err != nil {
+			continue
+		}
+
+		fields = append(fields, SearchField{
+			Name:     field.Tag.Get(static.KSQL),
+			Relation: structName,
+			Kind:     ksqlKind,
+		})
+	}
+
+	return fields
+}
+
+// SerializeProvidedStruct - casts user defined(generic) struct
+// to reflect structure, so it can be compared to runtime ones
+func SerializeProvidedStruct(
+	schema any) reflect.Type {
+
+	var (
+		values map[string]kinds.Ksql
 	)
 
 	fields := structs.Fields(schema)
 
 	for _, field := range fields {
-		tag := field.Tag(ksqlTag)
+		tag := field.Tag(static.KSQL)
 		kind := field.Kind()
 
-		ksqlKind, err := Ksql(kind)
+		ksqlKind, err := kinds.ToKsql(kind)
 		if err != nil {
 			continue
 		}
@@ -56,31 +119,37 @@ func SerializeProvidedStruct[T Schema](
 	return createProjection(values)
 }
 
+// SerializeRemoteSchema - casts http ksql description
+// of stream/table to reflect struct
 func SerializeRemoteSchema(
 	fields map[string]string) reflect.Type {
 
 	var (
-		schemaFields = make(map[string]KsqlKind)
+		schemaFields = make(
+			map[string]kinds.Ksql,
+		)
 	)
 
 	for k, v := range fields {
 		switch v {
 		case "INT":
-			schemaFields[k] = Int
+			schemaFields[k] = kinds.Int
 		case "FLOAT":
-			schemaFields[k] = Float
+			schemaFields[k] = kinds.Float
 		case "VARCHAR":
-			schemaFields[k] = String
+			schemaFields[k] = kinds.String
 		case "BOOL":
-			schemaFields[k] = Bool
+			schemaFields[k] = kinds.Bool
 		}
 	}
 
 	return createProjection(schemaFields)
 }
 
+// createProjection - defines reflect structure from map[string]kinds.Ksql declaration
+// current structure is comparable. Can be invoked, parsed and cloned
 func createProjection(
-	fieldsList map[string]KsqlKind) reflect.Type {
+	fieldsList map[string]kinds.Ksql) reflect.Type {
 
 	var (
 		fields = make([]reflect.StructField, 0, len(fieldsList))
@@ -89,8 +158,8 @@ func createProjection(
 	for name, kind := range fieldsList {
 		fields = append(fields, reflect.StructField{
 			Name: name,
-			Type: reflect.TypeOf(kind.example()),
-			Tag:  reflect.StructTag(fmt.Sprintf("%s:%s", ksqlTag, name)),
+			Type: reflect.TypeOf(kind.Example()),
+			Tag:  reflect.StructTag(fmt.Sprintf("%s:%s", static.KSQL, name)),
 		})
 	}
 

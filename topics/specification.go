@@ -1,17 +1,18 @@
 package topics
 
 import (
-	"bytes"
 	"context"
+	"errors"
+	"fmt"
 	jsoniter "github.com/json-iterator/go"
 	"ksql/kernel/network"
 	"ksql/kernel/protocol"
 	"ksql/kernel/protocol/dao"
 	"ksql/kernel/protocol/dto"
 	"ksql/ksql"
+	"ksql/static"
 	"ksql/streams"
 	"ksql/tables"
-	"net/http"
 )
 
 type Topic[S any] struct {
@@ -26,58 +27,45 @@ type ChildTopicObjects struct {
 	Tables  map[string]struct{}
 }
 
-func ListTopics(ctx context.Context) dto.ShowTopics {
-	query := []byte(
-		protocol.KafkaSerializer{
-			QueryAlgo: ksql.Query{
-				Query: ksql.LIST,
-				Ref:   ksql.TOPIC,
-			}}.
-			Query())
+func ListTopics(ctx context.Context) (dto.ShowTopics, error) {
+	query := protocol.KafkaSerializer{
+		QueryAlgo: ksql.Query{
+			Query: ksql.LIST,
+			Ref:   ksql.TOPIC,
+		}}.Query()
 
 	var (
 		pipeline = make(chan []byte)
 	)
 
-	req, err := http.NewRequest(
-		"POST",
-		"localhost:8080",
-		bytes.NewReader(query))
-	if err != nil {
-		return dto.ShowTopics{}
+	if err := network.Net.Perform(
+		ctx,
+		query,
+		pipeline,
+		network.ShortPolling{},
+	); err != nil {
+		err = fmt.Errorf("cannot perform request: %w", err)
+		return dto.ShowTopics{}, err
 	}
-
-	req.Header.Set(
-		"Content-Type",
-		"application/json")
-
-	go func() {
-		network.Net.PerformRequest(
-			req,
-			&network.SingeHandler{
-				MaxRPS:   100,
-				Pipeline: pipeline,
-			},
-		)
-	}()
 
 	select {
 	case <-ctx.Done():
-		return dto.ShowTopics{}
+		return dto.ShowTopics{}, ctx.Err()
 	case val, ok := <-pipeline:
 		if !ok {
-			return dto.ShowTopics{}
+			return dto.ShowTopics{}, static.ErrMalformedResponse
 		}
 
 		var (
 			topics dao.ShowTopics
 		)
 
-		if err = jsoniter.Unmarshal(val, &topics); err != nil {
-			return dto.ShowTopics{}
+		if err := jsoniter.Unmarshal(val, &topics); err != nil {
+			err = errors.Join(static.ErrUnserializableResponse, err)
+			return dto.ShowTopics{}, err
 		}
 
-		return topics.DTO()
+		return topics.DTO(), nil
 	}
 }
 
@@ -92,6 +80,8 @@ func (t *Topic[S]) RegisterStream(streamName string) streams.StreamSettings {
 			delete(t.ChildObjects.Streams, streamName)
 		},
 	}
+
+	static.StreamsProjections[streamName] = static.StreamSettings(streamSettings)
 
 	t.ChildObjects.Streams[streamName] = struct{}{}
 
@@ -109,6 +99,8 @@ func (t *Topic[S]) RegisterTable(tableName string) tables.TableSettings {
 			delete(t.ChildObjects.Tables, tableName)
 		},
 	}
+
+	static.TablesProjections[tableName] = static.TableSettings(tableSettings)
 
 	t.ChildObjects.Tables[tableName] = struct{}{}
 

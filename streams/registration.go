@@ -3,8 +3,8 @@ package streams
 import (
 	"context"
 	"errors"
-	"ksql/constants"
-	"ksql/schema"
+	"ksql/kinds"
+	"ksql/static"
 	"reflect"
 )
 
@@ -12,9 +12,10 @@ type StreamSettings struct {
 	Name         string
 	SourceTopic  *string
 	SourceStream *string
+	SourceTable  *string
 	Partitions   *uint8
 	Schema       reflect.Type
-	format       schema.ValueFormat
+	Format       kinds.ValueFormat
 	DeleteFunc   func(context.Context)
 }
 
@@ -30,7 +31,7 @@ func Register[S any](
 
 	stream, err = GetStream[S](ctx, settings.Name, settings)
 	if err != nil {
-		if errors.Is(err, constants.ErrStreamDoesNotExist) {
+		if errors.Is(err, static.ErrStreamDoesNotExist) {
 			return CreateStream[S](ctx, settings.Name, settings)
 		}
 		return nil, err

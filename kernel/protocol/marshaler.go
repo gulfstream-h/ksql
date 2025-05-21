@@ -114,9 +114,9 @@ func (ks KafkaSerializer) writeSchema() {
 				str.WriteString(",")
 			}
 
-			str.WriteString(field.Referer)
+			str.WriteString(field.Relation)
 			str.WriteString(".")
-			str.WriteString(field.FieldName)
+			str.WriteString(field.Name)
 			iter++
 		}
 
@@ -129,9 +129,9 @@ func (ks KafkaSerializer) writeSchema() {
 				str.WriteString(",")
 			}
 
-			str.WriteString(field.FieldName)
+			str.WriteString(field.Name)
 			str.WriteString(" ")
-			str.WriteString(field.KsqlKind.GetKafkaRepresentation())
+			str.WriteString(field.Kind.GetKafkaRepresentation())
 
 			iter++
 		}
@@ -141,8 +141,8 @@ func (ks KafkaSerializer) writeSchema() {
 		)
 
 		for _, field := range ks.SchemaAlgo {
-			fields = append(fields, field.FieldName)
-			values = append(values, field.Value)
+			fields = append(fields, field.Name)
+			values = append(values, *field.Value)
 		}
 
 		str.WriteString(" (")
@@ -174,19 +174,19 @@ func (ks KafkaSerializer) writeJoin() {
 	sf := ks.JoinAlgo.SelectField
 	jf := ks.JoinAlgo.JoinField
 
-	if sf.KsqlKind != jf.KsqlKind {
+	if sf.Kind != jf.Kind {
 		return
 	}
 
-	str.WriteString(sf.Referer)
+	str.WriteString(sf.Relation)
 	str.WriteString(".")
-	str.WriteString(sf.FieldName)
+	str.WriteString(sf.Name)
 
 	str.WriteString("=")
 
-	str.WriteString(jf.Referer)
+	str.WriteString(jf.Relation)
 	str.WriteString(".")
-	str.WriteString(jf.FieldName)
+	str.WriteString(jf.Name)
 }
 
 func (ks KafkaSerializer) writeCond() {
@@ -211,7 +211,7 @@ func (ks KafkaSerializer) writeCond() {
 			str.WriteString(",")
 		}
 
-		str.WriteString(fmt.Sprintf("%s.%s", field.Referer, field.FieldName))
+		str.WriteString(fmt.Sprintf("%s.%s", field.Relation, field.Name))
 	}
 
 	for i, field := range ks.CondAlgo.HavingClause {

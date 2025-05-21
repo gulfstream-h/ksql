@@ -35,10 +35,10 @@ func parseGroupBy(partialQuery string) schema.SearchField {
 
 	alias, field, found := strings.Cut(partialQuery, ".")
 	if !found {
-		f.FieldName = field
+		f.Name = field
 	} else {
-		f.Referer = alias
-		f.FieldName = field
+		f.Relation = alias
+		f.Name = field
 	}
 
 	return f

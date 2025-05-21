@@ -3,8 +3,8 @@ package tables
 import (
 	"context"
 	"errors"
-	"ksql/constants"
-	"ksql/schema"
+	"ksql/kinds"
+	"ksql/static"
 	"reflect"
 )
 
@@ -13,7 +13,7 @@ type TableSettings struct {
 	SourceTopic *string
 	Partitions  *uint8
 	Schema      reflect.Type
-	Format      schema.ValueFormat
+	Format      kinds.ValueFormat
 	DeleteFunc  func(context.Context)
 }
 
@@ -29,7 +29,7 @@ func Register[S any](
 
 	table, err = GetTable[S](ctx, settings.Name, settings)
 	if err != nil {
-		if errors.Is(err, constants.ErrTableDoesNotExist) {
+		if errors.Is(err, static.ErrTableDoesNotExist) {
 			return CreateTable[S](ctx, settings.Name, settings)
 		}
 		return nil, err

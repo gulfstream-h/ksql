@@ -1,4 +1,4 @@
-package schema
+package kinds
 
 import (
 	"errors"
@@ -6,50 +6,20 @@ import (
 )
 
 type (
-	KsqlKind int
+	Ksql int
 )
 
 const (
-	Bool KsqlKind = iota + 1
+	Bool Ksql = iota + 1
 	Int
 	Float
 	String
 )
 
-type (
-	ResourceKind int
-)
-
-const (
-	STREAM = ResourceKind(iota)
-	TABLE
-)
-
-type (
-	ValueFormat int
-)
-
-const (
-	JSON = ValueFormat(iota)
-)
-
-func (vf ValueFormat) String() string {
-	switch vf {
-	case JSON:
-		return "JSON"
-	default:
-		return "UNKNOWN"
-	}
-}
-
-var (
-	ErrType = errors.New("type isn't supported at now")
-)
-
-func Ksql(kind reflect.Kind) (KsqlKind, error) {
+func ToKsql(kind reflect.Kind) (Ksql, error) {
 	switch kind {
 	case reflect.Invalid:
-		return 0, ErrType
+		return 0, errUnsupportedType
 	case reflect.Bool:
 		return Bool, nil
 	case
@@ -89,13 +59,13 @@ func Ksql(kind reflect.Kind) (KsqlKind, error) {
 		reflect.Complex64,
 		reflect.Complex128:
 
-		return 0, ErrType
+		return 0, errUnsupportedType
 	}
 
-	return 0, ErrType
+	return 0, errUnsupportedType
 }
 
-func (k KsqlKind) GetKafkaRepresentation() string {
+func (k Ksql) GetKafkaRepresentation() string {
 	switch k {
 	case Int:
 		return "INT"
@@ -110,7 +80,7 @@ func (k KsqlKind) GetKafkaRepresentation() string {
 	}
 }
 
-func (k KsqlKind) example() any {
+func (k Ksql) Example() any {
 	switch k {
 	case Bool:
 		return true
@@ -124,3 +94,7 @@ func (k KsqlKind) example() any {
 
 	return nil
 }
+
+var (
+	errUnsupportedType = errors.New("type isn't supported at now")
+)

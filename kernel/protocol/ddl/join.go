@@ -54,18 +54,18 @@ func parseJoin(
 
 	alias, field, found := strings.Cut(selectedField, ".")
 	if !found {
-		selected.FieldName = field
+		selected.Name = field
 	} else {
-		selected.Referer = alias
-		selected.FieldName = field
+		selected.Relation = alias
+		selected.Name = field
 	}
 
 	alias, field, found = strings.Cut(joinableField, ".")
 	if !found {
-		joinable.FieldName = field
+		joinable.Name = field
 	} else {
-		joinable.Referer = alias
-		joinable.FieldName = field
+		joinable.Relation = alias
+		joinable.Name = field
 	}
 
 	return selected, joinable

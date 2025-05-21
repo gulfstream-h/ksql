@@ -1,42 +1,147 @@
 package network
 
 import (
-	"errors"
+	"bufio"
+	"bytes"
+	"context"
+	"fmt"
+	"io"
 	"ksql/config"
+	"ksql/static"
+	_ "ksql/topics"
 	"net/http"
-	"sync"
-	"sync/atomic"
 	"time"
 )
 
 var (
-	Net Network
+	// Net - is a global ksql http proxy
+	// can be called in topics, streams and tables packages
+	Net network
 )
 
-type Network struct {
+type network struct {
 	host       string
-	mu         sync.Mutex
-	rps        atomic.Int32
-	maxRps     int32
 	httpClient *http.Client
 	timeoutSec *int64
 }
 
-func InitNet(config config.Config) {
+// Init - entry point for all ksql usage
+// it initiates http connection with ksql-client
+func Init(config config.Config) {
 	client := http.Client{}
 
 	if config.TimeoutSec != nil {
 		client.Timeout = time.Duration(*config.TimeoutSec) * time.Second
+	} else {
+		client.Timeout = static.KsqlConnTimeout
 	}
 
-	Net = Network{
-		host:       config.KsqlDbServer,
+	Net = network{
+		host:       config.Host,
 		httpClient: &client,
-		maxRps:     int32(config.MaxConnTCP),
 		timeoutSec: config.TimeoutSec,
 	}
 }
 
-var (
-	ErrRebalance = errors.New("too many requests for long polling streams. Rebalance in second...")
+// Poller - provides different strategies of kafka http processing
+// Like for short polling requests it handles only one full stream of data
+// For Long-Polling requests it provides row-by-row parsing with open connection
+// Mostly all ksql requests are short polling, however EMIT_CHANGES requests are
+// long polling
+type Poller interface {
+	Process(io.ReadCloser, chan<- []byte)
+}
+
+// Perform - is common for all net request logic,
+// responsible to initiate and properly close connection
+// As all ksql queries shares the same http params,
+// current module sets it as default for code-reduce purpose
+func (n *network) Perform(
+	ctx context.Context,
+	query string,
+	pipeline chan<- []byte,
+	pollingAlgo Poller) error {
+
+	req, err := http.NewRequestWithContext(
+		ctx,
+		http.MethodPost,
+		n.host,
+		bytes.NewReader([]byte(query)),
+	)
+	if err != nil {
+		return fmt.Errorf("error while formating req: %w", err)
+	}
+
+	req.Header.Set(
+		static.ContentType,
+		static.HeaderKSQL,
+	)
+
+	var (
+		resp *http.Response
+	)
+
+	if resp, err = n.httpClient.Do(req); err != nil {
+		return fmt.Errorf("error while performing req: %w", err)
+	}
+	defer resp.Body.Close()
+
+	go pollingAlgo.Process(resp.Body, pipeline)
+
+	return nil
+}
+
+type (
+	ShortPolling struct{}
 )
+
+// Process - performs fast and ordinary http request
+// it can be used for show, describe, drop, create, insert and most of select queries
+func (sp ShortPolling) Process(
+	payload io.ReadCloser,
+	pipeline chan<- []byte) {
+
+	defer payload.Close()
+	defer close(pipeline)
+
+	buffer, err := io.ReadAll(payload)
+	if err != nil {
+		return
+	}
+
+	pipeline <- buffer
+
+	return
+}
+
+type (
+	LongPolling struct{}
+)
+
+// Process - performs long-living requests. Mostly SELECT with EMIT CHANGES.
+// Channel is closed only on receiving EOF from KSQL-Client
+func (lp LongPolling) Process(
+	payload io.ReadCloser,
+	pipeline chan<- []byte) {
+
+	defer payload.Close()
+	defer close(pipeline)
+
+	scanner := bufio.NewScanner(payload)
+
+	for scanner.Scan() {
+		line := scanner.Text()
+
+		if len(line) == 0 {
+			continue
+		}
+
+		pipeline <- []byte(line)
+	}
+
+	if err := scanner.Err(); err != nil {
+		return
+	}
+
+	return
+}

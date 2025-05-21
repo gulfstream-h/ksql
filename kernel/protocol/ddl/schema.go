@@ -1,6 +1,7 @@
 package ddl
 
 import (
+	"ksql/kinds"
 	"ksql/ksql"
 	"ksql/schema"
 	"strings"
@@ -37,18 +38,18 @@ func parseCreate(partialQuery string) []schema.SearchField {
 		}
 
 		field := schema.SearchField{
-			FieldName: words[0],
+			Name: words[0],
 		}
 
 		switch words[1] {
 		case "VARCHAR":
-			field.KsqlKind = schema.String
+			field.Kind = kinds.String
 		case "INT":
-			field.KsqlKind = schema.Int
+			field.Kind = kinds.Int
 		case "FLOAT":
-			field.KsqlKind = schema.Float
+			field.Kind = kinds.Float
 		case "BOOL":
-			field.KsqlKind = schema.Bool
+			field.Kind = kinds.Bool
 		}
 
 		schemaFields = append(schemaFields, field)
@@ -91,9 +92,9 @@ func parseInsert(partialQuery string) []schema.SearchField {
 
 	for i := 0; i < len(fieldsSplitted); i++ {
 		searchFields[i] = schema.SearchField{
-			FieldName: fieldsSplitted[i],
-			Referer:   shm,
-			Value:     valuesSplitted[i],
+			Name:     fieldsSplitted[i],
+			Relation: shm,
+			Value:    &valuesSplitted[i],
 		}
 	}
 
@@ -121,10 +122,10 @@ func parseSelect(partialQuery string) []schema.SearchField {
 		sf := schema.SearchField{}
 		alias, field, found := strings.Cut(rawField, ".")
 		if !found {
-			sf.FieldName = field
+			sf.Name = field
 		} else {
-			sf.Referer = alias
-			sf.FieldName = field
+			sf.Relation = alias
+			sf.Name = field
 		}
 
 		fields = append(fields, sf)

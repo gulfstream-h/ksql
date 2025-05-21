@@ -1,7 +1,8 @@
 package config
 
+// Config - is user defined structure
+// aimed to set exact settings for client
 type Config struct {
-	KsqlDbServer string
-	MaxConnTCP   int64
-	TimeoutSec   *int64
+	Host       string
+	TimeoutSec *int64
 }
