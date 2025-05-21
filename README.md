@@ -1,9 +1,97 @@
-KSQL
+# ksql
 
-## Docker Compose Setup
+**ksql** is a lightweight library aimed at solving the absence of a native Kafka SQL library in Go.
+
+It enables interaction with the [`ksqldb-server`](https://docs.confluent.io/ksqldb/) via HTTP APIs,  
+offering a rapid and type-safe way to manage and query Kafka streams and tables.
+
+---
+
+## ✅ Supported Operations
+
+### Metadata
+- `ListTopics`
+- `ListStreams`
+- `ListTables`
+
+### Descriptions
+- `DescribeStream`
+- `DescribeTable`
+
+### Drop
+- `DropStream`
+- `DropTable`
+
+### Create
+- `CreateStream`
+- `CreateStreamAsSelect`
+- `CreateTable`
+- `CreateTableAsSelect`
+
+### Queries
+- `Select`
+- `Select` with `Emit Changes`
+
+### Inserts *(only for streams)*
+- `Insert`
+- `InsertAs`
+
+### Transformation
+- `ToTopic`
+- `ToTable`
+- `ToStream`
+
+---
+
+## ⚙️ Code-Centric Stream/Table Management
+
+The project helps manage streams and tables via in-code function calls,  
+each corresponding to a specific relational entity supported by Confluent.
+
+Complex queries can be constructed via a builder,  
+delegating verbosity, formality, and syntax concerns to internal abstractions.
+
+---
+
+## 🧠 Schema Awareness & Internal Linting
+
+Code-based query representation includes internal linting.  
+Each stream and table is retrieved from the Kafka server and transformed  
+from a textual query description into a robust code prototype —  
+containing:
+
+- Schema fields with their types
+- Parent topic
+- Value format
+- And more...
+
+This ensures:
+
+- All requested fields exist in the relation schema
+- Field types are valid for the given operation
+- The operation is supported by KSQL
+
+The library acts as middleware to prevent unnecessary waiting for unprocessable responses,  
+catching such issues at **compile time or runtime**.
+
+---
+
+## 🧩 Struct Mapping
+
+For convenient development, `ksql` supports using generic Go structs.
+
+User-defined structures with `ksql:"tag"` are:
+
+- **Compared to remote Kafka schemas**
+- **Used as return types** for `Select` operations (with automatic unmarshaling)
+- **Used in `Insert` statements** to reduce repetitive declarations of field names and values
+
+```bash
+go get github.com/golstream/ksql
+```
+
+## Running KSQL in Docker
 ```yaml
-version: '3.8'
-
 services:
   kafka:
     image: bitnami/kafka:3.6.1-debian-11-r4
