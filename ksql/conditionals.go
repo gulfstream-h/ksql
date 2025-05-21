@@ -17,22 +17,6 @@ type WhereEx struct {
 	equal     string
 }
 
-func AddWhereCondition(fieldName string, relationSchema string) WhereEx {
-	var (
-		whereEx WhereEx
-	)
-
-	scheme := schema.GetSchemeFields(relationSchema, schema.STREAM)
-	for _, field := range scheme {
-		if field.FieldName == fieldName {
-			whereEx.FieldName = fieldName
-			whereEx.schema = field
-		}
-	}
-
-	return whereEx
-}
-
 func (ex WhereEx) Equal(values ...string) WhereEx {
 
 	if len(values) == 0 {
@@ -67,22 +51,6 @@ type HavingEx struct {
 	schema    schema.SearchField
 	comp      string
 	equal     string
-}
-
-func AddHavingCondition(fieldName string, relationSchema string) HavingEx {
-	var (
-		havingEx HavingEx
-	)
-
-	scheme := schema.GetSchemeFields(relationSchema, schema.STREAM)
-	for _, field := range scheme {
-		if field.FieldName == fieldName {
-			havingEx.FieldName = fieldName
-			havingEx.schema = field
-		}
-	}
-
-	return havingEx
 }
 
 func (ex HavingEx) Equal(values ...string) HavingEx {

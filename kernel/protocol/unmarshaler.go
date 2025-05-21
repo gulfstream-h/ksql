@@ -8,6 +8,9 @@ import (
 	"strings"
 )
 
+// KafkaDeserializer - contains all parse algorithms
+// that can be used translate string representation of
+// stream/table to internal representation of KafkaSerializer
 type KafkaDeserializer struct {
 	QueryAlgo       QueryDeserializeAlgo
 	SchemaAlgo      SchemaDeserializeAlgo
@@ -17,7 +20,9 @@ type KafkaDeserializer struct {
 	MetadataAlgo    MetadataDeserializeAlgo
 }
 
-func RestKafkaDeserializer() *KafkaDeserializer {
+// GetRestDeserializer - returns a new instance of KafkaDeserializer
+// current realizations parses queries with strings package
+func GetRestDeserializer() *KafkaDeserializer {
 	return &KafkaDeserializer{
 		QueryAlgo:       ddl.QueryRestAnalysis{},
 		SchemaAlgo:      ddl.SchemaRestAnalysis{},
@@ -28,6 +33,11 @@ func RestKafkaDeserializer() *KafkaDeserializer {
 	}
 }
 
+// Deserialize - is used to parse string representation of query
+// at first query is parsed to blocks by regular expressions
+// after parse algorithm handles block to ksql layer(reverse process of ksql.Builder)
+// and finally constructs KafkaSerializer object. In ideal case, marshaling of
+// KafkaSerializer object should be the same as original query
 func (kd KafkaDeserializer) Deserialize(
 	query string) KafkaSerializer {
 

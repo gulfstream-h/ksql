@@ -107,17 +107,23 @@ func (cl cteLayer) Fields(fields ...string) fieldsLayer {
 
 func (fl fieldsLayer) From(from string, kind Reference) fromLayer {
 	fields := fl.ctx.fields.fields
+
+	var (
+		detailedScheme []schema.SearchField
+	)
+
 	scheme, err := schema.FindRelationFields(from)
 	if err != nil {
 		return fromLayer{}
 	}
 
 	for _, field := range fields {
-		schemeFields, exists := scheme[field.Name]
+		schemeField, exists := scheme[field.Name]
 		if !exists {
 			return fromLayer{}
 		}
 
+		detailedScheme = append(detailedScheme, schemeField)
 	}
 
 	fl.ctx.query = Query{
@@ -135,68 +141,71 @@ func (f fieldsLayer) Join(joinKind Joins, selectField, joinField JoinEx) joinLay
 		jf schema.SearchField
 	)
 
-	selectScheme := schema.GetSchemeFields(selectField.RefName, schema.ResourceKind(selectField.Ref))
-	for _, field := range selectScheme {
-		if field.FieldName == selectField.Field {
-			sf = field
-			break
-		}
-	}
+	var (
+		exists bool
+	)
 
-	joinScheme := schema.GetSchemeFields(selectField.RefName, schema.ResourceKind(selectField.Ref))
-	for _, field := range joinScheme {
-		if field.FieldName == selectField.Field {
-			jf = field
-			break
-		}
-	}
-
-	analysis, err := schema.CompareFields(sf, jf)
+	selectScheme, err := schema.FindRelationFields(selectField.RefName)
 	if err != nil {
 		return joinLayer{}
 	}
 
-	if !analysis.CompatibilityByType {
+	sf, exists = selectScheme[selectField.Field]
+	if !exists {
+		return joinLayer{}
+	}
+
+	joinScheme, err := schema.FindRelationFields(joinField.RefName)
+	if err != nil {
+		return joinLayer{}
+	}
+
+	jf, exists = joinScheme[joinField.Field]
+	if !exists {
 		return joinLayer{}
 	}
 
 	f.ctx.join = Join{
-		Kind: joinKind,
-		SelectField: schema.SearchField{
-			FieldName: selectField.Field,
-			Relation:  selectField.RefName,
-		},
-		JoinField: schema.SearchField{
-			FieldName: joinField.Field,
-			Relation:  joinField.RefName,
-		},
+		Kind:        joinKind,
+		SelectField: sf,
+		JoinField:   jf,
 	}
+
 	return joinLayer{ctx: f.ctx}
 }
 
 func (jl joinLayer) From(from string, kind Reference) fromLayer {
 	fields := jl.ctx.fields.fields
-	scheme := schema.GetSchemeFields(from, schema.ResourceKind(kind))
-	joinScheme := schema.GetSchemeFields(jl.ctx.join.JoinField.Relation, schema.ResourceKind(kind))
+
+	var (
+		detailedScheme []schema.SearchField
+	)
+
+	scheme, err := schema.FindRelationFields(from)
+	if err != nil {
+		return fromLayer{}
+	}
 
 	for _, field := range fields {
-		switch strings.Contains(field.FieldName, ".") {
+		switch field.Relation == "" {
 		case true:
-			for _, schemaField := range scheme {
-				if field.FieldName == schemaField.FieldName {
-					field.Relation = from
-					field.KsqlKind = schemaField.KsqlKind
-					break
-				}
+			schemeField, exists := scheme[field.Name]
+			if !exists {
+				return fromLayer{}
 			}
+			detailedScheme = append(detailedScheme, schemeField)
 		case false:
-			for _, schemaField := range joinScheme {
-				if field.FieldName == schemaField.FieldName {
-					field.Relation = from
-					field.KsqlKind = schemaField.KsqlKind
-					break
-				}
+			outerScheme, err := schema.FindRelationFields(field.Relation)
+			if err != nil {
+				return fromLayer{}
 			}
+
+			schemeField, exists := outerScheme[field.Name]
+			if !exists {
+				return fromLayer{}
+			}
+
+			detailedScheme = append(detailedScheme, schemeField)
 		}
 	}
 
@@ -210,32 +219,45 @@ func (jl joinLayer) From(from string, kind Reference) fromLayer {
 }
 
 func (fl fromLayer) GroupBy(groupBy ...string) condLayer {
-	scheme := schema.GetSchemeFields(fl.ctx.query.Name, schema.ResourceKind(fl.ctx.query.Ref))
+	var (
+		processedFields []string
+	)
 
-	for _, groupField := range groupBy {
-		for _, field := range scheme {
-			if field.FieldName == groupField {
-				fl.ctx.groupedBy = append(fl.ctx.groupedBy, field.FieldName)
-			}
-		}
+	scheme, err := schema.FindRelationFields(fl.ctx.query.Name)
+	if err != nil {
+		return condLayer{}
 	}
 
+	for _, field := range groupBy {
+		_, exists := scheme[field]
+		if !exists {
+			continue
+		}
+
+		processedFields = append(processedFields, field)
+	}
+
+	fl.ctx.groupedBy = processedFields
 	return condLayer{ctx: fl.ctx}
 }
 
-func (fl fromLayer) Where(cond ...WhereEx) condLayer {
+func (fl fromLayer) Where(where ...WhereEx) condLayer {
 	var (
 		processedFields []WhereEx
 	)
 
-	for _, field := range cond {
-		for _, schemaField := range fl.ctx.fields.fields {
-			if field.FieldName == schemaField.FieldName {
-				field.schema = schemaField
-				break
-			}
+	scheme, err := schema.FindRelationFields(fl.ctx.query.Name)
+	if err != nil {
+		return condLayer{}
+	}
+
+	for _, field := range where {
+		searchField, exists := scheme[field.FieldName]
+		if !exists {
+			continue
 		}
 
+		field.schema = searchField
 		processedFields = append(processedFields, field)
 	}
 
@@ -246,23 +268,27 @@ func (fl fromLayer) Where(cond ...WhereEx) condLayer {
 	return condLayer{ctx: fl.ctx}
 }
 
-func (cl condLayer) Where(cond ...WhereEx) condLayer {
+func (cl condLayer) Where(where ...WhereEx) condLayer {
 	var (
 		processedFields []WhereEx
 	)
 
-	for _, field := range cond {
-		for _, schemaField := range cl.ctx.fields.fields {
-			if field.FieldName == schemaField.FieldName {
-				field.schema = schemaField
-				break
-			}
+	scheme, err := schema.FindRelationFields(cl.ctx.query.Name)
+	if err != nil {
+		return condLayer{}
+	}
+
+	for _, field := range where {
+		searchField, exists := scheme[field.FieldName]
+		if !exists {
+			continue
 		}
 
+		field.schema = searchField
 		processedFields = append(processedFields, field)
 	}
 
-	cl.ctx.cond.WhereClause = cond
+	cl.ctx.cond.WhereClause = where
 	return condLayer{ctx: cl.ctx}
 }
 
@@ -271,13 +297,18 @@ func (cl condLayer) Having(having ...HavingEx) condLayer {
 		processedFields []HavingEx
 	)
 
+	scheme, err := schema.FindRelationFields(cl.ctx.query.Name)
+	if err != nil {
+		return condLayer{}
+	}
+
 	for _, field := range having {
-		for _, schemaField := range cl.ctx.fields.fields {
-			if field.FieldName == schemaField.FieldName {
-				field.schema = schemaField
-				break
-			}
+		searchField, exists := scheme[field.FieldName]
+		if !exists {
+			continue
 		}
+
+		field.schema = searchField
 
 		processedFields = append(processedFields, field)
 	}
@@ -300,8 +331,4 @@ func (m metadataLayer) Build() (plan static.QueryPlan) {
 	plan.MetadataAlgo = m.ctx.with
 
 	return
-}
-
-func a()  {
-	SelectBuilder.Fields("field1", "field2").From("example", STREAM).
 }

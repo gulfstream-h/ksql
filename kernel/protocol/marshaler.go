@@ -8,6 +8,10 @@ import (
 )
 
 type (
+	// KafkaSerializer - is general for marshaling and unmarshalling
+	// is provides concrete instructions for each layer of query
+	// which data must be parsed and the way it should be translated
+	// to schema analysis and to string representation of code-build query
 	KafkaSerializer struct {
 		QueryAlgo    ksql.Query
 		SchemaAlgo   []schema.SearchField
@@ -19,6 +23,10 @@ type (
 	}
 )
 
+// writeCTE - is used to write Common Table Expressions
+// for select queries, main query is followed by CTE expressions
+// every CTE is a full featured KafkaSerializer, so nested ctes
+// can be called recursively in every CTE
 func (ks KafkaSerializer) writeCTE() {
 	var (
 		str  strings.Builder
@@ -44,6 +52,7 @@ func (ks KafkaSerializer) writeCTE() {
 	}
 }
 
+// writeQuery - describes the main commands of query
 func (ks KafkaSerializer) writeQuery() {
 	var (
 		str strings.Builder
@@ -101,6 +110,8 @@ func (ks KafkaSerializer) writeQuery() {
 	}
 }
 
+// writeSchema - describes fields names including insert values and types
+// for insert and create queries
 func (ks KafkaSerializer) writeSchema() {
 	var (
 		str  strings.Builder
@@ -157,6 +168,8 @@ func (ks KafkaSerializer) writeSchema() {
 	}
 }
 
+// writeJoin - describes which fields are used, their relation
+// and the way they are joined
 func (ks KafkaSerializer) writeJoin() {
 	var (
 		str strings.Builder
@@ -189,6 +202,7 @@ func (ks KafkaSerializer) writeJoin() {
 	str.WriteString(jf.Name)
 }
 
+// writeCond - describes the conditions of the query
 func (ks KafkaSerializer) writeCond() {
 	var (
 		str strings.Builder
@@ -225,6 +239,7 @@ func (ks KafkaSerializer) writeCond() {
 	}
 }
 
+// writeMeta - describes the metadata of the query
 func (ks KafkaSerializer) writeMeta() {
 	var (
 		str   strings.Builder
@@ -258,6 +273,7 @@ func (ks KafkaSerializer) writeMeta() {
 	str.WriteString("\n);")
 }
 
+// Query - aggregates all the methods to write a full query
 func (ks KafkaSerializer) Query() string {
 	ks.writeCTE()
 	ks.writeQuery()
