@@ -13,10 +13,10 @@ import (
 // easily deserialized from internal field to
 // insert, create, select representation
 type SearchField struct {
-	Name     string     // field name
-	Relation string     // stream/table name
-	Kind     kinds.Ksql // internal type, describing primitive types
-	Value    *string    // value to be inserted (valid only for streams)
+	Name     string      // field name
+	Relation string      // stream/table name
+	Kind     kinds.Ktype // internal type, describing primitive types
+	Value    *string     // value to be inserted (valid only for streams)
 }
 
 // CompareStructs - checks if two structs matches
@@ -56,12 +56,12 @@ func CompareStructs(
 func FindRelationFields(relationName string) (map[string]SearchField, error) {
 	streamSettings, exists := static.StreamsProjections[relationName]
 	if exists {
-		return DeserializeStructToFieldsDictionary(relationName, streamSettings.Schema), nil
+		return ParseStructToFieldsDictionary(relationName, streamSettings.Schema), nil
 	}
 
 	tableSettings, exists := static.TablesProjections[relationName]
 	if exists {
-		return DeserializeStructToFieldsDictionary(relationName, tableSettings.Schema), nil
+		return ParseStructToFieldsDictionary(relationName, tableSettings.Schema), nil
 	}
 
 	return nil, errors.New("cannot find relation fields")

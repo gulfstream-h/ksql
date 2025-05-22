@@ -6,17 +6,17 @@ import (
 )
 
 type (
-	Ksql int
+	Ktype int
 )
 
 const (
-	Bool Ksql = iota + 1
+	Bool Ktype = iota + 1
 	Int
 	Float
 	String
 )
 
-func ToKsql(kind reflect.Kind) (Ksql, error) {
+func ToKsql(kind reflect.Kind) (Ktype, error) {
 	switch kind {
 	case reflect.Invalid:
 		return 0, errUnsupportedType
@@ -65,7 +65,7 @@ func ToKsql(kind reflect.Kind) (Ksql, error) {
 	return 0, errUnsupportedType
 }
 
-func (k Ksql) GetKafkaRepresentation() string {
+func (k Ktype) GetKafkaRepresentation() string {
 	switch k {
 	case Int:
 		return "INT"
@@ -80,7 +80,7 @@ func (k Ksql) GetKafkaRepresentation() string {
 	}
 }
 
-func (k Ksql) Example() any {
+func (k Ktype) Example() any {
 	switch k {
 	case Bool:
 		return true

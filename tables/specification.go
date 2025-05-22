@@ -22,8 +22,6 @@ import (
 type Table[S any] struct {
 	Name         string
 	sourceTopic  *string
-	sourceStream *string
-	sourceTable  *string
 	partitions   *uint8
 	remoteSchema *reflect.Type
 	format       kinds.ValueFormat
@@ -164,7 +162,7 @@ func (s *Table[S]) Drop(ctx context.Context) error {
 			return fmt.Errorf("cannot unmarshal drop response: %w", err)
 		}
 
-		if drop.CommandStatus.Status != "SUCCESS" {
+		if drop.CommandStatus.Status != static.SUCCESS {
 			return fmt.Errorf("cannot drop table: %s", drop.CommandStatus.Status)
 		}
 
@@ -189,7 +187,6 @@ func GetTable[S any](
 
 	tableInstance := &Table[S]{
 		Name:         table,
-		sourceStream: nil,
 		partitions:   settings.Partitions,
 		remoteSchema: &scheme,
 		format:       settings.Format,
@@ -245,7 +242,7 @@ func CreateTable[S any](
 			Ref:   ksql.TABLE,
 			Name:  tableName,
 		},
-		SchemaAlgo: schema.DeserializeStructToFields(
+		SchemaAlgo: schema.ParseStructToFields(
 			tableName,
 			rmSchema,
 		),
@@ -290,13 +287,12 @@ func CreateTable[S any](
 
 		status := create[0]
 
-		if status.CommandStatus.Status != "SUCCESSFUL" {
+		if status.CommandStatus.Status != static.SUCCESS {
 			return nil, fmt.Errorf("unsuccesful respose. msg: %s", status.CommandStatus.Message)
 		}
 
 		return &Table[S]{
 			sourceTopic:  settings.SourceTopic,
-			sourceStream: &tableName,
 			partitions:   settings.Partitions,
 			remoteSchema: &rmSchema,
 			format:       settings.Format,
@@ -379,13 +375,12 @@ func CreateTableAsSelect[S any](
 
 		status := create[0]
 
-		if status.CommandStatus.Status != "SUCCESSFUL" {
+		if status.CommandStatus.Status != static.SUCCESS {
 			return nil, fmt.Errorf("unsuccesful respose. msg: %s", status.CommandStatus.Message)
 		}
 
 		return &Table[S]{
 			sourceTopic:  settings.SourceTopic,
-			sourceStream: &tableName,
 			partitions:   settings.Partitions,
 			remoteSchema: &scheme,
 			format:       settings.Format,
@@ -409,7 +404,7 @@ func (s *Table[S]) SelectOnce(
 			Ref:   ksql.TABLE,
 			Name:  s.Name,
 		},
-		SchemaAlgo: schema.DeserializeStructToFields(
+		SchemaAlgo: schema.ParseStructToFields(
 			s.Name,
 			*s.remoteSchema,
 		),
@@ -466,7 +461,7 @@ func (s *Table[S]) SelectWithEmit(
 			Ref:   ksql.TABLE,
 			Name:  s.Name,
 		},
-		SchemaAlgo: schema.DeserializeStructToFields(
+		SchemaAlgo: schema.ParseStructToFields(
 			s.Name,
 			*s.remoteSchema,
 		),

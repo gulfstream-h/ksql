@@ -21,8 +21,6 @@ import (
 // via referred to type functions calls
 type Stream[S any] struct {
 	Name         string
-	sourceTopic  *string
-	sourceStream *string
 	partitions   *uint8
 	remoteSchema *reflect.Type
 	format       kinds.ValueFormat
@@ -161,7 +159,7 @@ func (s *Stream[S]) Drop(ctx context.Context) error {
 			return fmt.Errorf("cannot unmarshal drop response: %w", err)
 		}
 
-		if drop.CommandStatus.Status != "SUCCESS" {
+		if drop.CommandStatus.Status != static.SUCCESS {
 			return fmt.Errorf("cannot drop stream: %s", drop.CommandStatus.Status)
 		}
 
@@ -186,7 +184,6 @@ func GetStream[S any](
 
 	streamInstance := &Stream[S]{
 		Name:         stream,
-		sourceStream: nil,
 		partitions:   settings.Partitions,
 		remoteSchema: &scheme,
 		format:       settings.Format,
@@ -242,7 +239,7 @@ func CreateStream[S any](
 			Ref:   ksql.STREAM,
 			Name:  streamName,
 		},
-		SchemaAlgo: schema.DeserializeStructToFields(
+		SchemaAlgo: schema.ParseStructToFields(
 			streamName,
 			rmSchema,
 		),
@@ -287,13 +284,11 @@ func CreateStream[S any](
 
 		status := create[0]
 
-		if status.CommandStatus.Status != "SUCCESSFUL" {
+		if status.CommandStatus.Status != static.SUCCESS {
 			return nil, fmt.Errorf("unsuccesful respose. msg: %s", status.CommandStatus.Message)
 		}
 
 		return &Stream[S]{
-			sourceTopic:  settings.SourceTopic,
-			sourceStream: &streamName,
 			partitions:   settings.Partitions,
 			remoteSchema: &rmSchema,
 			format:       settings.Format,
@@ -376,13 +371,11 @@ func CreateStreamAsSelect[S any](
 
 		status := create[0]
 
-		if status.CommandStatus.Status != "SUCCESSFUL" {
+		if status.CommandStatus.Status != static.SUCCESS {
 			return nil, fmt.Errorf("unsuccesful respose. msg: %s", status.CommandStatus.Message)
 		}
 
 		return &Stream[S]{
-			sourceTopic:  settings.SourceTopic,
-			sourceStream: &streamName,
 			partitions:   settings.Partitions,
 			remoteSchema: &scheme,
 			format:       settings.Format,
@@ -398,7 +391,7 @@ func (s *Stream[S]) Insert(
 
 	scheme := *s.remoteSchema
 
-	remoteProjection := schema.DeserializeStructToFieldsDictionary(
+	remoteProjection := schema.ParseStructToFieldsDictionary(
 		s.Name,
 		scheme,
 	)
@@ -548,7 +541,7 @@ func (s *Stream[S]) SelectOnce(
 			Ref:   ksql.STREAM,
 			Name:  s.Name,
 		},
-		SchemaAlgo: schema.DeserializeStructToFields(
+		SchemaAlgo: schema.ParseStructToFields(
 			s.Name,
 			*s.remoteSchema,
 		),
@@ -605,7 +598,7 @@ func (s *Stream[S]) SelectWithEmit(
 			Ref:   ksql.STREAM,
 			Name:  s.Name,
 		},
-		SchemaAlgo: schema.DeserializeStructToFields(
+		SchemaAlgo: schema.ParseStructToFields(
 			s.Name,
 			*s.remoteSchema,
 		),
@@ -664,9 +657,8 @@ func (s *Stream[S]) ToTopic(topicName string) (topic static.Topic[S]) {
 // and shares schema with it
 func (s *Stream[S]) ToTable(tableName string) (table static.Table[S]) {
 	static.StreamsProjections[tableName] = static.StreamSettings{
-		Name:        tableName,
-		SourceTopic: s.sourceTopic,
-		Partitions:  s.partitions,
+		Name:       tableName,
+		Partitions: s.partitions,
 	}
 
 	table.Name = tableName

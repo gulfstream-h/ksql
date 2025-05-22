@@ -8,6 +8,10 @@ const (
 )
 
 const (
+	SUCCESS = "SUCCESS"
+)
+
+const (
 	ContentType = "Content-Type"
 	HeaderKSQL  = "application/vnd.ksql.v1+json"
 )

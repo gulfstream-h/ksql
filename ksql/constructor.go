@@ -66,6 +66,9 @@ func (sb Builder) Fields(fields ...string) fieldsLayer {
 
 		if strings.Contains(field, ".") {
 			parts := strings.Split(field, ".")
+			if len(parts) != 2 {
+				continue
+			}
 			searchField.Name = parts[1]
 			searchField.Relation = parts[0]
 		} else {
@@ -92,6 +95,11 @@ func (cl cteLayer) Fields(fields ...string) fieldsLayer {
 
 		if strings.Contains(field, ".") {
 			parts := strings.Split(field, ".")
+
+			if len(parts) != 2 {
+				continue
+			}
+
 			searchField.Name = parts[1]
 			searchField.Relation = parts[0]
 		} else {

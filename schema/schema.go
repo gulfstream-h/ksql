@@ -29,11 +29,11 @@ func SerializeFieldsToStruct(
 	return reflect.StructOf(fields)
 }
 
-// DeserializeStructToFieldsDictionary - returns map of SearchField
+// ParseStructToFieldsDictionary - returns map of SearchField
 // from in-code serialized struct or from runtime generated structure
 // current fields describes all required info for DDL
 // it can be useful for faster search & comparison in structs
-func DeserializeStructToFieldsDictionary(
+func ParseStructToFieldsDictionary(
 	structName string,
 	runtimeStruct reflect.Type,
 ) map[string]SearchField {
@@ -63,10 +63,10 @@ func DeserializeStructToFieldsDictionary(
 
 }
 
-// DeserializeStructToFields - returns array of SearchField
+// ParseStructToFields - returns array of SearchField
 // from in-code serialized struct or from runtime generated structure
 // current fields describes all required info for DDL
-func DeserializeStructToFields(
+func ParseStructToFields(
 	structName string,
 	runtimeStruct reflect.Type,
 ) []SearchField {
@@ -99,7 +99,7 @@ func SerializeProvidedStruct(
 	schema any) reflect.Type {
 
 	var (
-		values map[string]kinds.Ksql
+		values map[string]kinds.Ktype
 	)
 
 	fields := structs.Fields(schema)
@@ -126,7 +126,7 @@ func SerializeRemoteSchema(
 
 	var (
 		schemaFields = make(
-			map[string]kinds.Ksql,
+			map[string]kinds.Ktype,
 		)
 	)
 
@@ -146,10 +146,10 @@ func SerializeRemoteSchema(
 	return createProjection(schemaFields)
 }
 
-// createProjection - defines reflect structure from map[string]kinds.Ksql declaration
+// createProjection - defines reflect structure from map[string]kinds.Ktype declaration
 // current structure is comparable. Can be invoked, parsed and cloned
 func createProjection(
-	fieldsList map[string]kinds.Ksql) reflect.Type {
+	fieldsList map[string]kinds.Ktype) reflect.Type {
 
 	var (
 		fields = make([]reflect.StructField, 0, len(fieldsList))
