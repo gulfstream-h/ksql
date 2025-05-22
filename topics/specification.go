@@ -13,6 +13,7 @@ import (
 	"ksql/static"
 	"ksql/streams"
 	"ksql/tables"
+	"net/http"
 )
 
 type Topic[S any] struct {
@@ -34,16 +35,13 @@ func ListTopics(ctx context.Context) (dto.ShowTopics, error) {
 			Ref:   ksql.TOPIC,
 		}}.Query()
 
-	var (
-		pipeline = make(chan []byte)
-	)
-
-	if err := network.Net.Perform(
+	pipeline, err := network.Net.Perform(
 		ctx,
+		http.MethodPost,
 		query,
-		pipeline,
-		network.ShortPolling{},
-	); err != nil {
+		&network.ShortPolling{},
+	)
+	if err != nil {
 		err = fmt.Errorf("cannot perform request: %w", err)
 		return dto.ShowTopics{}, err
 	}

@@ -58,18 +58,18 @@ type Poller interface {
 // current module sets it as default for code-reduce purpose
 func (n *network) Perform(
 	ctx context.Context,
+	method string,
 	query string,
-	pipeline chan<- []byte,
-	pollingAlgo Poller) error {
+	pollingAlgo Poller) (<-chan []byte, error) {
 
 	req, err := http.NewRequestWithContext(
 		ctx,
-		http.MethodPost,
+		method,
 		n.host,
 		bytes.NewReader([]byte(query)),
 	)
 	if err != nil {
-		return fmt.Errorf("error while formating req: %w", err)
+		return nil, fmt.Errorf("error while formating req: %w", err)
 	}
 
 	req.Header.Set(
@@ -82,13 +82,17 @@ func (n *network) Perform(
 	)
 
 	if resp, err = n.httpClient.Do(req); err != nil {
-		return fmt.Errorf("error while performing req: %w", err)
+		return nil, fmt.Errorf("error while performing req: %w", err)
 	}
 	defer resp.Body.Close()
 
+	var (
+		pipeline = make(chan []byte)
+	)
+
 	go pollingAlgo.Process(resp.Body, pipeline)
 
-	return nil
+	return pipeline, nil
 }
 
 type (

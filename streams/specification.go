@@ -13,6 +13,7 @@ import (
 	"ksql/ksql"
 	"ksql/schema"
 	"ksql/static"
+	"net/http"
 	"reflect"
 )
 
@@ -37,16 +38,13 @@ func ListStreams(ctx context.Context) (dto.ShowStreams, error) {
 		}}.
 		Query()
 
-	var (
-		pipeline = make(chan []byte)
-	)
-
-	if err := network.Net.Perform(
+	pipeline, err := network.Net.Perform(
 		ctx,
+		http.MethodPost,
 		query,
-		pipeline,
 		&network.ShortPolling{},
-	); err != nil {
+	)
+	if err != nil {
 		err = fmt.Errorf("cannot perform request: %w", err)
 		return dto.ShowStreams{}, err
 	}
@@ -83,17 +81,13 @@ func (s *Stream[S]) Describe(ctx context.Context) (dto.RelationDescription, erro
 		},
 	}.Query()
 
-	var (
-		pipeline = make(chan []byte)
-	)
-
-	if err := network.Net.Perform(
+	pipeline, err := network.Net.Perform(
 		ctx,
+		http.MethodPost,
 		query,
-		pipeline,
 		&network.ShortPolling{},
-	); err != nil {
-
+	)
+	if err != nil {
 		err = fmt.Errorf("cannot perform request: %w", err)
 		return dto.RelationDescription{}, err
 	}
@@ -130,16 +124,13 @@ func (s *Stream[S]) Drop(ctx context.Context) error {
 		},
 	}.Query()
 
-	var (
-		pipeline = make(chan []byte)
-	)
-
-	if err := network.Net.Perform(
+	pipeline, err := network.Net.Perform(
 		ctx,
+		http.MethodPost,
 		query,
-		pipeline,
 		&network.ShortPolling{},
-	); err != nil {
+	)
+	if err != nil {
 		return fmt.Errorf("cannot perform request: %w", err)
 	}
 
@@ -249,16 +240,13 @@ func CreateStream[S any](
 		},
 	}.Query()
 
-	var (
-		pipeline = make(chan []byte)
-	)
-
-	if err := network.Net.Perform(
+	pipeline, err := network.Net.Perform(
 		ctx,
+		http.MethodPost,
 		query,
-		pipeline,
 		&network.ShortPolling{},
-	); err != nil {
+	)
+	if err != nil {
 		return nil, fmt.Errorf("cannot perform request: %w", err)
 	}
 
@@ -336,16 +324,14 @@ func CreateStreamAsSelect[S any](
 		},
 	}.Query()
 
-	var (
-		pipeline = make(chan []byte)
-	)
-
-	if err := network.Net.Perform(
+	pipeline, err := network.Net.Perform(
 		ctx,
+		http.MethodPost,
 		q,
-		pipeline,
 		&network.ShortPolling{},
-	); err != nil {
+	)
+	if err != nil {
+		err = fmt.Errorf("cannot perform request: %w", err)
 		return nil, fmt.Errorf("cannot perform request: %w", err)
 	}
 
@@ -420,17 +406,13 @@ func (s *Stream[S]) Insert(
 		},
 	}.Query()
 
-	var (
-		pipeline = make(chan []byte)
-	)
-
-	if err := network.Net.Perform(
+	pipeline, err := network.Net.Perform(
 		ctx,
+		http.MethodPost,
 		query,
-		pipeline,
-		network.ShortPolling{},
-	); err != nil {
-
+		&network.ShortPolling{},
+	)
+	if err != nil {
 		return fmt.Errorf("cannot perform request: %w", err)
 	}
 
@@ -488,17 +470,14 @@ func (s *Stream[S]) InsertAs(
 		},
 	}.Query()
 
-	var (
-		pipeline = make(chan []byte)
-	)
-
-	if err := network.Net.Perform(
+	pipeline, err := network.Net.Perform(
 		ctx,
+		http.MethodPost,
 		q,
-		pipeline,
-		network.ShortPolling{},
-	); err != nil {
-
+		&network.ShortPolling{},
+	)
+	if err != nil {
+		return fmt.Errorf("cannot perform request: %w", err)
 	}
 
 	select {
@@ -550,17 +529,13 @@ func (s *Stream[S]) SelectOnce(
 		},
 	}.Query()
 
-	var (
-		pipeline = make(chan []byte)
-	)
-
-	if err := network.Net.Perform(
+	pipeline, err := network.Net.Perform(
 		ctx,
+		http.MethodPost,
 		query,
-		pipeline,
 		&network.ShortPolling{},
-	); err != nil {
-
+	)
+	if err != nil {
 		return value, fmt.Errorf("cannot perform request: %w", err)
 	}
 
@@ -607,16 +582,13 @@ func (s *Stream[S]) SelectWithEmit(
 		},
 	}.Query()
 
-	var (
-		pipeline = make(chan []byte)
-	)
-
-	if err := network.Net.Perform(
+	pipeline, err := network.Net.Perform(
 		ctx,
+		http.MethodPost,
 		query,
-		pipeline,
-		&network.LongPolling{},
-	); err != nil {
+		&network.ShortPolling{},
+	)
+	if err != nil {
 		return nil, fmt.Errorf("cannot perform request: %w", err)
 	}
 
