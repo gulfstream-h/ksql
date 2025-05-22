@@ -12,14 +12,12 @@ import (
 // it's not bound to any specific structure
 // so can be easily called from any space
 type StreamSettings struct {
-	Name         string
-	SourceTopic  *string
-	SourceStream *string
-	SourceTable  *string
-	Partitions   *uint8
-	Schema       reflect.Type
-	Format       kinds.ValueFormat
-	DeleteFunc   func(context.Context)
+	Name        string
+	SourceTopic *string
+	Partitions  *uint8
+	Schema      reflect.Type
+	Format      kinds.ValueFormat
+	DeleteFunc  func(context.Context)
 }
 
 // Register - registers a full-functional table

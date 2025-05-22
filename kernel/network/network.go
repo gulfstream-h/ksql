@@ -49,7 +49,7 @@ func Init(config config.Config) {
 // Mostly all ksql requests are short polling, however EMIT_CHANGES requests are
 // long polling
 type Poller interface {
-	Process(io.ReadCloser, chan<- []byte)
+	Process(io.ReadCloser) <-chan []byte
 }
 
 // Perform - is common for all net request logic,
@@ -86,13 +86,7 @@ func (n *network) Perform(
 	}
 	defer resp.Body.Close()
 
-	var (
-		pipeline = make(chan []byte)
-	)
-
-	go pollingAlgo.Process(resp.Body, pipeline)
-
-	return pipeline, nil
+	return pollingAlgo.Process(resp.Body), nil
 }
 
 type (
@@ -103,19 +97,22 @@ type (
 // it can be used for show, describe, drop, create, insert and most of select queries
 func (sp ShortPolling) Process(
 	payload io.ReadCloser,
-	pipeline chan<- []byte) {
+) <-chan []byte {
 
-	defer payload.Close()
-	defer close(pipeline)
+	ch := make(chan []byte, 1)
 
-	buffer, err := io.ReadAll(payload)
-	if err != nil {
-		return
-	}
+	go func() {
+		defer payload.Close()
+		defer close(ch)
 
-	pipeline <- buffer
+		buffer, err := io.ReadAll(payload)
+		if err != nil {
+			return
+		}
+		ch <- buffer
+	}()
 
-	return
+	return ch
 }
 
 type (
@@ -125,27 +122,27 @@ type (
 // Process - performs long-living requests. Mostly SELECT with EMIT CHANGES.
 // Channel is closed only on receiving EOF from KSQL-Client
 func (lp LongPolling) Process(
-	payload io.ReadCloser,
-	pipeline chan<- []byte) {
+	payload io.ReadCloser) <-chan []byte {
 
-	defer payload.Close()
-	defer close(pipeline)
+	ch := make(chan []byte)
 
-	scanner := bufio.NewScanner(payload)
+	go func() {
+		scanner := bufio.NewScanner(payload)
 
-	for scanner.Scan() {
-		line := scanner.Text()
+		for scanner.Scan() {
+			line := scanner.Text()
 
-		if len(line) == 0 {
-			continue
+			if len(line) == 0 {
+				continue
+			}
+
+			ch <- []byte(line)
 		}
 
-		pipeline <- []byte(line)
-	}
+		if err := scanner.Err(); err != nil {
+			return
+		}
+	}()
 
-	if err := scanner.Err(); err != nil {
-		return
-	}
-
-	return
+	return ch
 }
