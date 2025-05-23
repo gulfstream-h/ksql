@@ -54,14 +54,22 @@ func CompareStructs(
 // FindRelationFields returns the fields of a relation (stream or table) based on its name.
 // It can be used for other DDL check-ups
 func FindRelationFields(relationName string) (map[string]SearchField, error) {
-	streamSettings, exists := static.StreamsProjections[relationName]
+	streamSettings, exists := static.StreamsProjections.Load(relationName)
 	if exists {
-		return ParseStructToFieldsDictionary(relationName, streamSettings.Schema), nil
+		settings, ok := streamSettings.(static.StreamSettings)
+		if !ok {
+			return nil, errors.New("invalid map values have been inserted")
+		}
+		return ParseStructToFieldsDictionary(relationName, settings.Schema), nil
 	}
 
-	tableSettings, exists := static.TablesProjections[relationName]
+	tableSettings, exists := static.TablesProjections.Load(relationName)
 	if exists {
-		return ParseStructToFieldsDictionary(relationName, tableSettings.Schema), nil
+		settings, ok := tableSettings.(static.TableSettings)
+		if !ok {
+			return nil, errors.New("invalid map values have been inserted")
+		}
+		return ParseStructToFieldsDictionary(relationName, settings.Schema), nil
 	}
 
 	return nil, errors.New("cannot find relation fields")

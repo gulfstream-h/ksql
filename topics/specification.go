@@ -79,7 +79,7 @@ func (t *Topic[S]) RegisterStream(streamName string) streams.StreamSettings {
 		},
 	}
 
-	static.StreamsProjections[streamName] = static.StreamSettings(streamSettings)
+	static.StreamsProjections.Store(streamName, static.StreamSettings(streamSettings))
 
 	t.ChildObjects.Streams[streamName] = struct{}{}
 
@@ -98,7 +98,7 @@ func (t *Topic[S]) RegisterTable(tableName string) tables.TableSettings {
 		},
 	}
 
-	static.TablesProjections[tableName] = static.TableSettings(tableSettings)
+	static.TablesProjections.Store(tableName, static.TableSettings(tableSettings))
 
 	t.ChildObjects.Tables[tableName] = struct{}{}
 

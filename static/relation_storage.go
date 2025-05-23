@@ -1,5 +1,7 @@
 package static
 
+import "sync"
+
 // Current file describes global settings
 // storage for all existing streams and topics
 
@@ -9,13 +11,9 @@ package static
 // of holding and processable fields
 
 var (
-	StreamsProjections = make(
-		map[string]StreamSettings,
-	)
+	StreamsProjections sync.Map
 
-	TablesProjections = make(
-		map[string]TableSettings,
-	)
+	TablesProjections sync.Map
 )
 
 // Also schemas are required for DDL representation
