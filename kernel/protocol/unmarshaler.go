@@ -83,6 +83,11 @@ func (kd KafkaDeserializer) Deserialize(
 	ks.JoinAlgo = kd.JoinAlgo.Deserialize(reg.FindString(partialQuery))
 	partialQuery = reg.ReplaceAllString(partialQuery, "")
 
+	reg = regexp.MustCompile(groupByRegular)
+
+	ks.GroupBy = kd.GroupByAlgo.Deserialize(reg.FindString(partialQuery))
+	partialQuery = reg.ReplaceAllString(partialQuery, "")
+
 	reg = regexp.MustCompile(whereRegular)
 
 	whereClause := reg.FindString(partialQuery)
@@ -94,11 +99,6 @@ func (kd KafkaDeserializer) Deserialize(
 	partialQuery = reg.ReplaceAllString(partialQuery, "")
 
 	ks.CondAlgo = kd.ConditionalAlgo.Deserialize(whereClause, havingClause)
-
-	reg = regexp.MustCompile(groupByRegular)
-
-	ks.GroupBy = kd.GroupByAlgo.Deserialize(reg.FindString(partialQuery))
-	partialQuery = reg.ReplaceAllString(partialQuery, "")
 
 	reg = regexp.MustCompile(metadataRegular)
 
@@ -116,21 +116,18 @@ func deserializeCTE(
 		cte map[string]KafkaSerializer
 	)
 
+	partialQuery, _ = strings.CutPrefix(partialQuery, "WITH")
+
+	kd.Deserialize(partialQuery)
+
 	return cte
 }
 
-func deserializeAs(
-	partialQuery string,
-	kd KafkaDeserializer) map[string]KafkaSerializer {
-
-	return map[string]KafkaSerializer{"AS": kd.Deserialize(partialQuery)}
-}
-
 const (
-	selectRegular = `(?is)\bSELECT\s+(.*?)(?=\s+FROM)`
+	selectRegular = `(?is)FROM\s+[a-zA-Z0-9_\.]+\s+([a-zA-Z0-9_]+)`
 	createRegular = `(?is)\bCREATE\s+(TABLE|STREAM)\s+([a-zA-Z0-9_]+)\s*\((.*?)\)\s*(WITH\s*\(.*\))?`
 	insertRegular = `(?is)\bINSERT\s+INTO\s+([a-zA-Z0-9_]+)\s*\((.*?)\)\s*VALUES\s*\((.*?)\)`
-	cteRegular    = `(?is)\bWITH\s+([a-zA-Z0-9_]+)\s+AS\s*\((.*?)\)`
+	cteRegular    = `(?is)\bWITH\s+((?:[a-zA-Z0-9_]+\s+AS\s*\((?:[^()]*|\([^()]*\))*\)\s*,?\s*)+)`
 )
 
 type QueryDeserializeAlgo interface {
@@ -138,7 +135,7 @@ type QueryDeserializeAlgo interface {
 }
 
 const (
-	schemeRegular = `(?i)SELECT\s+(.*?)\s+FROM`
+	schemeRegular = `(?is)\bSELECT\s+(.*?)\s+FROM\b`
 )
 
 type SchemaDeserializeAlgo interface {
