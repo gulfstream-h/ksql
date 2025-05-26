@@ -12,6 +12,10 @@ type having struct {
 	conditionals []BooleanExpression
 }
 
+func NewHavingExpression() HavingExpression {
+	return &having{}
+}
+
 func (h *having) Having(exps ...BooleanExpression) HavingExpression {
 	h.conditionals = append(h.conditionals, exps...)
 	return h

@@ -12,6 +12,10 @@ type where struct {
 	conditionals []BooleanExpression
 }
 
+func NewWhereExpression() WhereExpression {
+	return &where{}
+}
+
 func (w *where) Expression() string {
 	if len(w.conditionals) == 0 {
 		return ""

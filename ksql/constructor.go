@@ -10,10 +10,6 @@ type (
 	Builder int
 )
 
-var (
-	SelectBuilder Builder
-)
-
 type builderContext struct {
 	query     Query
 	fields    FullSchema

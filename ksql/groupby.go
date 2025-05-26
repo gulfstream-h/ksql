@@ -12,6 +12,10 @@ type group struct {
 	fields []Field
 }
 
+func NewGroupByExpression() GroupExpression {
+	return &group{}
+}
+
 func (g *group) GroupedFields() []Field {
 	fields := make([]Field, len(g.fields))
 	copy(fields, g.fields)
