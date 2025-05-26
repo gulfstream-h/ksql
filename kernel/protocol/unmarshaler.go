@@ -175,5 +175,5 @@ const (
 )
 
 type MetadataDeserializeAlgo interface {
-	Deserialize(string) ksql.With
+	Deserialize(string) ksql.Metadata
 }

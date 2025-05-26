@@ -8,6 +8,7 @@ type (
 	JoinExpression interface {
 		Schema() string
 		On() BooleanExpression
+		Expression() string
 	}
 
 	join struct {

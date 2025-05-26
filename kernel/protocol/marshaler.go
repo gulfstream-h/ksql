@@ -18,7 +18,7 @@ type (
 		JoinAlgo     ksql.Join
 		CondAlgo     ksql.Cond
 		GroupBy      []schema.SearchField
-		MetadataAlgo ksql.With
+		MetadataAlgo ksql.Metadata
 		CTE          map[string]KafkaSerializer
 	}
 )

@@ -234,7 +234,7 @@ func CreateStream[S any](
 			streamName,
 			rmSchema,
 		),
-		MetadataAlgo: ksql.With{
+		MetadataAlgo: ksql.Metadata{
 			Topic:       *settings.SourceTopic,
 			ValueFormat: kinds.JSON.String(),
 		},
@@ -315,7 +315,7 @@ func CreateStreamAsSelect[S any](
 			Name:  streamName,
 		},
 		SchemaAlgo: query.SchemaAlgo,
-		MetadataAlgo: ksql.With{
+		MetadataAlgo: ksql.Metadata{
 			Topic:       *settings.SourceTopic,
 			ValueFormat: kinds.JSON.String(),
 		},
@@ -524,7 +524,7 @@ func (s *Stream[S]) SelectOnce(
 			s.Name,
 			*s.remoteSchema,
 		),
-		MetadataAlgo: ksql.With{
+		MetadataAlgo: ksql.Metadata{
 			ValueFormat: kinds.JSON.String(),
 		},
 	}.Query()
@@ -577,7 +577,7 @@ func (s *Stream[S]) SelectWithEmit(
 			s.Name,
 			*s.remoteSchema,
 		),
-		MetadataAlgo: ksql.With{
+		MetadataAlgo: ksql.Metadata{
 			ValueFormat: kinds.JSON.String(),
 		},
 	}.Query()

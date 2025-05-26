@@ -8,6 +8,7 @@ type (
 
 		As(alias string) SelectBuilder
 		Alias() string
+		WithCTE(inner SelectBuilder) SelectBuilder
 		Select(fields ...Field) SelectBuilder
 		From(schema string) SelectBuilder
 		Where(expressions ...BooleanExpression) SelectBuilder
@@ -42,10 +43,11 @@ type (
 
 type selectBuilder struct {
 	alias     string
+	meta      Metadata
 	with      []SelectBuilder
 	fields    []Field
+	joinExs   []JoinExpression
 	fromEx    FromExpression
-	joinEx    JoinExpression
 	whereEx   WhereExpression
 	havingEx  HavingExpression
 	groupByEx GroupExpression
@@ -54,7 +56,7 @@ type selectBuilder struct {
 func newSelectBuilder() *selectBuilder {
 	return &selectBuilder{
 		fields:    nil,
-		joinEx:    Join("", nil, -1),
+		joinExs:   nil,
 		fromEx:    NewFromExpression(),
 		whereEx:   NewWhereExpression(),
 		havingEx:  NewHavingExpression(),
@@ -89,7 +91,7 @@ func (s *selectBuilder) Join(
 	schema string,
 	on BooleanExpression,
 ) SelectBuilder {
-	s.joinEx = Join(schema, on, Inner)
+	s.joinExs = append(s.joinExs, Join(schema, on, Inner))
 	return s
 }
 
@@ -97,7 +99,7 @@ func (s *selectBuilder) LeftJoin(
 	schema string,
 	on BooleanExpression,
 ) SelectBuilder {
-	s.joinEx = Join(schema, on, Left)
+	s.joinExs = append(s.joinExs, Join(schema, on, Left))
 	return s
 }
 
@@ -105,7 +107,7 @@ func (s *selectBuilder) RightJoin(
 	schema string,
 	on BooleanExpression,
 ) SelectBuilder {
-	s.joinEx = Join(schema, on, Right)
+	s.joinExs = append(s.joinExs, Join(schema, on, Right))
 	return s
 }
 
@@ -113,7 +115,7 @@ func (s *selectBuilder) OuterJoin(
 	schema string,
 	on BooleanExpression,
 ) SelectBuilder {
-	s.joinEx = Join(schema, on, Outer)
+	s.joinExs = append(s.joinExs, Join(schema, on, Outer))
 	return s
 }
 
@@ -121,7 +123,7 @@ func (s *selectBuilder) CrossJoin(
 	schema string,
 	on BooleanExpression,
 ) SelectBuilder {
-	s.joinEx = Join(schema, on, Cross)
+	s.joinExs = append(s.joinExs, Join(schema, on, Cross))
 	return s
 }
 
@@ -145,10 +147,17 @@ func (s *selectBuilder) Where(expressions ...BooleanExpression) SelectBuilder {
 	return s
 }
 
-func (s *selectBuilder) With(
+func (s *selectBuilder) WithCTE(
 	inner SelectBuilder,
 ) SelectBuilder {
 	s.with = append(s.with, inner)
+	return s
+}
+
+func (s *selectBuilder) WithMeta(
+	with Metadata,
+) SelectBuilder {
+	s.meta = with
 	return s
 }
 
@@ -225,6 +234,17 @@ func (s *selectBuilder) Expression() string {
 	builder.WriteString("\n")
 	builder.WriteString(fromString)
 
+	for idx := range s.joinExs {
+		expression := s.joinExs[idx].Expression()
+		if len(expression) == 0 {
+			// todo add err
+			return ""
+		}
+
+		builder.WriteString("\n")
+		builder.WriteString(expression)
+	}
+
 	// todo handle errors on build
 
 	whereString := s.whereEx.Expression()
@@ -244,5 +264,8 @@ func (s *selectBuilder) Expression() string {
 		builder.WriteString("\n")
 		builder.WriteString(groupByString)
 	}
+
+	builder.WriteString(s.meta.Expression())
+
 	return builder.String()
 }

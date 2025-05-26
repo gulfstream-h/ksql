@@ -9,9 +9,9 @@ type (
 	MetadataRestAnalysis struct{}
 )
 
-func (ma MetadataRestAnalysis) Deserialize(query string) ksql.With {
+func (ma MetadataRestAnalysis) Deserialize(query string) ksql.Metadata {
 	var (
-		w ksql.With
+		w ksql.Metadata
 	)
 
 	topic, found := strings.CutPrefix(query, "KAFKA_TOPIC=`")
