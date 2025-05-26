@@ -6,6 +6,8 @@ type (
 	SelectBuilder interface {
 		Joiner
 
+		As(alias string) SelectBuilder
+		Alias() string
 		Select(fields ...Field) SelectBuilder
 		From(schema string) SelectBuilder
 		Where(expressions ...BooleanExpression) SelectBuilder
@@ -39,6 +41,8 @@ type (
 )
 
 type selectBuilder struct {
+	alias     string
+	with      []SelectBuilder
 	fields    []Field
 	fromEx    FromExpression
 	joinEx    JoinExpression
@@ -65,6 +69,15 @@ func Select(fields ...Field) SelectBuilder {
 	copy(sb.fields, fields)
 
 	return sb
+}
+
+func (s *selectBuilder) As(alias string) SelectBuilder {
+	s.alias = alias
+	return s
+}
+
+func (s *selectBuilder) Alias() string {
+	return s.alias
 }
 
 func (s *selectBuilder) Select(fields ...Field) SelectBuilder {
@@ -132,15 +145,91 @@ func (s *selectBuilder) Where(expressions ...BooleanExpression) SelectBuilder {
 	return s
 }
 
+func (s *selectBuilder) With(
+	inner SelectBuilder,
+) SelectBuilder {
+	s.with = append(s.with, inner)
+	return s
+}
+
 func (s *selectBuilder) Expression() string {
 	var (
-		builder = new(strings.Builder)
+		builder      = new(strings.Builder)
+		cteIsFirst   = true
+		fieldIsFirst = true
 	)
+
+	// write CTEs recursively
+	if len(s.with) > 0 {
+		for i := range s.with {
+			alias := s.with[i].Alias()
+			if len(alias) == 0 {
+				// todo: add error
+				return ""
+			}
+
+			expression := s.with[i].Expression()
+			if len(expression) == 0 {
+				// todo: add error
+				return ""
+			}
+
+			if i != len(s.with)-1 && !cteIsFirst {
+				builder.WriteString(",")
+			}
+
+			builder.WriteString(alias)
+			builder.WriteString(" AS ")
+			builder.WriteString("(\n")
+			builder.WriteString(expression)
+			builder.WriteString("\n)")
+			cteIsFirst = false
+
+		}
+	}
+
+	// SELECT ..fields section
+	if len(s.fields) == 0 {
+		// todo add err
+		return ""
+	}
+
+	builder.WriteString("SELECT ")
+	for idx := range s.fields {
+		expression := s.fields[idx].Expression()
+		if len(expression) == 0 {
+			// todo add err
+			return ""
+		}
+
+		if idx != len(s.fields) && !fieldIsFirst {
+			builder.WriteString(", ")
+		}
+		builder.WriteString(expression)
+		fieldIsFirst = false
+
+		alias := s.fields[idx].Alias()
+		if len(alias) > 0 {
+			builder.WriteString(" AS ")
+			builder.WriteString(alias)
+		}
+
+	}
+
+	fromString := s.fromEx.Expression()
+	if len(fromString) == 0 {
+		// todo add err
+		return ""
+	}
+
+	builder.WriteString("\n")
+	builder.WriteString(fromString)
 
 	// todo handle errors on build
 
 	whereString := s.whereEx.Expression()
 	if len(whereString) != 0 {
+		builder.WriteString("\n")
 		builder.WriteString(whereString)
 	}
 

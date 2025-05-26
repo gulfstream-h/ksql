@@ -13,6 +13,8 @@ type Field interface {
 
 	Schema() string
 	Column() string
+	Alias() string
+	As(alias string) Field
 	Copy() Field
 	Expression() string
 }
@@ -20,6 +22,7 @@ type Field interface {
 var _ Field = (*field)(nil)
 
 type field struct {
+	alias  string
 	schema string
 	col    string
 }
@@ -31,6 +34,14 @@ func F(s string) Field {
 	return &f
 }
 
+func (f *field) As(alias string) Field {
+	f.alias = alias
+	return f
+}
+
+func (f *field) Alias() string {
+	return f.alias
+}
 func (f *field) Expression() string {
 	if len(f.schema) != 0 {
 		return fmt.Sprintf("%s.%s", f.schema, f.col)
