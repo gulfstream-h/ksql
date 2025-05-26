@@ -4,7 +4,8 @@ import "strings"
 
 type WhereExpression interface {
 	Expression() string
-	WhereConditionals() []BooleanExpression
+	Conditionals() []BooleanExpression
+	Where(exps ...BooleanExpression) WhereExpression
 }
 
 type where struct {
@@ -40,6 +41,14 @@ func (w *where) Expression() string {
 	return builder.String()
 }
 
-func (w *where) WhereConditionals() []BooleanExpression {
-	return w.conditionals
+func (w *where) Conditionals() []BooleanExpression {
+	conditionals := make([]BooleanExpression, len(w.conditionals))
+	copy(conditionals, w.conditionals)
+	return conditionals
+}
+
+func (w *where) Where(exps ...BooleanExpression) WhereExpression {
+	w.conditionals = append(w.conditionals, exps...)
+	return w
+
 }

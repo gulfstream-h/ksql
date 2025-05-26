@@ -5,10 +5,22 @@ import "strings"
 type GroupExpression interface {
 	Expression() string
 	GroupedFields() []Field
+	GroupBy(fields ...Field) GroupExpression
 }
 
 type group struct {
 	fields []Field
+}
+
+func (g *group) GroupedFields() []Field {
+	fields := make([]Field, len(g.fields))
+	copy(fields, g.fields)
+	return fields
+}
+
+func (g *group) GroupBy(fields ...Field) GroupExpression {
+	g.fields = append(g.fields, fields...)
+	return g
 }
 
 func (g *group) Expression() string {
