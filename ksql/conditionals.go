@@ -8,32 +8,30 @@ import (
 )
 
 type (
-	BooleanExpression interface {
+	Expression interface {
 		Expression() string
-		Left() Field
-		Right() any
 	}
 
 	Comparable interface {
-		Equal(val any) BooleanExpression
-		NotEqual(val any) BooleanExpression
+		Equal(val any) Expression
+		NotEqual(val any) Expression
 	}
 
 	Ordered interface {
-		Greater(val any) BooleanExpression
-		Less(val any) BooleanExpression
-		GreaterEq(val any) BooleanExpression
-		LessEq(val any) BooleanExpression
+		Greater(val any) Expression
+		Less(val any) Expression
+		GreaterEq(val any) Expression
+		LessEq(val any) Expression
 	}
 
 	Nullable interface {
-		IsNull() BooleanExpression
-		IsNotNull() BooleanExpression
+		IsNull() Expression
+		IsNotNull() Expression
 	}
 
 	ComparableArray interface {
-		In(val ...any) BooleanExpression
-		NotIn(val ...any) BooleanExpression
+		In(val ...any) Expression
+		NotIn(val ...any) Expression
 	}
 
 	Op int
@@ -60,7 +58,7 @@ type booleanExp struct {
 	operation Op
 }
 
-func NewBooleanExp(left Field, right any, op Op) BooleanExpression {
+func NewBooleanExp(left Field, right any, op Op) Expression {
 	return &booleanExp{left: left, right: right, operation: op}
 }
 

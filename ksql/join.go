@@ -7,12 +7,12 @@ import (
 type (
 	JoinExpression interface {
 		Schema() string
-		On() BooleanExpression
+		On() Expression
 		Expression() string
 	}
 
 	join struct {
-		on        BooleanExpression
+		on        Expression
 		schema    string
 		operation JoinType
 	}
@@ -28,7 +28,7 @@ const (
 	Cross
 )
 
-func Join(schema string, on BooleanExpression, joinType JoinType) JoinExpression {
+func Join(schema string, on Expression, joinType JoinType) JoinExpression {
 	return &join{
 		on:        on,
 		schema:    schema,
@@ -40,7 +40,7 @@ func (j *join) Schema() string {
 	return j.schema
 }
 
-func (j *join) On() BooleanExpression {
+func (j *join) On() Expression {
 	return j.on
 }
 

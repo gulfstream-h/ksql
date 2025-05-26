@@ -50,43 +50,43 @@ func (f *field) Expression() string {
 	return f.col
 }
 
-func (f *field) Equal(val any) BooleanExpression {
+func (f *field) Equal(val any) Expression {
 	return NewBooleanExp(f.Copy(), val, equal)
 }
 
-func (f *field) NotEqual(val any) BooleanExpression {
+func (f *field) NotEqual(val any) Expression {
 	return NewBooleanExp(f.Copy(), val, notEqual)
 }
 
-func (f *field) Greater(val any) BooleanExpression {
+func (f *field) Greater(val any) Expression {
 	return NewBooleanExp(f.Copy(), val, more)
 
 }
 
-func (f *field) Less(val any) BooleanExpression {
+func (f *field) Less(val any) Expression {
 	return NewBooleanExp(f.Copy(), val, less)
 
 }
 
-func (f *field) GreaterEq(val any) BooleanExpression {
+func (f *field) GreaterEq(val any) Expression {
 	return NewBooleanExp(f.Copy(), val, moreEqual)
 
 }
 
-func (f *field) LessEq(val any) BooleanExpression {
+func (f *field) LessEq(val any) Expression {
 	return NewBooleanExp(f.Copy(), val, lessEqual)
 
 }
 
-func (f *field) IsNotNull() BooleanExpression {
+func (f *field) IsNotNull() Expression {
 	return NewBooleanExp(f.Copy(), nil, isNotNull)
 }
 
-func (f *field) In(val ...any) BooleanExpression {
+func (f *field) In(val ...any) Expression {
 	return NewBooleanExp(f.Copy(), val, in)
 }
 
-func (f *field) NotIn(val ...any) BooleanExpression {
+func (f *field) NotIn(val ...any) Expression {
 	return NewBooleanExp(f.Copy(), val, notIn)
 }
 
@@ -123,6 +123,6 @@ func (f *field) parse(s string) {
 func (f *field) Schema() string { return f.schema }
 func (f *field) Column() string { return f.col }
 
-func (f *field) IsNull() BooleanExpression {
+func (f *field) IsNull() Expression {
 	return NewBooleanExp(f.Copy(), nil, isNull)
 }

@@ -11,8 +11,8 @@ type (
 		WithCTE(inner SelectBuilder) SelectBuilder
 		Select(fields ...Field) SelectBuilder
 		From(schema string) SelectBuilder
-		Where(expressions ...BooleanExpression) SelectBuilder
-		Having(expressions ...BooleanExpression) SelectBuilder
+		Where(expressions ...Expression) SelectBuilder
+		Having(expressions ...Expression) SelectBuilder
 		GroupBy(fields ...Field) SelectBuilder
 		Expression() string
 	}
@@ -20,23 +20,23 @@ type (
 	Joiner interface {
 		LeftJoin(
 			schema string,
-			on BooleanExpression,
+			on Expression,
 		) SelectBuilder
 		Join(
 			schema string,
-			on BooleanExpression,
+			on Expression,
 		) SelectBuilder
 		RightJoin(
 			schema string,
-			on BooleanExpression,
+			on Expression,
 		) SelectBuilder
 		OuterJoin(
 			schema string,
-			on BooleanExpression,
+			on Expression,
 		) SelectBuilder
 		CrossJoin(
 			schema string,
-			on BooleanExpression,
+			on Expression,
 		) SelectBuilder
 	}
 )
@@ -89,7 +89,7 @@ func (s *selectBuilder) Select(fields ...Field) SelectBuilder {
 
 func (s *selectBuilder) Join(
 	schema string,
-	on BooleanExpression,
+	on Expression,
 ) SelectBuilder {
 	s.joinExs = append(s.joinExs, Join(schema, on, Inner))
 	return s
@@ -97,7 +97,7 @@ func (s *selectBuilder) Join(
 
 func (s *selectBuilder) LeftJoin(
 	schema string,
-	on BooleanExpression,
+	on Expression,
 ) SelectBuilder {
 	s.joinExs = append(s.joinExs, Join(schema, on, Left))
 	return s
@@ -105,7 +105,7 @@ func (s *selectBuilder) LeftJoin(
 
 func (s *selectBuilder) RightJoin(
 	schema string,
-	on BooleanExpression,
+	on Expression,
 ) SelectBuilder {
 	s.joinExs = append(s.joinExs, Join(schema, on, Right))
 	return s
@@ -113,7 +113,7 @@ func (s *selectBuilder) RightJoin(
 
 func (s *selectBuilder) OuterJoin(
 	schema string,
-	on BooleanExpression,
+	on Expression,
 ) SelectBuilder {
 	s.joinExs = append(s.joinExs, Join(schema, on, Outer))
 	return s
@@ -121,7 +121,7 @@ func (s *selectBuilder) OuterJoin(
 
 func (s *selectBuilder) CrossJoin(
 	schema string,
-	on BooleanExpression,
+	on Expression,
 ) SelectBuilder {
 	s.joinExs = append(s.joinExs, Join(schema, on, Cross))
 	return s
@@ -132,7 +132,7 @@ func (s *selectBuilder) From(schema string) SelectBuilder {
 	return s
 }
 
-func (s *selectBuilder) Having(expressions ...BooleanExpression) SelectBuilder {
+func (s *selectBuilder) Having(expressions ...Expression) SelectBuilder {
 	s.havingEx = s.havingEx.Having(expressions...)
 	return s
 }
@@ -142,7 +142,7 @@ func (s *selectBuilder) GroupBy(fields ...Field) SelectBuilder {
 	return s
 }
 
-func (s *selectBuilder) Where(expressions ...BooleanExpression) SelectBuilder {
+func (s *selectBuilder) Where(expressions ...Expression) SelectBuilder {
 	s.whereEx = s.whereEx.Where(expressions...)
 	return s
 }

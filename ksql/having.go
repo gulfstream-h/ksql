@@ -4,25 +4,25 @@ import "strings"
 
 type HavingExpression interface {
 	Expression() string
-	Conditionals() []BooleanExpression
-	Having(exps ...BooleanExpression) HavingExpression
+	Conditionals() []Expression
+	Having(exps ...Expression) HavingExpression
 }
 
 type having struct {
-	conditionals []BooleanExpression
+	conditionals []Expression
 }
 
 func NewHavingExpression() HavingExpression {
 	return &having{}
 }
 
-func (h *having) Having(exps ...BooleanExpression) HavingExpression {
+func (h *having) Having(exps ...Expression) HavingExpression {
 	h.conditionals = append(h.conditionals, exps...)
 	return h
 }
 
-func (h *having) Conditionals() []BooleanExpression {
-	conditionals := make([]BooleanExpression, len(h.conditionals))
+func (h *having) Conditionals() []Expression {
+	conditionals := make([]Expression, len(h.conditionals))
 	copy(conditionals, h.conditionals)
 	return conditionals
 }
