@@ -119,9 +119,30 @@ func deserializeCTE(
 	cte map[string]KafkaSerializer,
 	kd KafkaDeserializer) map[string]KafkaSerializer {
 
-	kd.Deserialize(partialQuery)
+	name, query, found := strings.Cut(partialQuery, "AS")
+	if !found {
+		return cte
+	}
 
-	return cte
+	if name == "" {
+		name = "AS"
+	}
+
+	tailQuery, found := strings.CutPrefix(query, "(")
+	if !found {
+		return cte
+	}
+
+	partialQuery, restQuery, found := strings.Cut(tailQuery, "),")
+	if !found {
+		partialQuery, _, found = strings.Cut(tailQuery, ") SELECT")
+		kd.Deserialize(partialQuery)
+		return cte
+	}
+
+	cte[name] = kd.Deserialize(partialQuery)
+
+	return deserializeCTE(restQuery, cte, kd)
 }
 
 const (
