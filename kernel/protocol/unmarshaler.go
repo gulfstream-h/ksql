@@ -49,7 +49,13 @@ func (kd KafkaDeserializer) Deserialize(
 
 	cteQuery := reg.FindString(query)
 
-	deserializeCTE(cteQuery, kd)
+	var (
+		cte map[string]KafkaSerializer
+	)
+
+	cteQuery, _ = strings.CutPrefix(cteQuery, "WITH")
+
+	ks.CTE = deserializeCTE(cteQuery, cte, kd)
 
 	partialQuery := reg.ReplaceAllString(query, "")
 
@@ -110,13 +116,8 @@ func (kd KafkaDeserializer) Deserialize(
 
 func deserializeCTE(
 	partialQuery string,
+	cte map[string]KafkaSerializer,
 	kd KafkaDeserializer) map[string]KafkaSerializer {
-
-	var (
-		cte map[string]KafkaSerializer
-	)
-
-	partialQuery, _ = strings.CutPrefix(partialQuery, "WITH")
 
 	kd.Deserialize(partialQuery)
 
