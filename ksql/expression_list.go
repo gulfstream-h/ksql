@@ -4,7 +4,7 @@ import "strings"
 
 type (
 	ExpressionList interface {
-		Expression() string
+		Expression() (string, bool)
 		ExpressionList() []Expression
 	}
 
@@ -41,7 +41,7 @@ func (el *expressionList) ExpressionList() []Expression {
 	return exps
 }
 
-func (el *expressionList) Expression() string {
+func (el *expressionList) Expression() (string, bool) {
 	var (
 		operation string
 
@@ -57,10 +57,9 @@ func (el *expressionList) Expression() string {
 	}
 
 	for idx := range el.expressions {
-		exp := el.expressions[idx].Expression()
-		if len(exp) == 0 {
-			// todo add err
-			return ""
+		exp, ok := el.expressions[idx].Expression()
+		if !ok {
+			return "", false
 		}
 
 		if idx != len(el.expressions)-1 && !isFirst {
@@ -72,5 +71,5 @@ func (el *expressionList) Expression() string {
 
 	}
 
-	return builder.String()
+	return builder.String(), true
 }

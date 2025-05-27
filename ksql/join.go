@@ -8,7 +8,7 @@ type (
 	JoinExpression interface {
 		Schema() string
 		On() Expression
-		Expression() string
+		Expression() (string, bool)
 	}
 
 	join struct {
@@ -44,13 +44,18 @@ func (j *join) On() Expression {
 	return j.on
 }
 
-func (j *join) Expression() string {
+func (j *join) Expression() (string, bool) {
 	var (
 		operationString string
 	)
 
 	if len(j.schema) == 0 || j.on == nil {
-		return ""
+		return "", false
+	}
+
+	expression, ok := j.on.Expression()
+	if !ok {
+		return "", false
 	}
 
 	switch j.operation {
@@ -67,7 +72,7 @@ func (j *join) Expression() string {
 	}
 	return fmt.Sprintf(
 		"%s %s ON %s",
-		operationString, j.schema, j.on.Expression(),
-	)
+		operationString, j.schema, expression,
+	), true
 
 }

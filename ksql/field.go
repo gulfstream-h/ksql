@@ -16,7 +16,7 @@ type Field interface {
 	Alias() string
 	As(alias string) Field
 	Copy() Field
-	Expression() string
+	Expression() (string, bool)
 }
 
 var _ Field = (*field)(nil)
@@ -42,12 +42,16 @@ func (f *field) As(alias string) Field {
 func (f *field) Alias() string {
 	return f.alias
 }
-func (f *field) Expression() string {
+func (f *field) Expression() (string, bool) {
 	if len(f.schema) != 0 {
-		return fmt.Sprintf("%s.%s", f.schema, f.col)
+		return fmt.Sprintf("%s.%s", f.schema, f.col), true
 	}
 
-	return f.col
+	if len(f.schema) == 0 {
+		return "", false
+	}
+
+	return f.col, true
 }
 
 func (f *field) Equal(val any) Expression {

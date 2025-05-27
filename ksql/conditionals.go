@@ -9,7 +9,7 @@ import (
 
 type (
 	Expression interface {
-		Expression() string
+		Expression() (string, bool)
 	}
 
 	Comparable interface {
@@ -62,7 +62,7 @@ func NewBooleanExp(left Field, right any, op Op) Expression {
 	return &booleanExp{left: left, right: right, operation: op}
 }
 
-func (b *booleanExp) Expression() string {
+func (b *booleanExp) Expression() (string, bool) {
 	var (
 		operation   string
 		ordered     bool
@@ -70,15 +70,20 @@ func (b *booleanExp) Expression() string {
 		rightString string
 	)
 
+	expression, ok := b.left.Expression()
+	if !ok {
+		return "", false
+	}
+
 	switch b.operation {
 	case isNull:
-		return fmt.Sprintf("%s IS NULL", b.left.Expression())
+		return fmt.Sprintf("%s IS NULL", expression), true
 	case isNotNull:
-		return fmt.Sprintf("%s IS NOT NULL", b.left.Expression())
+		return fmt.Sprintf("%s IS NOT NULL", expression), true
 	case isTrue:
-		return fmt.Sprintf("%s IS TRUE", b.left.Expression())
+		return fmt.Sprintf("%s IS TRUE", expression), true
 	case isFalse:
-		return fmt.Sprintf("%s IS FALSE", b.left.Expression())
+		return fmt.Sprintf("%s IS FALSE", expression), true
 
 	case equal:
 		operation = "="
@@ -103,20 +108,19 @@ func (b *booleanExp) Expression() string {
 		operation = "NOT IN"
 		iterable = true
 	default:
-		return ""
+		return "", false
 	}
 
 	if ordered && !isOrdered(b.right) {
-		return ""
+		return "", false
 	}
 
 	if iterable {
 		if !isIterable(b.right) {
-			return ""
+			return "", false
 		}
-
 		rightString = formatSlice(b.right.([]any))
-		return fmt.Sprintf("%s %s %s", b.left.Expression(), operation, rightString)
+		return fmt.Sprintf("%s %s %s", expression, operation, rightString), true
 	}
 
 	switch v := b.right.(type) {
@@ -133,11 +137,11 @@ func (b *booleanExp) Expression() string {
 	default:
 		rightString = serialize(b.right)
 		if len(rightString) == 0 {
-			return ""
+			return "", false
 		}
 	}
 
-	return fmt.Sprintf("%s %s %s", b.left.Expression(), operation, rightString)
+	return fmt.Sprintf("%s %s %s", expression, operation, rightString), true
 }
 
 func formatSlice[T any](slice []T) string {

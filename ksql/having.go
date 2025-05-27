@@ -3,8 +3,9 @@ package ksql
 import "strings"
 
 type HavingExpression interface {
-	Expression() string
+	Expression() (string, bool)
 	Conditionals() []Expression
+	IsEmpty() bool
 	Having(exps ...Expression) HavingExpression
 }
 
@@ -21,15 +22,19 @@ func (h *having) Having(exps ...Expression) HavingExpression {
 	return h
 }
 
+func (h *having) IsEmpty() bool {
+	return len(h.conditionals) == 0
+}
+
 func (h *having) Conditionals() []Expression {
 	conditionals := make([]Expression, len(h.conditionals))
 	copy(conditionals, h.conditionals)
 	return conditionals
 }
 
-func (h *having) Expression() string {
+func (h *having) Expression() (string, bool) {
 	if len(h.conditionals) == 0 {
-		return ""
+		return "", false
 	}
 
 	var (
@@ -41,9 +46,9 @@ func (h *having) Expression() string {
 
 	for i := range h.conditionals {
 
-		ex := h.conditionals[i].Expression()
-		if len(ex) == 0 {
-			continue
+		ex, ok := h.conditionals[i].Expression()
+		if !ok {
+			return "", false
 		}
 
 		if i != len(h.conditionals)-1 && !isFirst {
@@ -54,5 +59,5 @@ func (h *having) Expression() string {
 		isFirst = false
 	}
 
-	return builder.String()
+	return builder.String(), true
 }

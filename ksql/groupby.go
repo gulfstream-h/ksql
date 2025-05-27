@@ -3,8 +3,9 @@ package ksql
 import "strings"
 
 type GroupExpression interface {
-	Expression() string
+	Expression() (string, bool)
 	GroupedFields() []Field
+	IsEmpty() bool
 	GroupBy(fields ...Field) GroupExpression
 }
 
@@ -14,6 +15,10 @@ type group struct {
 
 func NewGroupByExpression() GroupExpression {
 	return &group{}
+}
+
+func (g *group) IsEmpty() bool {
+	return len(g.fields) == 0
 }
 
 func (g *group) GroupedFields() []Field {
@@ -27,9 +32,9 @@ func (g *group) GroupBy(fields ...Field) GroupExpression {
 	return g
 }
 
-func (g *group) Expression() string {
+func (g *group) Expression() (string, bool) {
 	if len(g.fields) == 0 {
-		return ""
+		return "", false
 	}
 
 	var (
@@ -40,7 +45,10 @@ func (g *group) Expression() string {
 	builder.WriteString("GROUP BY ")
 
 	for i := range g.fields {
-		ex := g.fields[i].Expression()
+		ex, ok := g.fields[i].Expression()
+		if !ok {
+			return "", false
+		}
 
 		if i != len(g.fields)-1 && !isFirst {
 			builder.WriteString(", ")
@@ -50,5 +58,5 @@ func (g *group) Expression() string {
 		isFirst = true
 	}
 
-	return builder.String()
+	return builder.String(), true
 }

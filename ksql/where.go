@@ -3,7 +3,8 @@ package ksql
 import "strings"
 
 type WhereExpression interface {
-	Expression() string
+	IsEmpty() bool
+	Expression() (string, bool)
 	Conditionals() []Expression
 	Where(exps ...Expression) WhereExpression
 }
@@ -16,9 +17,13 @@ func NewWhereExpression() WhereExpression {
 	return &where{}
 }
 
-func (w *where) Expression() string {
+func (w *where) IsEmpty() bool {
+	return len(w.conditionals) == 0
+}
+
+func (w *where) Expression() (string, bool) {
 	if len(w.conditionals) == 0 {
-		return ""
+		return "", false
 	}
 
 	var (
@@ -29,9 +34,9 @@ func (w *where) Expression() string {
 	builder.WriteString("WHERE ")
 
 	for i := range w.conditionals {
-		ex := w.conditionals[i].Expression()
-		if len(ex) == 0 {
-			continue
+		ex, ok := w.conditionals[i].Expression()
+		if !ok {
+			return "", false
 		}
 
 		if i != len(w.conditionals)-1 && !isFirst {
@@ -42,7 +47,7 @@ func (w *where) Expression() string {
 		isFirst = false
 	}
 
-	return builder.String()
+	return builder.String(), true
 }
 
 func (w *where) Conditionals() []Expression {

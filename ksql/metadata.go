@@ -43,9 +43,11 @@ func (m *Metadata) Expression() string {
 		parts = append(parts, fmt.Sprintf("TIMESTAMP_FORMAT = '%s'", m.TimestampFormat))
 	}
 
-	str.WriteString("WITH (\n  ")
-	str.WriteString(strings.Join(parts, ",\n  "))
-	str.WriteString("\n);")
+	if len(parts) != 0 {
+		str.WriteString("WITH (\n  ")
+		str.WriteString(strings.Join(parts, ",\n  "))
+		str.WriteString("\n)")
+	}
 
 	return str.String()
 }

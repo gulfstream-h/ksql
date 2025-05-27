@@ -14,7 +14,7 @@ type (
 		Where(expressions ...Expression) SelectBuilder
 		Having(expressions ...Expression) SelectBuilder
 		GroupBy(fields ...Field) SelectBuilder
-		Expression() string
+		Expression() (string, bool)
 	}
 
 	Joiner interface {
@@ -161,7 +161,7 @@ func (s *selectBuilder) WithMeta(
 	return s
 }
 
-func (s *selectBuilder) Expression() string {
+func (s *selectBuilder) Expression() (string, bool) {
 	var (
 		builder      = new(strings.Builder)
 		cteIsFirst   = true
@@ -173,14 +173,12 @@ func (s *selectBuilder) Expression() string {
 		for i := range s.with {
 			alias := s.with[i].Alias()
 			if len(alias) == 0 {
-				// todo: add error
-				return ""
+				return "", false
 			}
 
-			expression := s.with[i].Expression()
-			if len(expression) == 0 {
-				// todo: add error
-				return ""
+			expression, ok := s.with[i].Expression()
+			if !ok {
+				return "", false
 			}
 
 			if i != len(s.with)-1 && !cteIsFirst {
@@ -199,16 +197,14 @@ func (s *selectBuilder) Expression() string {
 
 	// SELECT ..fields section
 	if len(s.fields) == 0 {
-		// todo add err
-		return ""
+		return "", false
 	}
 
 	builder.WriteString("SELECT ")
 	for idx := range s.fields {
-		expression := s.fields[idx].Expression()
-		if len(expression) == 0 {
-			// todo add err
-			return ""
+		expression, ok := s.fields[idx].Expression()
+		if !ok {
+			return "", false
 		}
 
 		if idx != len(s.fields) && !fieldIsFirst {
@@ -225,47 +221,54 @@ func (s *selectBuilder) Expression() string {
 
 	}
 
-	fromString := s.fromEx.Expression()
-	if len(fromString) == 0 {
-		// todo add err
-		return ""
+	fromString, ok := s.fromEx.Expression()
+	if !ok {
+		return "", false
 	}
 
 	builder.WriteString("\n")
 	builder.WriteString(fromString)
 
 	for idx := range s.joinExs {
-		expression := s.joinExs[idx].Expression()
-		if len(expression) == 0 {
-			// todo add err
-			return ""
+		expression, ok := s.joinExs[idx].Expression()
+		if !ok {
+			return "", false
 		}
 
 		builder.WriteString("\n")
 		builder.WriteString(expression)
 	}
 
-	// todo handle errors on build
+	if !s.whereEx.IsEmpty() {
+		whereString, ok := s.whereEx.Expression()
+		if !ok {
+			return "", false
+		}
 
-	whereString := s.whereEx.Expression()
-	if len(whereString) != 0 {
 		builder.WriteString("\n")
 		builder.WriteString(whereString)
 	}
 
-	havingString := s.havingEx.Expression()
-	if len(havingString) != 0 {
+	if !s.havingEx.IsEmpty() {
+		havingString, ok := s.havingEx.Expression()
+		if !ok {
+			return "", false
+		}
 		builder.WriteString("\n")
 		builder.WriteString(havingString)
 	}
 
-	groupByString := s.groupByEx.Expression()
-	if len(groupByString) != 0 {
+	if !s.groupByEx.IsEmpty() {
+		groupByString, ok := s.groupByEx.Expression()
+		if !ok {
+			return "", false
+		}
+
 		builder.WriteString("\n")
 		builder.WriteString(groupByString)
 	}
 
 	builder.WriteString(s.meta.Expression())
 
-	return builder.String()
+	return builder.String(), true
 }
