@@ -119,7 +119,7 @@ func (b *booleanExp) Expression() (string, bool) {
 		if !isIterable(b.right) {
 			return "", false
 		}
-		rightString = formatSlice(b.right.([]any))
+		rightString = formatSlice(b.right)
 		return fmt.Sprintf("%s %s %s", expression, operation, rightString), true
 	}
 
@@ -144,10 +144,10 @@ func (b *booleanExp) Expression() (string, bool) {
 	return fmt.Sprintf("%s %s %s", expression, operation, rightString), true
 }
 
-func formatSlice[T any](slice []T) string {
+func formatSlice(slice ...any) string {
 	var parts []string
 	for _, v := range slice {
-		switch x := any(v).(type) {
+		switch x := v.(type) {
 		case string:
 			parts = append(parts, fmt.Sprintf("'%s'", x))
 		case int, int64, float64:
