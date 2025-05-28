@@ -44,18 +44,28 @@ type (
 			on Expression,
 		) SelectBuilder
 	}
+
+	selectBuilder struct {
+		ctx selectBuilderCtx
+
+		alias     string
+		meta      Metadata
+		with      []SelectBuilder
+		fields    []Field
+		joinExs   []JoinExpression
+		fromEx    FromExpression
+		whereEx   WhereExpression
+		havingEx  HavingExpression
+		groupByEx GroupExpression
+	}
+
+	selectBuilderCtx struct {
+		schemaRel []schema.SearchField
+	}
 )
 
-type selectBuilder struct {
-	alias     string
-	meta      Metadata
-	with      []SelectBuilder
-	fields    []Field
-	joinExs   []JoinExpression
-	fromEx    FromExpression
-	whereEx   WhereExpression
-	havingEx  HavingExpression
-	groupByEx GroupExpression
+func (sbc *selectBuilderCtx) AddFields(fields ...schema.SearchField) {
+	sbc.schemaRel = append(sbc.schemaRel, fields...)
 }
 
 func newSelectBuilder() *selectBuilder {
@@ -81,6 +91,7 @@ func Select(fields ...Field) SelectBuilder {
 func (s *selectBuilder) SelectStruct(val any) SelectBuilder {
 	t := reflect.TypeOf(val)
 	structFields := schema.ParseStructToFields(t.Name(), t)
+	s.ctx.AddFields(structFields...)
 
 	fields := make([]Field, len(structFields))
 
@@ -107,6 +118,17 @@ func (s *selectBuilder) Alias() string {
 
 func (s *selectBuilder) Select(fields ...Field) SelectBuilder {
 	s.fields = append(s.fields, fields...)
+
+	structFields := make([]schema.SearchField, len(fields))
+	for idx := range fields {
+		f := schema.SearchField{
+			Name:     fields[idx].Column(),
+			Relation: fields[idx].Schema(),
+		}
+		structFields = append(structFields, f)
+	}
+
+	s.ctx.AddFields(structFields...)
 	return s
 }
 
