@@ -83,11 +83,14 @@ func ParseStructToFields(
 			continue
 		}
 
-		fields = append(fields, SearchField{
-			Name:     field.Tag.Get(static.KSQL),
-			Relation: structName,
-			Kind:     ksqlKind,
-		})
+		if tag := field.Tag.Get(static.KSQL); len(tag) != 0 {
+			fields = append(fields, SearchField{
+				Name:     field.Tag.Get(static.KSQL),
+				Relation: structName,
+				Kind:     ksqlKind,
+			})
+		}
+
 	}
 
 	return fields

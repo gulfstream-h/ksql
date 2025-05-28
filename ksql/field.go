@@ -94,6 +94,14 @@ func (f *field) NotIn(val ...any) Expression {
 	return NewBooleanExp(f.Copy(), val, notIn)
 }
 
+func (f *field) IsNull() Expression {
+	return NewBooleanExp(f.Copy(), nil, isNull)
+}
+
+func (f *field) Schema() string { return f.schema }
+
+func (f *field) Column() string { return f.col }
+
 func (f *field) Copy() Field {
 	return &field{
 		schema: f.schema,
@@ -122,11 +130,4 @@ func (f *field) parse(s string) {
 	if len(tokens) == 1 {
 		f.col = tokens[0]
 	}
-}
-
-func (f *field) Schema() string { return f.schema }
-func (f *field) Column() string { return f.col }
-
-func (f *field) IsNull() Expression {
-	return NewBooleanExp(f.Copy(), nil, isNull)
 }

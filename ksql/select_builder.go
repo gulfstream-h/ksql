@@ -1,6 +1,10 @@
 package ksql
 
-import "strings"
+import (
+	"ksql/schema"
+	"reflect"
+	"strings"
+)
 
 type (
 	SelectBuilder interface {
@@ -10,6 +14,7 @@ type (
 		Alias() string
 		WithCTE(inner SelectBuilder) SelectBuilder
 		Select(fields ...Field) SelectBuilder
+		SelectStruct(val any) SelectBuilder
 		From(schema string) SelectBuilder
 		Where(expressions ...Expression) SelectBuilder
 		Having(expressions ...Expression) SelectBuilder
@@ -71,6 +76,24 @@ func Select(fields ...Field) SelectBuilder {
 	copy(sb.fields, fields)
 
 	return sb
+}
+
+func (s *selectBuilder) SelectStruct(val any) SelectBuilder {
+	t := reflect.TypeOf(val)
+	structFields := schema.ParseStructToFields(t.Name(), t)
+
+	fields := make([]Field, len(structFields))
+
+	for i := range structFields {
+		f := field{
+			schema: structFields[i].Relation,
+			col:    structFields[i].Name,
+		}
+		fields = append(fields, &f)
+	}
+
+	return s.Select(fields...)
+
 }
 
 func (s *selectBuilder) As(alias string) SelectBuilder {
