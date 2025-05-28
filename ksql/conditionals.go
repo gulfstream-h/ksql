@@ -38,7 +38,7 @@ type (
 )
 
 const (
-	equal = iota
+	equal = Op(iota)
 	notEqual
 	more
 	less
