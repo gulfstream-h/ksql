@@ -21,25 +21,6 @@ func New(migrationPath string) Migrator {
 	}
 }
 
-func (m *migrator) ReadQuery(fileName string) (string, error) {
-	file, err := os.ReadFile(m.migrationPath + "/" + fileName)
-	if err != nil {
-		return "", err
-	}
-
-	partialQuery, found := strings.CutPrefix(string(file), "-- +seeker Up")
-	if !found {
-		return "", errors.Join(ErrMalformedMigrationFile, errors.New("missing migration prefix"))
-	}
-
-	query, found := strings.CutSuffix(partialQuery, "-- +seeker Down")
-	if !found {
-		return "", errors.Join(ErrMalformedMigrationFile, errors.New("missing migration suffix"))
-	}
-
-	return query, nil
-}
-
 func (m *migrator) Migrate(ctx context.Context) error {
 	currentVersion, err := m.ctrl.GetLatestVersion(ctx)
 	if err != nil {
@@ -85,4 +66,23 @@ func (m *migrator) Migrate(ctx context.Context) error {
 	}
 
 	return nil
+}
+
+func (m *migrator) ReadQuery(fileName string) (string, error) {
+	file, err := os.ReadFile(m.migrationPath + "/" + fileName)
+	if err != nil {
+		return "", err
+	}
+
+	partialQuery, found := strings.CutPrefix(string(file), "-- +seeker Up")
+	if !found {
+		return "", errors.Join(ErrMalformedMigrationFile, errors.New("missing migration prefix"))
+	}
+
+	query, found := strings.CutSuffix(partialQuery, "-- +seeker Down")
+	if !found {
+		return "", errors.Join(ErrMalformedMigrationFile, errors.New("missing migration suffix"))
+	}
+
+	return query, nil
 }
