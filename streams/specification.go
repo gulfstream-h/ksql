@@ -627,7 +627,7 @@ func (s *Stream[S]) ToTopic(topicName string) (topic static.Topic[S]) {
 
 // ToTable - propagates stream data to new table
 // and shares schema with it
-func (s *Stream[S]) ToTable(tableName string) (table static.Table[S]) {
+func (s *Stream[S]) ToTable(tableName string) (table static.Table[S], err error) {
 	static.TablesProjections.Store(tableName, static.TableSettings{
 		Name:       tableName,
 		Partitions: s.partitions,

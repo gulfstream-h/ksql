@@ -23,6 +23,16 @@ type (
 	Table[S any]  tables.Table[S]
 )
 
+func (t Stream[S]) Cast() *streams.Stream[S] {
+	stream := streams.Stream[S](t)
+	return &stream
+}
+
+func (t Table[S]) Cast() *tables.Table[S] {
+	table := tables.Table[S](t)
+	return &table
+}
+
 // In circumstances, that ksql provides functionality
 // to create, as an example, topic from stream or stream from topic
 // that static types can be useful for specific casting
