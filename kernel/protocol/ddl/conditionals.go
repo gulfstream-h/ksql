@@ -1,7 +1,7 @@
 package ddl
 
 import (
-	"ksql/ksql"
+	"ksql/kernel/protocol"
 	"strings"
 )
 
@@ -10,9 +10,9 @@ type (
 )
 
 func (ca CondRestAnalysis) Deserialize(
-	whereQuery, havingQuery string) ksql.Cond {
+	whereQuery, havingQuery string) protocol.Cond {
 	var (
-		c ksql.Cond
+		c protocol.Cond
 	)
 
 	whereClause, found := strings.CutPrefix(whereQuery, "WHERE ")
@@ -32,24 +32,24 @@ func (ca CondRestAnalysis) Deserialize(
 	return c
 }
 
-func formatWhere(where string) ksql.WhereEx {
+func formatWhere(where string) protocol.WhereEx {
 	whereLiterals := strings.Split(where, " ")
 	if len(whereLiterals) < 3 {
-		return ksql.WhereEx{}
+		return protocol.WhereEx{}
 	}
 
 	switch whereLiterals[1] {
 	case "=":
-		return ksql.WhereEx{FieldName: whereLiterals[0]}.Equal(whereLiterals[2])
+		return protocol.WhereEx{FieldName: whereLiterals[0]}.Equal(whereLiterals[2])
 	default:
 		//TODO: IMPLEMENT OTHER METHODS
-		return ksql.WhereEx{}
+		return protocol.WhereEx{}
 	}
 }
 
-func parseWhere(whereClause string) []ksql.WhereEx {
+func parseWhere(whereClause string) []protocol.WhereEx {
 	conditionals := strings.Split(whereClause, "AND")
-	whereExes := make([]ksql.WhereEx, 0, len(conditionals))
+	whereExes := make([]protocol.WhereEx, 0, len(conditionals))
 
 	for _, conditional := range conditionals {
 		whereExes = append(whereExes, formatWhere(conditional))
@@ -58,24 +58,24 @@ func parseWhere(whereClause string) []ksql.WhereEx {
 	return whereExes
 }
 
-func formatHaving(having string) ksql.HavingEx {
+func formatHaving(having string) protocol.HavingEx {
 	havingLiterals := strings.Split(having, " ")
 	if len(havingLiterals) < 3 {
-		return ksql.HavingEx{}
+		return protocol.HavingEx{}
 	}
 
 	switch havingLiterals[1] {
 	case "=":
-		return ksql.HavingEx{FieldName: havingLiterals[0]}.Equal(havingLiterals[2])
+		return protocol.HavingEx{FieldName: havingLiterals[0]}.Equal(havingLiterals[2])
 	default:
 		//TODO: IMPLEMENT OTHER METHODS
-		return ksql.HavingEx{}
+		return protocol.HavingEx{}
 	}
 }
 
-func parseHaving(havingClause string) []ksql.HavingEx {
+func parseHaving(havingClause string) []protocol.HavingEx {
 	conditionals := strings.Split(havingClause, "AND")
-	havingExes := make([]ksql.HavingEx, 0, len(conditionals))
+	havingExes := make([]protocol.HavingEx, 0, len(conditionals))
 
 	for _, conditional := range conditionals {
 		havingExes = append(havingExes, formatHaving(conditional))

@@ -237,7 +237,7 @@ func CreateTable[S any](
 			tableName,
 			rmSchema,
 		),
-		MetadataAlgo: ksql.With{
+		MetadataAlgo: protocol.With{
 			Topic:       *settings.SourceTopic,
 			ValueFormat: kinds.JSON.String(),
 		},
@@ -319,7 +319,7 @@ func CreateTableAsSelect[S any](
 			Name:  tableName,
 		},
 		SchemaAlgo: query.SchemaAlgo,
-		MetadataAlgo: ksql.With{
+		MetadataAlgo: protocol.With{
 			Topic:       *settings.SourceTopic,
 			ValueFormat: kinds.JSON.String(),
 		},
@@ -393,7 +393,7 @@ func (s *Table[S]) SelectOnce(
 			s.Name,
 			*s.remoteSchema,
 		),
-		MetadataAlgo: ksql.With{
+		MetadataAlgo: protocol.With{
 			ValueFormat: kinds.JSON.String(),
 		},
 	}.Query()
@@ -446,7 +446,7 @@ func (s *Table[S]) SelectWithEmit(
 			s.Name,
 			*s.remoteSchema,
 		),
-		MetadataAlgo: ksql.With{
+		MetadataAlgo: protocol.With{
 			ValueFormat: kinds.JSON.String(),
 		},
 	}.Query()

@@ -1,11 +1,14 @@
-package ksql
+package protocol
 
-import "ksql/schema"
+import (
+	"ksql/ksql"
+	"ksql/schema"
+)
 
 type JoinEx struct {
 	Field   string
 	RefName string
-	Ref     Reference
+	Ref     ksql.Reference
 }
 
 type Join struct {

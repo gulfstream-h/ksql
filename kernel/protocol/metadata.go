@@ -1,4 +1,4 @@
-package ksql
+package protocol
 
 type With struct {
 	Topic           string

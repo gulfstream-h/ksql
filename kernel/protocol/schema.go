@@ -1,4 +1,4 @@
-package ksql
+package protocol
 
 import "ksql/schema"
 

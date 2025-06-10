@@ -1,7 +1,7 @@
 package ddl
 
 import (
-	"ksql/ksql"
+	"ksql/kernel/protocol"
 	"strings"
 )
 
@@ -9,9 +9,9 @@ type (
 	MetadataRestAnalysis struct{}
 )
 
-func (ma MetadataRestAnalysis) Deserialize(query string) ksql.With {
+func (ma MetadataRestAnalysis) Deserialize(query string) protocol.With {
 	var (
-		w ksql.With
+		w protocol.With
 	)
 
 	topic, found := strings.CutPrefix(query, "KAFKA_TOPIC=`")
