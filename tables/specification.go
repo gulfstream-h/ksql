@@ -6,13 +6,13 @@ import (
 	"fmt"
 	jsoniter "github.com/json-iterator/go"
 	"ksql/kernel/network"
-	"ksql/kernel/protocol"
 	"ksql/kernel/protocol/dao"
 	"ksql/kernel/protocol/dto"
 	"ksql/kinds"
 	"ksql/ksql"
 	"ksql/schema"
 	"ksql/static"
+	"ksql/util"
 	"net/http"
 	"reflect"
 )
@@ -32,14 +32,10 @@ type Table[S any] struct {
 // in the current ksqlDB instance. Also it reloads
 // map of available projections
 func ListTables(ctx context.Context) (
-	dto.ShowTables, error) {
+	dto.ShowTables, error,
+) {
 
-	query := protocol.KafkaSerializer{
-		QueryAlgo: ksql.Query{
-			Query: ksql.LIST,
-			Ref:   ksql.TABLE,
-		}}.
-		Query()
+	query := util.MustBool(ksql.List(ksql.TABLE).Expression)
 
 	pipeline, err := network.Net.Perform(
 		ctx,
@@ -77,12 +73,8 @@ func ListTables(ctx context.Context) (
 // Can be used for table schema and query by which
 // it was created
 func (s *Table[S]) Describe(ctx context.Context) (dto.RelationDescription, error) {
-	query := protocol.KafkaSerializer{
-		QueryAlgo: ksql.Query{
-			Query: ksql.DESCRIBE,
-			Name:  s.Name,
-		},
-	}.Query()
+
+	query := util.MustBool(ksql.Describe(ksql.TABLE, s.Name).Expression)
 
 	pipeline, err := network.Net.Perform(
 		ctx,
@@ -119,13 +111,7 @@ func (s *Table[S]) Describe(ctx context.Context) (dto.RelationDescription, error
 // Drop - drops table from ksqlDB instance
 // with parent topic. Also deletes projection from list
 func (s *Table[S]) Drop(ctx context.Context) error {
-	query := protocol.KafkaSerializer{
-		QueryAlgo: ksql.Query{
-			Query: ksql.DROP,
-			Ref:   ksql.TABLE,
-			Name:  s.Name,
-		},
-	}.Query()
+	query := util.MustBool(ksql.Drop(ksql.TABLE, s.Name).Expression)
 
 	pipeline, err := network.Net.Perform(
 		ctx,
@@ -227,21 +213,19 @@ func CreateTable[S any](
 
 	rmSchema := schema.SerializeProvidedStruct(s)
 
-	query := protocol.KafkaSerializer{
-		QueryAlgo: ksql.Query{
-			Query: ksql.CREATE,
-			Ref:   ksql.TABLE,
-			Name:  tableName,
-		},
-		SchemaAlgo: schema.ParseStructToFields(
-			tableName,
-			rmSchema,
-		),
-		MetadataAlgo: ksql.Metadata{
-			Topic:       *settings.SourceTopic,
-			ValueFormat: kinds.JSON.String(),
-		},
-	}.Query()
+	meta := ksql.Metadata{
+		Topic:       *settings.SourceTopic,
+		ValueFormat: kinds.JSON.String(),
+	}
+
+	query, ok := ksql.SelectAsStruct(s).
+		From(tableName).
+		WithMeta(meta).
+		Expression()
+
+	if !ok {
+		return nil, errors.New("cannot build query for table creation")
+	}
 
 	pipeline, err := network.Net.Perform(
 		ctx,
@@ -296,14 +280,15 @@ func CreateTableAsSelect[S any](
 	ctx context.Context,
 	tableName string,
 	settings TableSettings,
-	query static.QueryPlan) (*Table[S], error) {
+	selectQuery ksql.SelectBuilder,
+) (*Table[S], error) {
 
 	var (
 		s S
 	)
 
 	scheme := schema.SerializeProvidedStruct(s)
-	rmScheme := schema.SerializeFieldsToStruct(query.SchemaAlgo)
+	rmScheme := schema.SerializeFieldsToStruct(selectQuery.SchemaFields())
 
 	matchMap, diffMap := schema.CompareStructs(scheme, rmScheme)
 
@@ -312,26 +297,24 @@ func CreateTableAsSelect[S any](
 		return nil, errors.New("schemes doesnt match")
 	}
 
-	q := protocol.KafkaSerializer{
-		QueryAlgo: ksql.Query{
-			Query: ksql.CREATE,
-			Ref:   ksql.TABLE,
-			Name:  tableName,
-		},
-		SchemaAlgo: query.SchemaAlgo,
-		MetadataAlgo: ksql.Metadata{
-			Topic:       *settings.SourceTopic,
-			ValueFormat: kinds.JSON.String(),
-		},
-		CTE: map[string]protocol.KafkaSerializer{
-			"AS": query,
-		},
-	}.Query()
+	meta := ksql.Metadata{
+		Topic:       *settings.SourceTopic,
+		ValueFormat: kinds.JSON.String(),
+	}
+
+	query, ok := ksql.Create(ksql.TABLE, tableName).
+		AsSelect(selectQuery).
+		With(meta).
+		Expression()
+
+	if !ok {
+		return nil, errors.New("cannot build query for table creation")
+	}
 
 	pipeline, err := network.Net.Perform(
 		ctx,
 		http.MethodPost,
-		q,
+		query,
 		&network.ShortPolling{},
 	)
 	if err != nil {
@@ -377,26 +360,23 @@ func CreateTableAsSelect[S any](
 // and return only one http answer
 // channel is closed almost immediately
 func (s *Table[S]) SelectOnce(
-	ctx context.Context) (S, error) {
+	ctx context.Context,
+) (S, error) {
 
 	var (
 		value S
 	)
 
-	query := protocol.KafkaSerializer{
-		QueryAlgo: ksql.Query{
-			Query: ksql.SELECT,
-			Ref:   ksql.TABLE,
-			Name:  s.Name,
-		},
-		SchemaAlgo: schema.ParseStructToFields(
-			s.Name,
-			*s.remoteSchema,
-		),
-		MetadataAlgo: ksql.Metadata{
-			ValueFormat: kinds.JSON.String(),
-		},
-	}.Query()
+	meta := ksql.Metadata{ValueFormat: kinds.JSON.String()}
+
+	query, ok := ksql.Create(ksql.TABLE, s.Name).
+		SchemaFromStruct(*s.remoteSchema).
+		With(meta).
+		Expression()
+
+	if !ok {
+		return value, errors.New("cannot build query for table creation")
+	}
 
 	pipeline, err := network.Net.Perform(
 		ctx,
@@ -429,27 +409,24 @@ func (s *Table[S]) SelectOnce(
 // answer is received for every new record
 // and propagated to channel
 func (s *Table[S]) SelectWithEmit(
-	ctx context.Context) (<-chan S, error) {
+	ctx context.Context,
+) (<-chan S, error) {
 
 	var (
 		value   S
 		valuesC = make(chan S)
 	)
 
-	query := protocol.KafkaSerializer{
-		QueryAlgo: ksql.Query{
-			Query: ksql.SELECT,
-			Ref:   ksql.TABLE,
-			Name:  s.Name,
-		},
-		SchemaAlgo: schema.ParseStructToFields(
-			s.Name,
-			*s.remoteSchema,
-		),
-		MetadataAlgo: ksql.Metadata{
-			ValueFormat: kinds.JSON.String(),
-		},
-	}.Query()
+	meta := ksql.Metadata{ValueFormat: kinds.JSON.String()}
+
+	query, ok := ksql.Create(ksql.TABLE, s.Name).
+		SchemaFromStruct(*s.remoteSchema).
+		With(meta).
+		Expression()
+
+	if !ok {
+		return nil, errors.New("cannot build query for table creation")
+	}
 
 	pipeline, err := network.Net.Perform(
 		ctx,

@@ -10,9 +10,11 @@ type (
 	SelectBuilder interface {
 		Joiner
 
+		SchemaFields() []schema.SearchField
 		As(alias string) SelectBuilder
 		Alias() string
 		WithCTE(inner SelectBuilder) SelectBuilder
+		WithMeta(with Metadata) SelectBuilder
 		Select(fields ...Field) SelectBuilder
 		SelectStruct(val any) SelectBuilder
 		From(schema string) SelectBuilder
@@ -45,8 +47,13 @@ type (
 		) SelectBuilder
 	}
 
+	selectBuilderContext interface {
+		AddFields(fields ...schema.SearchField)
+		Fields() []schema.SearchField
+	}
+
 	selectBuilder struct {
-		ctx selectBuilderCtx
+		ctx selectBuilderContext
 
 		alias     string
 		meta      Metadata
@@ -68,7 +75,13 @@ func (sbc *selectBuilderCtx) AddFields(fields ...schema.SearchField) {
 	sbc.schemaRel = append(sbc.schemaRel, fields...)
 }
 
-func newSelectBuilder() *selectBuilder {
+func (sbc *selectBuilderCtx) Fields() []schema.SearchField {
+	fields := make([]schema.SearchField, len(sbc.schemaRel))
+	copy(fields, sbc.schemaRel)
+	return fields
+}
+
+func newSelectBuilder() SelectBuilder {
 	return &selectBuilder{
 		fields:    nil,
 		joinExs:   nil,
@@ -82,16 +95,35 @@ func newSelectBuilder() *selectBuilder {
 func Select(fields ...Field) SelectBuilder {
 	sb := newSelectBuilder()
 
-	sb.fields = make([]Field, len(fields))
-	copy(sb.fields, fields)
+	return sb.Select(fields...)
+}
 
-	return sb
+func SelectAsStruct(val any) SelectBuilder {
+	sb := newSelectBuilder()
+	return sb.SelectStruct(val)
+}
+
+func (s *selectBuilder) SchemaFields() []schema.SearchField {
+	if s.ctx == nil {
+		return []schema.SearchField{}
+	}
+	return s.ctx.Fields()
 }
 
 func (s *selectBuilder) SelectStruct(val any) SelectBuilder {
 	t := reflect.TypeOf(val)
+	if t.Kind() == reflect.Ptr {
+		t = t.Elem()
+	}
+	if t.Kind() != reflect.Struct {
+		// todo: return error
+		return nil
+	}
 	structFields := schema.ParseStructToFields(t.Name(), t)
-	s.ctx.AddFields(structFields...)
+
+	if s.ctx != nil {
+		s.ctx.AddFields(structFields...)
+	}
 
 	fields := make([]Field, len(structFields))
 
@@ -128,7 +160,10 @@ func (s *selectBuilder) Select(fields ...Field) SelectBuilder {
 		structFields = append(structFields, f)
 	}
 
-	s.ctx.AddFields(structFields...)
+	if s.ctx != nil {
+		s.ctx.AddFields(structFields...)
+	}
+
 	return s
 }
 
@@ -172,8 +207,16 @@ func (s *selectBuilder) CrossJoin(
 	return s
 }
 
-func (s *selectBuilder) From(schema string) SelectBuilder {
-	s.fromEx = s.fromEx.From(schema)
+func (s *selectBuilder) From(sch string) SelectBuilder {
+	if s.ctx != nil {
+		t := schema.SerializeProvidedStruct(sch)
+		fieldMap := schema.ParseStructToFieldsDictionary(sch, t)
+		for _, field := range fieldMap {
+			s.ctx.AddFields(field)
+		}
+	}
+
+	s.fromEx = s.fromEx.From(sch)
 	return s
 }
 

@@ -255,11 +255,11 @@ func (ks KafkaSerializer) writeMeta() {
 	if ks.MetadataAlgo.KeyFormat != "" {
 		parts = append(parts, fmt.Sprintf("KEY_FORMAT = '%s'", ks.MetadataAlgo.KeyFormat))
 	}
-	if ks.MetadataAlgo.Partitions != nil {
-		parts = append(parts, fmt.Sprintf("PARTITIONS = %d", *ks.MetadataAlgo.Partitions))
+	if ks.MetadataAlgo.Partitions != 0 {
+		parts = append(parts, fmt.Sprintf("PARTITIONS = %d", ks.MetadataAlgo.Partitions))
 	}
-	if ks.MetadataAlgo.Replicas != nil {
-		parts = append(parts, fmt.Sprintf("REPLICAS = %d", *ks.MetadataAlgo.Replicas))
+	if ks.MetadataAlgo.Replicas != 0 {
+		parts = append(parts, fmt.Sprintf("REPLICAS = %d", ks.MetadataAlgo.Replicas))
 	}
 	if ks.MetadataAlgo.Timestamp != "" {
 		parts = append(parts, fmt.Sprintf("TIMESTAMP = '%s'", ks.MetadataAlgo.Timestamp))

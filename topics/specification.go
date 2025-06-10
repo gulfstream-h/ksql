@@ -6,7 +6,6 @@ import (
 	"fmt"
 	jsoniter "github.com/json-iterator/go"
 	"ksql/kernel/network"
-	"ksql/kernel/protocol"
 	"ksql/kernel/protocol/dao"
 	"ksql/kernel/protocol/dto"
 	"ksql/ksql"
@@ -29,11 +28,7 @@ type ChildTopicObjects struct {
 }
 
 func ListTopics(ctx context.Context) (dto.ShowTopics, error) {
-	query := protocol.KafkaSerializer{
-		QueryAlgo: ksql.Query{
-			Query: ksql.LIST,
-			Ref:   ksql.TOPIC,
-		}}.Query()
+	query, _ := ksql.List(ksql.TOPIC).Expression()
 
 	pipeline, err := network.Net.Perform(
 		ctx,

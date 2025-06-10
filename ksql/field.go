@@ -109,16 +109,6 @@ func (f *field) Copy() Field {
 	}
 }
 
-func AnyOf[T comparable](val T, comparableVals ...T) bool {
-	for i := 0; i < len(comparableVals); i++ {
-		if val == comparableVals[i] {
-			return true
-		}
-	}
-
-	return false
-}
-
 func (f *field) parse(s string) {
 	tokens := strings.Split(s, ".")
 
