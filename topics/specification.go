@@ -6,7 +6,6 @@ import (
 	"fmt"
 	jsoniter "github.com/json-iterator/go"
 	"ksql/kernel/network"
-	"ksql/kernel/protocol"
 	"ksql/kernel/protocol/dao"
 	"ksql/kernel/protocol/dto"
 	"ksql/ksql"
@@ -29,11 +28,7 @@ type ChildTopicObjects struct {
 }
 
 func ListTopics(ctx context.Context) (dto.ShowTopics, error) {
-	query := protocol.KafkaSerializer{
-		QueryAlgo: ksql.Query{
-			Query: ksql.LIST,
-			Ref:   ksql.TOPIC,
-		}}.Query()
+	query, _ := ksql.List(ksql.TOPIC).Expression()
 
 	pipeline, err := network.Net.Perform(
 		ctx,
@@ -79,7 +74,7 @@ func (t *Topic[S]) RegisterStream(streamName string) streams.StreamSettings {
 		},
 	}
 
-	static.StreamsProjections.Store(streamName, static.StreamSettings(streamSettings))
+	static.StreamsProjections[streamName] = static.StreamSettings(streamSettings)
 
 	t.ChildObjects.Streams[streamName] = struct{}{}
 
@@ -98,7 +93,7 @@ func (t *Topic[S]) RegisterTable(tableName string) tables.TableSettings {
 		},
 	}
 
-	static.TablesProjections.Store(tableName, static.TableSettings(tableSettings))
+	static.TablesProjections[tableName] = static.TableSettings(tableSettings)
 
 	t.ChildObjects.Tables[tableName] = struct{}{}
 
