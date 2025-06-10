@@ -474,11 +474,11 @@ func (s *Table[S]) ToTopic(topicName string) (topic static.Topic[S]) {
 // ToStream - propagates table data to new stream
 // and shares schema with it
 func (s *Table[S]) ToStream(streamName string) (stream static.Stream[S]) {
-	static.StreamsProjections[streamName] = static.StreamSettings{
+	static.StreamsProjections.Store(streamName, static.StreamSettings{
 		Name:        streamName,
 		SourceTopic: s.sourceTopic,
 		Partitions:  s.partitions,
-	}
+	})
 
 	stream.Name = streamName
 
