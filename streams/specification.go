@@ -32,7 +32,7 @@ type Stream[S any] struct {
 // map of available projections
 func ListStreams(ctx context.Context) (dto.ShowStreams, error) {
 
-	query := util.MustBool(ksql.List(ksql.STREAM).Expression)
+	query := util.MustTrue(ksql.List(ksql.STREAM).Expression)
 
 	pipeline, err := network.Net.Perform(
 		ctx,
@@ -71,7 +71,7 @@ func ListStreams(ctx context.Context) (dto.ShowStreams, error) {
 // it was created
 func (s *Stream[S]) Describe(ctx context.Context) (dto.RelationDescription, error) {
 
-	query := util.MustBool(ksql.Describe(ksql.STREAM, s.Name).Expression)
+	query := util.MustTrue(ksql.Describe(ksql.STREAM, s.Name).Expression)
 
 	pipeline, err := network.Net.Perform(
 		ctx,
@@ -109,7 +109,7 @@ func (s *Stream[S]) Describe(ctx context.Context) (dto.RelationDescription, erro
 // with parent topic. Also deletes projection from list
 func (s *Stream[S]) Drop(ctx context.Context) error {
 
-	query := util.MustBool(ksql.Drop(ksql.STREAM, s.Name).Expression)
+	query := util.MustTrue(ksql.Drop(ksql.STREAM, s.Name).Expression)
 
 	pipeline, err := network.Net.Perform(
 		ctx,

@@ -35,7 +35,7 @@ func ListTables(ctx context.Context) (
 	dto.ShowTables, error,
 ) {
 
-	query := util.MustBool(ksql.List(ksql.TABLE).Expression)
+	query := util.MustTrue(ksql.List(ksql.TABLE).Expression)
 
 	pipeline, err := network.Net.Perform(
 		ctx,
@@ -74,7 +74,7 @@ func ListTables(ctx context.Context) (
 // it was created
 func (s *Table[S]) Describe(ctx context.Context) (dto.RelationDescription, error) {
 
-	query := util.MustBool(ksql.Describe(ksql.TABLE, s.Name).Expression)
+	query := util.MustTrue(ksql.Describe(ksql.TABLE, s.Name).Expression)
 
 	pipeline, err := network.Net.Perform(
 		ctx,
@@ -111,7 +111,7 @@ func (s *Table[S]) Describe(ctx context.Context) (dto.RelationDescription, error
 // Drop - drops table from ksqlDB instance
 // with parent topic. Also deletes projection from list
 func (s *Table[S]) Drop(ctx context.Context) error {
-	query := util.MustBool(ksql.Drop(ksql.TABLE, s.Name).Expression)
+	query := util.MustTrue(ksql.Drop(ksql.TABLE, s.Name).Expression)
 
 	pipeline, err := network.Net.Perform(
 		ctx,

@@ -1,6 +1,6 @@
 package util
 
-func MustBool[T any](fn func() (T, bool)) T {
+func MustTrue[T any](fn func() (T, bool)) T {
 	value, ok := fn()
 	if !ok {
 		panic("must return a true")
