@@ -5,6 +5,8 @@ package cmd
 
 import (
 	"github.com/spf13/cobra"
+	"ksql/migrations"
+	"log"
 )
 
 // upCmd represents the up command
@@ -13,7 +15,9 @@ var upCmd = &cobra.Command{
 	Short: "Apply changes. Invokes up-migration in provided file",
 	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
-
+		if err := migrations.New(".").Up(args[0]); err != nil {
+			log.Fatalf("cannot up migration %w", err)
+		}
 	},
 }
 

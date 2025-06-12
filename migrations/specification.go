@@ -3,21 +3,24 @@ package migrations
 import (
 	"context"
 	"errors"
+	"time"
 )
 
 type (
 	Migrator interface {
-		Migrate(context.Context) error
+		Up(string) error
+		Down(string) error
+		AutoMigrate(context.Context) error
 	}
 
 	controller interface {
 		GetLatestVersion(
 			context.Context,
-		) (int, error)
+		) (time.Time, error)
 
 		UpgradeWithMigration(
 			ctx context.Context,
-			version int,
+			version time.Time,
 			query string) error
 	}
 )

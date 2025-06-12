@@ -10,7 +10,6 @@ import (
 	"ksql/tables"
 	"net/http"
 	"os"
-	"strconv"
 	"time"
 )
 
@@ -27,7 +26,7 @@ type ksqlController struct {
 
 type (
 	migrationRelation struct {
-		Version   int       `ksql:"version"`
+		Version   time.Time `ksql:"version"`
 		UpdatedAt time.Time `ksql:"updated_at"`
 	}
 )
@@ -61,7 +60,7 @@ func (ctrl *ksqlController) createSystemRelations(
 	return migTable.Cast(), nil
 }
 
-func (k *ksqlController) GetLatestVersion(ctx context.Context) (int, error) {
+func (k *ksqlController) GetLatestVersion(ctx context.Context) (time.Time, error) {
 	migrationTable, err := tables.GetTable[migrationRelation](
 		ctx,
 		systemTableName,
@@ -73,14 +72,14 @@ func (k *ksqlController) GetLatestVersion(ctx context.Context) (int, error) {
 	}
 
 	if err != nil {
-		return 0, err
+		return time.Time{}, err
 	}
 
 	k.table = migrationTable
 
 	message, err := migrationTable.SelectOnce(ctx)
 	if err != nil {
-		return 0, err
+		return time.Time{}, err
 	}
 
 	return message.Version, nil
@@ -88,7 +87,7 @@ func (k *ksqlController) GetLatestVersion(ctx context.Context) (int, error) {
 
 func (k *ksqlController) UpgradeWithMigration(
 	ctx context.Context,
-	version int,
+	version time.Time,
 	query string) error {
 
 	if k.stream == nil {
@@ -104,7 +103,7 @@ func (k *ksqlController) UpgradeWithMigration(
 	}
 
 	fields := map[string]string{
-		"version":    strconv.Itoa(version),
+		"version":    version.Format(time.RFC3339),
 		"updated_at": time.Now().Format(time.RFC3339),
 	}
 

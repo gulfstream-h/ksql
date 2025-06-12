@@ -5,6 +5,8 @@ package cmd
 
 import (
 	"github.com/spf13/cobra"
+	"ksql/migrations"
+	"log"
 )
 
 // downCmd represents the down command
@@ -13,7 +15,9 @@ var downCmd = &cobra.Command{
 	Short: "Discard changes. Invokes down-migration in provided file",
 	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
-
+		if err := migrations.New(".").Down(args[0]); err != nil {
+			log.Fatalf("cannot down migration %w", err)
+		}
 	},
 }
 
