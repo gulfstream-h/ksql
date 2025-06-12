@@ -41,10 +41,6 @@ type (
 			schema string,
 			on Expression,
 		) SelectBuilder
-		CrossJoin(
-			schema string,
-			on Expression,
-		) SelectBuilder
 	}
 
 	selectBuilderContext interface {
@@ -196,14 +192,6 @@ func (s *selectBuilder) OuterJoin(
 	on Expression,
 ) SelectBuilder {
 	s.joinExs = append(s.joinExs, Join(schema, on, Outer))
-	return s
-}
-
-func (s *selectBuilder) CrossJoin(
-	schema string,
-	on Expression,
-) SelectBuilder {
-	s.joinExs = append(s.joinExs, Join(schema, on, Cross))
 	return s
 }
 
