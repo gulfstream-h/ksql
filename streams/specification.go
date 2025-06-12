@@ -6,13 +6,13 @@ import (
 	"fmt"
 	jsoniter "github.com/json-iterator/go"
 	"ksql/kernel/network"
-	"ksql/kernel/protocol"
 	"ksql/kernel/protocol/dao"
 	"ksql/kernel/protocol/dto"
 	"ksql/kinds"
 	"ksql/ksql"
 	"ksql/schema"
 	"ksql/static"
+	"ksql/util"
 	"net/http"
 	"reflect"
 )
@@ -31,12 +31,8 @@ type Stream[S any] struct {
 // in the current ksqlDB instance. Also it reloads
 // map of available projections
 func ListStreams(ctx context.Context) (dto.ShowStreams, error) {
-	query := protocol.KafkaSerializer{
-		QueryAlgo: ksql.Query{
-			Query: ksql.LIST,
-			Ref:   ksql.STREAM,
-		}}.
-		Query()
+
+	query := util.MustTrue(ksql.List(ksql.STREAM).Expression)
 
 	pipeline, err := network.Net.Perform(
 		ctx,
@@ -74,12 +70,8 @@ func ListStreams(ctx context.Context) (dto.ShowStreams, error) {
 // Can be used for table schema and query by which
 // it was created
 func (s *Stream[S]) Describe(ctx context.Context) (dto.RelationDescription, error) {
-	query := protocol.KafkaSerializer{
-		QueryAlgo: ksql.Query{
-			Query: ksql.DESCRIBE,
-			Name:  s.Name,
-		},
-	}.Query()
+
+	query := util.MustTrue(ksql.Describe(ksql.STREAM, s.Name).Expression)
 
 	pipeline, err := network.Net.Perform(
 		ctx,
@@ -116,13 +108,8 @@ func (s *Stream[S]) Describe(ctx context.Context) (dto.RelationDescription, erro
 // Drop - drops stream from ksqlDB instance
 // with parent topic. Also deletes projection from list
 func (s *Stream[S]) Drop(ctx context.Context) error {
-	query := protocol.KafkaSerializer{
-		QueryAlgo: ksql.Query{
-			Query: ksql.DROP,
-			Ref:   ksql.STREAM,
-			Name:  s.Name,
-		},
-	}.Query()
+
+	query := util.MustTrue(ksql.Drop(ksql.STREAM, s.Name).Expression)
 
 	pipeline, err := network.Net.Perform(
 		ctx,
@@ -181,7 +168,7 @@ func GetStream[S any](
 	}
 	desc, err := streamInstance.Describe(ctx)
 	if err != nil {
-		if errors.Is(err, static.ErrStreamDoesNotExist) {
+		if errors.Is(err, static.ErrStreamDoesNotExist) || len(desc.Fields) == 0 {
 			return nil, err
 		}
 		return nil, fmt.Errorf("cannot get stream description: %w", err)
@@ -193,10 +180,6 @@ func GetStream[S any](
 
 	for _, field := range desc.Fields {
 		responseSchema[field.Name] = field.Kind
-	}
-
-	if responseSchema == nil {
-		return nil, static.ErrStreamDoesNotExist
 	}
 
 	remoteSchema := schema.SerializeRemoteSchema(responseSchema)
@@ -216,29 +199,26 @@ func GetStream[S any](
 func CreateStream[S any](
 	ctx context.Context,
 	streamName string,
-	settings StreamSettings) (*Stream[S], error) {
+	settings StreamSettings,
+) (*Stream[S], error) {
 
 	var (
 		s S
 	)
 
 	rmSchema := schema.SerializeProvidedStruct(s)
+	searchFields := schema.ParseStructToFields(streamName, rmSchema)
 
-	query := protocol.KafkaSerializer{
-		QueryAlgo: ksql.Query{
-			Query: ksql.CREATE,
-			Ref:   ksql.STREAM,
-			Name:  streamName,
-		},
-		SchemaAlgo: schema.ParseStructToFields(
-			streamName,
-			rmSchema,
-		),
-		MetadataAlgo: ksql.With{
-			Topic:       *settings.SourceTopic,
-			ValueFormat: kinds.JSON.String(),
-		},
-	}.Query()
+	metadata := ksql.Metadata{
+		Topic:       *settings.SourceTopic,
+		ValueFormat: kinds.JSON.String(),
+		Partitions:  int(*settings.Partitions),
+	}
+
+	query, _ := ksql.Create(ksql.STREAM, streamName).
+		SchemaFields(searchFields...).
+		With(metadata).
+		Expression()
 
 	pipeline, err := network.Net.Perform(
 		ctx,
@@ -292,14 +272,14 @@ func CreateStreamAsSelect[S any](
 	ctx context.Context,
 	streamName string,
 	settings StreamSettings,
-	query static.QueryPlan) (*Stream[S], error) {
+	selectBuilder ksql.SelectBuilder) (*Stream[S], error) {
 
 	var (
 		s S
 	)
 
 	scheme := schema.SerializeProvidedStruct(s)
-	rmScheme := schema.SerializeFieldsToStruct(query.SchemaAlgo)
+	rmScheme := schema.SerializeFieldsToStruct(selectBuilder.SchemaFields())
 
 	matchMap, diffMap := schema.CompareStructs(scheme, rmScheme)
 
@@ -308,26 +288,22 @@ func CreateStreamAsSelect[S any](
 		return nil, errors.New("schemes doesnt match")
 	}
 
-	q := protocol.KafkaSerializer{
-		QueryAlgo: ksql.Query{
-			Query: ksql.CREATE,
-			Ref:   ksql.STREAM,
-			Name:  streamName,
-		},
-		SchemaAlgo: query.SchemaAlgo,
-		MetadataAlgo: ksql.With{
+	query, ok := ksql.Create(ksql.STREAM, streamName).
+		AsSelect(selectBuilder).
+		With(ksql.Metadata{
 			Topic:       *settings.SourceTopic,
 			ValueFormat: kinds.JSON.String(),
-		},
-		CTE: map[string]protocol.KafkaSerializer{
-			"AS": query,
-		},
-	}.Query()
+		}).
+		Expression()
+
+	if !ok {
+		return nil, errors.New("cannot build create query")
+	}
 
 	pipeline, err := network.Net.Perform(
 		ctx,
 		http.MethodPost,
-		q,
+		query,
 		&network.ShortPolling{},
 	)
 	if err != nil {
@@ -369,11 +345,17 @@ func CreateStreamAsSelect[S any](
 	}
 }
 
+/*
+  TODO:
+    - Replace fields to any ?
+*/
+
 // Insert - provides insertion to stream functionality
 // written fields are defined by user
 func (s *Stream[S]) Insert(
 	ctx context.Context,
-	fields map[string]string) error {
+	fields ksql.Rows,
+) error {
 
 	scheme := *s.remoteSchema
 
@@ -386,25 +368,23 @@ func (s *Stream[S]) Insert(
 		searchFields []schema.SearchField
 	)
 
+	// TODO:
+	// 	if no key presented in fields - return error?
 	for key, value := range fields {
 		field, ok := remoteProjection[key]
 		if !ok {
 			continue
 		}
 
-		field.Value = &value
+		*field.Value = util.Serialize(value)
 
 		searchFields = append(searchFields, field)
 	}
 
-	query := protocol.KafkaSerializer{
-		SchemaAlgo: searchFields,
-		QueryAlgo: ksql.Query{
-			Query: ksql.INSERT,
-			Ref:   ksql.STREAM,
-			Name:  s.Name,
-		},
-	}.Query()
+	query, ok := ksql.Insert(ksql.STREAM, s.Name).Rows(fields).Expression()
+	if !ok {
+		return errors.New("cannot build insert query")
+	}
 
 	pipeline, err := network.Net.Perform(
 		ctx,
@@ -446,10 +426,11 @@ func (s *Stream[S]) Insert(
 // is built by user
 func (s *Stream[S]) InsertAs(
 	ctx context.Context,
-	query protocol.KafkaSerializer) error {
+	selectQuery ksql.SelectBuilder,
+) error {
 
 	scheme := *s.remoteSchema
-	rmScheme := schema.SerializeFieldsToStruct(query.SchemaAlgo)
+	rmScheme := schema.SerializeFieldsToStruct(selectQuery.SchemaFields())
 
 	matchMap, diffMap := schema.CompareStructs(scheme, rmScheme)
 
@@ -458,22 +439,15 @@ func (s *Stream[S]) InsertAs(
 		return errors.New("schemes doesnt match")
 	}
 
-	q := protocol.KafkaSerializer{
-		SchemaAlgo: query.SchemaAlgo,
-		QueryAlgo: ksql.Query{
-			Query: ksql.INSERT,
-			Ref:   ksql.STREAM,
-			Name:  s.Name,
-		},
-		CTE: map[string]protocol.KafkaSerializer{
-			"AS": query,
-		},
-	}.Query()
+	query, ok := ksql.Insert(ksql.STREAM, s.Name).AsSelect(selectQuery).Expression()
+	if !ok {
+		return errors.New("cannot build insert query")
+	}
 
 	pipeline, err := network.Net.Perform(
 		ctx,
 		http.MethodPost,
-		q,
+		query,
 		&network.ShortPolling{},
 	)
 	if err != nil {
@@ -514,20 +488,14 @@ func (s *Stream[S]) SelectOnce(
 		value S
 	)
 
-	query := protocol.KafkaSerializer{
-		QueryAlgo: ksql.Query{
-			Query: ksql.SELECT,
-			Ref:   ksql.STREAM,
-			Name:  s.Name,
-		},
-		SchemaAlgo: schema.ParseStructToFields(
-			s.Name,
-			*s.remoteSchema,
-		),
-		MetadataAlgo: ksql.With{
-			ValueFormat: kinds.JSON.String(),
-		},
-	}.Query()
+	query, ok := ksql.SelectAsStruct(*s.remoteSchema).
+		From(s.Name).
+		WithMeta(ksql.Metadata{ValueFormat: kinds.JSON.String()}).
+		Expression()
+
+	if !ok {
+		return value, errors.New("cannot build select query")
+	}
 
 	pipeline, err := network.Net.Perform(
 		ctx,
@@ -567,20 +535,14 @@ func (s *Stream[S]) SelectWithEmit(
 		valuesC = make(chan S)
 	)
 
-	query := protocol.KafkaSerializer{
-		QueryAlgo: ksql.Query{
-			Query: ksql.SELECT,
-			Ref:   ksql.STREAM,
-			Name:  s.Name,
-		},
-		SchemaAlgo: schema.ParseStructToFields(
-			s.Name,
-			*s.remoteSchema,
-		),
-		MetadataAlgo: ksql.With{
-			ValueFormat: kinds.JSON.String(),
-		},
-	}.Query()
+	query, ok := ksql.SelectAsStruct(*s.remoteSchema).
+		From(s.Name).
+		WithMeta(ksql.Metadata{ValueFormat: kinds.JSON.String()}).
+		Expression()
+
+	if !ok {
+		return nil, errors.New("cannot build select query")
+	}
 
 	pipeline, err := network.Net.Perform(
 		ctx,
@@ -628,7 +590,7 @@ func (s *Stream[S]) ToTopic(topicName string) (topic static.Topic[S]) {
 // ToTable - propagates stream data to new table
 // and shares schema with it
 func (s *Stream[S]) ToTable(tableName string) (table static.Table[S]) {
-	static.TablesProjections.Store(tableName, static.TableSettings{
+	static.StreamsProjections.Store(tableName, static.StreamSettings{
 		Name:       tableName,
 		Partitions: s.partitions,
 	})
