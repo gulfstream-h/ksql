@@ -22,7 +22,7 @@ var (
 type network struct {
 	host       string
 	httpClient *http.Client
-	timeoutSec *int64
+	timeoutSec int64
 }
 
 // Init - entry point for all ksql usage
@@ -30,8 +30,8 @@ type network struct {
 func Init(config config.Config) {
 	client := http.Client{}
 
-	if config.TimeoutSec != nil {
-		client.Timeout = time.Duration(*config.TimeoutSec) * time.Second
+	if config.TimeoutSec == 0 {
+		client.Timeout = time.Duration(config.TimeoutSec) * time.Second
 	} else {
 		client.Timeout = static.KsqlConnTimeout
 	}
