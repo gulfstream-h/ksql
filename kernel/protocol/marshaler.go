@@ -15,10 +15,10 @@ type (
 	KafkaSerializer struct {
 		QueryAlgo    ksql.Query
 		SchemaAlgo   []schema.SearchField
-		JoinAlgo     ksql.Join
-		CondAlgo     ksql.Cond
+		JoinAlgo     Join
+		CondAlgo     Cond
 		GroupBy      []schema.SearchField
-		MetadataAlgo ksql.With
+		MetadataAlgo With
 		CTE          map[string]KafkaSerializer
 	}
 )
@@ -176,11 +176,11 @@ func (ks KafkaSerializer) writeJoin() {
 	)
 
 	switch ks.JoinAlgo.Kind {
-	case ksql.Left:
+	case Left:
 		str.WriteString(" LEFT JOIN ON ")
-	case ksql.Inner:
+	case Inner:
 		str.WriteString(" INNER JOIN ON ")
-	case ksql.Right:
+	case Right:
 		str.WriteString(" RIGHT JOIN ON ")
 	}
 

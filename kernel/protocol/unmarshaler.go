@@ -169,7 +169,7 @@ const (
 )
 
 type JoinDeserializeAlgo interface {
-	Deserialize(string) ksql.Join
+	Deserialize(string) Join
 }
 
 const (
@@ -186,7 +186,7 @@ const (
 )
 
 type ConditionalDeserializeAlgo interface {
-	Deserialize(string, string) ksql.Cond
+	Deserialize(string, string) Cond
 }
 
 const (
@@ -194,5 +194,5 @@ const (
 )
 
 type MetadataDeserializeAlgo interface {
-	Deserialize(string) ksql.With
+	Deserialize(string) With
 }

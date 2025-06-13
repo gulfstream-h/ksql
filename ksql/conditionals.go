@@ -2,81 +2,151 @@ package ksql
 
 import (
 	"fmt"
-	"ksql/schema"
+	"ksql/util"
+	"strconv"
 )
 
-type Cond struct {
-	WhereClause  []WhereEx
-	HavingClause []HavingEx
-}
-
-type WhereEx struct {
-	FieldName string
-	schema    schema.SearchField
-	comp      string
-	equal     string
-}
-
-func (ex WhereEx) Equal(values ...string) WhereEx {
-
-	if len(values) == 0 {
-		return ex
+type (
+	Expression interface {
+		Expression() (string, bool)
 	}
 
-	if len(values) == 1 {
-		ex.comp = "="
-		ex.equal = values[0]
-		return ex
+	Comparable interface {
+		Equal(val any) Expression
+		NotEqual(val any) Expression
 	}
 
-	ex.comp = "in"
+	Ordered interface {
+		Greater(val any) Expression
+		Less(val any) Expression
+		GreaterEq(val any) Expression
+		LessEq(val any) Expression
+	}
 
+	Nullable interface {
+		IsNull() Expression
+		IsNotNull() Expression
+	}
+
+	ComparableArray interface {
+		In(val ...any) Expression
+		NotIn(val ...any) Expression
+	}
+
+	Op int
+)
+
+const (
+	equal = Op(iota)
+	notEqual
+	more
+	less
+	moreEqual
+	lessEqual
+	isNull
+	isNotNull
+	isTrue
+	isFalse
+	in
+	notIn
+)
+
+type booleanExp struct {
+	left      Field
+	right     any
+	operation Op
+}
+
+func NewBooleanExp(left Field, right any, op Op) Expression {
+	return &booleanExp{left: left, right: right, operation: op}
+}
+
+func (b *booleanExp) Expression() (string, bool) {
 	var (
-		fields string
+		operation   string
+		ordered     bool
+		iterable    bool
+		rightString string
 	)
 
-	fields += "("
-
-	for _, v := range values {
-		fields += fmt.Sprintf("%s,", v)
+	expression, ok := b.left.Expression()
+	if !ok {
+		return "", false
 	}
 
-	fields += ")"
+	switch b.operation {
+	case isNull:
+		return fmt.Sprintf("%s IS NULL", expression), true
+	case isNotNull:
+		return fmt.Sprintf("%s IS NOT NULL", expression), true
+	case isTrue:
+		return fmt.Sprintf("%s IS TRUE", expression), true
+	case isFalse:
+		return fmt.Sprintf("%s IS FALSE", expression), true
 
-	return ex
+	case equal:
+		operation = "="
+	case notEqual:
+		operation = "!="
+	case more:
+		operation = ">"
+		ordered = true
+	case less:
+		operation = "<"
+		ordered = true
+	case moreEqual:
+		operation = ">="
+		ordered = true
+	case lessEqual:
+		operation = "<="
+		ordered = true
+	case in:
+		operation = "IN"
+		iterable = true
+	case notIn:
+		operation = "NOT IN"
+		iterable = true
+	default:
+		return "", false
+	}
+
+	if ordered && !util.IsOrdered(b.right) {
+		return "", false
+	}
+
+	if iterable {
+		if !util.IsIterable(b.right) {
+			return "", false
+		}
+		rightString = util.FormatSlice(b.right)
+		return fmt.Sprintf("%s %s %s", expression, operation, rightString), true
+	}
+
+	switch v := b.right.(type) {
+	case int:
+		rightString = strconv.Itoa(v)
+	case int8, int16, int32, int64:
+		rightString = fmt.Sprintf("%d", v)
+	case uint, uint8, uint16, uint32, uint64:
+		rightString = fmt.Sprintf("%d", v)
+	case float32, float64:
+		rightString = fmt.Sprintf("%f", v)
+	case string:
+		rightString = fmt.Sprintf("'%s'", v)
+	default:
+		rightString = util.Serialize(b.right)
+		if len(rightString) == 0 {
+			return "", false
+		}
+	}
+
+	return fmt.Sprintf("%s %s %s", expression, operation, rightString), true
 }
 
-type HavingEx struct {
-	FieldName string
-	schema    schema.SearchField
-	comp      string
-	equal     string
+func (b *booleanExp) Left() Field {
+	return b.left
 }
 
-func (ex HavingEx) Equal(values ...string) HavingEx {
-	if len(values) == 0 {
-		return ex
-	}
-
-	if len(values) == 1 {
-		ex.comp = "="
-		ex.equal = values[0]
-		return ex
-	}
-
-	ex.comp = "in"
-
-	var (
-		fields string
-	)
-
-	fields += "("
-
-	for _, v := range values {
-		fields += fmt.Sprintf("%s,", v)
-	}
-
-	fields += ")"
-
-	return ex
+func (b *booleanExp) Right() any {
+	return b.right
 }
