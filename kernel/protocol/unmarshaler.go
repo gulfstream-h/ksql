@@ -2,6 +2,7 @@ package protocol
 
 import (
 	"ksql/kernel/protocol/ddl"
+	"ksql/kernel/protocol/proto"
 	"ksql/ksql"
 	"ksql/schema"
 	"regexp"
@@ -169,7 +170,7 @@ const (
 )
 
 type JoinDeserializeAlgo interface {
-	Deserialize(string) Join
+	Deserialize(string) proto.Join
 }
 
 const (
@@ -186,7 +187,7 @@ const (
 )
 
 type ConditionalDeserializeAlgo interface {
-	Deserialize(string, string) Cond
+	Deserialize(string, string) proto.Cond
 }
 
 const (
@@ -194,5 +195,5 @@ const (
 )
 
 type MetadataDeserializeAlgo interface {
-	Deserialize(string) With
+	Deserialize(string) proto.With
 }

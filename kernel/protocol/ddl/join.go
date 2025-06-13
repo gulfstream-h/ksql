@@ -1,7 +1,7 @@
 package ddl
 
 import (
-	"ksql/kernel/protocol"
+	"ksql/kernel/protocol/proto"
 	"ksql/schema"
 	"strings"
 )
@@ -10,28 +10,28 @@ type (
 	JoinRestAnalysis struct{}
 )
 
-func (ja JoinRestAnalysis) Deserialize(query string) protocol.Join {
+func (ja JoinRestAnalysis) Deserialize(query string) proto.Join {
 	var (
-		j protocol.Join
+		j proto.Join
 	)
 
 	partialQuery, found := strings.CutPrefix(query, "INNER JOIN")
 	if found {
-		j.Kind = protocol.Inner
+		j.Kind = proto.Inner
 		j.SelectField, j.JoinField = parseJoin(partialQuery)
 		return j
 	}
 
 	partialQuery, found = strings.CutPrefix(query, "LEFT JOIN")
 	if found {
-		j.Kind = protocol.Left
+		j.Kind = proto.Left
 		j.SelectField, j.JoinField = parseJoin(partialQuery)
 		return j
 	}
 
 	partialQuery, found = strings.CutPrefix(query, "RIGHT JOIN")
 	if found {
-		j.Kind = protocol.Right
+		j.Kind = proto.Right
 		j.SelectField, j.JoinField = parseJoin(partialQuery)
 		return j
 	}

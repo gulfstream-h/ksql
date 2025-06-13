@@ -11,7 +11,9 @@ import (
 	"ksql/kinds"
 	"ksql/ksql"
 	"ksql/schema"
+	"ksql/shared"
 	"ksql/static"
+
 	"ksql/util"
 	"net/http"
 	"reflect"
@@ -152,7 +154,7 @@ func (s *Stream[S]) Drop(ctx context.Context) error {
 func GetStream[S any](
 	ctx context.Context,
 	stream string,
-	settings StreamSettings) (*Stream[S], error) {
+	settings shared.StreamSettings) (*Stream[S], error) {
 
 	var (
 		s S
@@ -199,7 +201,7 @@ func GetStream[S any](
 func CreateStream[S any](
 	ctx context.Context,
 	streamName string,
-	settings StreamSettings,
+	settings shared.StreamSettings,
 ) (*Stream[S], error) {
 
 	var (
@@ -271,7 +273,7 @@ func CreateStream[S any](
 func CreateStreamAsSelect[S any](
 	ctx context.Context,
 	streamName string,
-	settings StreamSettings,
+	settings shared.StreamSettings,
 	selectBuilder ksql.SelectBuilder) (*Stream[S], error) {
 
 	var (
@@ -576,26 +578,4 @@ func (s *Stream[S]) SelectWithEmit(
 	}()
 
 	return valuesC, nil
-}
-
-// ToTopic - propagates stream data to new topic
-// stream scheme is fully extended to new topic
-func (s *Stream[S]) ToTopic(topicName string) (topic static.Topic[S]) {
-	topic.Name = topicName
-	topic.Partitions = int(*s.partitions)
-
-	return
-}
-
-// ToTable - propagates stream data to new table
-// and shares schema with it
-func (s *Stream[S]) ToTable(tableName string) (table static.Table[S]) {
-	static.StreamsProjections.Store(tableName, static.StreamSettings{
-		Name:       tableName,
-		Partitions: s.partitions,
-	})
-
-	table.Name = tableName
-
-	return
 }

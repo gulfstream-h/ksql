@@ -1,7 +1,7 @@
 package ddl
 
 import (
-	"ksql/kernel/protocol"
+	"ksql/kernel/protocol/proto"
 	"strings"
 )
 
@@ -10,9 +10,9 @@ type (
 )
 
 func (ca CondRestAnalysis) Deserialize(
-	whereQuery, havingQuery string) protocol.Cond {
+	whereQuery, havingQuery string) proto.Cond {
 	var (
-		c protocol.Cond
+		c proto.Cond
 	)
 
 	whereClause, found := strings.CutPrefix(whereQuery, "WHERE ")
@@ -32,24 +32,24 @@ func (ca CondRestAnalysis) Deserialize(
 	return c
 }
 
-func formatWhere(where string) protocol.WhereEx {
+func formatWhere(where string) proto.WhereEx {
 	whereLiterals := strings.Split(where, " ")
 	if len(whereLiterals) < 3 {
-		return protocol.WhereEx{}
+		return proto.WhereEx{}
 	}
 
 	switch whereLiterals[1] {
 	case "=":
-		return protocol.WhereEx{FieldName: whereLiterals[0]}.Equal(whereLiterals[2])
+		return proto.WhereEx{FieldName: whereLiterals[0]}.Equal(whereLiterals[2])
 	default:
 		//TODO: IMPLEMENT OTHER METHODS
-		return protocol.WhereEx{}
+		return proto.WhereEx{}
 	}
 }
 
-func parseWhere(whereClause string) []protocol.WhereEx {
+func parseWhere(whereClause string) []proto.WhereEx {
 	conditionals := strings.Split(whereClause, "AND")
-	whereExes := make([]protocol.WhereEx, 0, len(conditionals))
+	whereExes := make([]proto.WhereEx, 0, len(conditionals))
 
 	for _, conditional := range conditionals {
 		whereExes = append(whereExes, formatWhere(conditional))
@@ -58,24 +58,24 @@ func parseWhere(whereClause string) []protocol.WhereEx {
 	return whereExes
 }
 
-func formatHaving(having string) protocol.HavingEx {
+func formatHaving(having string) proto.HavingEx {
 	havingLiterals := strings.Split(having, " ")
 	if len(havingLiterals) < 3 {
-		return protocol.HavingEx{}
+		return proto.HavingEx{}
 	}
 
 	switch havingLiterals[1] {
 	case "=":
-		return protocol.HavingEx{FieldName: havingLiterals[0]}.Equal(havingLiterals[2])
+		return proto.HavingEx{FieldName: havingLiterals[0]}.Equal(havingLiterals[2])
 	default:
 		//TODO: IMPLEMENT OTHER METHODS
-		return protocol.HavingEx{}
+		return proto.HavingEx{}
 	}
 }
 
-func parseHaving(havingClause string) []protocol.HavingEx {
+func parseHaving(havingClause string) []proto.HavingEx {
 	conditionals := strings.Split(havingClause, "AND")
-	havingExes := make([]protocol.HavingEx, 0, len(conditionals))
+	havingExes := make([]proto.HavingEx, 0, len(conditionals))
 
 	for _, conditional := range conditionals {
 		havingExes = append(havingExes, formatHaving(conditional))

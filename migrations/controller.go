@@ -5,6 +5,7 @@ import (
 	"errors"
 	"ksql/kernel/network"
 	"ksql/kinds"
+	"ksql/shared"
 	"ksql/static"
 	"ksql/streams"
 	"ksql/tables"
@@ -40,11 +41,11 @@ func newKsqlController() controller {
 func (ctrl *ksqlController) createSystemRelations(
 	ctx context.Context) (*tables.Table[migrationRelation], error) {
 
-	settings := streams.StreamSettings{
+	settings := shared.StreamSettings{
 		Format: kinds.JSON,
 	}
 
-	migStream, err := streams.CreateStream[migrationRelation](
+	_, err := streams.CreateStream[migrationRelation](
 		ctx,
 		systemStreamName,
 		settings)
@@ -52,19 +53,21 @@ func (ctrl *ksqlController) createSystemRelations(
 		return nil, err
 	}
 
-	migTable, err := migStream.ToTable(systemTableName)
+	migTable, err := tables.CreateTable[migrationRelation](ctx, "system", shared.TableSettings{
+		Format: kinds.JSON,
+	})
 	if err != nil {
 		return nil, err
 	}
 
-	return migTable.Cast(), nil
+	return migTable, nil
 }
 
 func (k *ksqlController) GetLatestVersion(ctx context.Context) (time.Time, error) {
 	migrationTable, err := tables.GetTable[migrationRelation](
 		ctx,
 		systemTableName,
-		tables.TableSettings{},
+		shared.TableSettings{},
 	)
 
 	if errors.Is(err, static.ErrTableDoesNotExist) {
@@ -102,7 +105,7 @@ func (k *ksqlController) UpgradeWithMigration(
 		return errors.Join(ErrMigrationServiceNotAvailable, err)
 	}
 
-	fields := map[string]string{
+	fields := map[string]any{
 		"version":    version.Format(time.RFC3339),
 		"updated_at": time.Now().Format(time.RFC3339),
 	}

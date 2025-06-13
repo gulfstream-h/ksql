@@ -9,9 +9,8 @@ import (
 	"ksql/kernel/protocol/dao"
 	"ksql/kernel/protocol/dto"
 	"ksql/ksql"
+	"ksql/shared"
 	"ksql/static"
-	"ksql/streams"
-	"ksql/tables"
 	"net/http"
 )
 
@@ -62,10 +61,10 @@ func ListTopics(ctx context.Context) (dto.ShowTopics, error) {
 	}
 }
 
-func (t *Topic[S]) RegisterStream(streamName string) streams.StreamSettings {
+func (t *Topic[S]) RegisterStream(streamName string) shared.StreamSettings {
 	partitions := uint8(t.Partitions)
 
-	streamSettings := streams.StreamSettings{
+	streamSettings := shared.StreamSettings{
 		Name:        streamName,
 		SourceTopic: &t.Name,
 		Partitions:  &partitions,
@@ -74,17 +73,17 @@ func (t *Topic[S]) RegisterStream(streamName string) streams.StreamSettings {
 		},
 	}
 
-	static.StreamsProjections.Store(streamName, static.StreamSettings(streamSettings))
+	static.StreamsProjections.Store(streamName, streamSettings)
 
 	t.ChildObjects.Streams[streamName] = struct{}{}
 
 	return streamSettings
 }
 
-func (t *Topic[S]) RegisterTable(tableName string) tables.TableSettings {
+func (t *Topic[S]) RegisterTable(tableName string) shared.TableSettings {
 	partitions := uint8(t.Partitions)
 
-	tableSettings := tables.TableSettings{
+	tableSettings := shared.TableSettings{
 		Name:        tableName,
 		SourceTopic: &t.Name,
 		Partitions:  &partitions,
@@ -93,7 +92,7 @@ func (t *Topic[S]) RegisterTable(tableName string) tables.TableSettings {
 		},
 	}
 
-	static.TablesProjections.Store(tableName, static.TableSettings(tableSettings))
+	static.TablesProjections.Store(tableName, tableSettings)
 
 	t.ChildObjects.Tables[tableName] = struct{}{}
 

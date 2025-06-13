@@ -1,6 +1,7 @@
-package ddl
+package tests
 
 import (
+	"ksql/kernel/protocol/ddl"
 	"ksql/ksql"
 	"ksql/schema"
 	"reflect"
@@ -24,7 +25,7 @@ func TestJoinRestAnalysis_Deserialize(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			ja := JoinRestAnalysis{}
+			ja := ddl.JoinRestAnalysis{}
 			if got := ja.Deserialize(tt.query); !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("Deserialize() = %v, want %v", got, tt.want)
 			}

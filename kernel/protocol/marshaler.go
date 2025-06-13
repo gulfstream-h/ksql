@@ -2,6 +2,7 @@ package protocol
 
 import (
 	"fmt"
+	"ksql/kernel/protocol/proto"
 	"ksql/ksql"
 	"ksql/schema"
 	"strings"
@@ -15,10 +16,10 @@ type (
 	KafkaSerializer struct {
 		QueryAlgo    ksql.Query
 		SchemaAlgo   []schema.SearchField
-		JoinAlgo     Join
-		CondAlgo     Cond
+		JoinAlgo     proto.Join
+		CondAlgo     proto.Cond
 		GroupBy      []schema.SearchField
-		MetadataAlgo With
+		MetadataAlgo proto.With
 		CTE          map[string]KafkaSerializer
 	}
 )
@@ -176,11 +177,11 @@ func (ks KafkaSerializer) writeJoin() {
 	)
 
 	switch ks.JoinAlgo.Kind {
-	case Left:
+	case proto.Left:
 		str.WriteString(" LEFT JOIN ON ")
-	case Inner:
+	case proto.Inner:
 		str.WriteString(" INNER JOIN ON ")
-	case Right:
+	case proto.Right:
 		str.WriteString(" RIGHT JOIN ON ")
 	}
 

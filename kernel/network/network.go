@@ -8,7 +8,6 @@ import (
 	"io"
 	"ksql/config"
 	"ksql/static"
-	_ "ksql/topics"
 	"net/http"
 	"time"
 )

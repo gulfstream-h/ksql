@@ -1,6 +1,7 @@
-package ddl
+package tests
 
 import (
+	"ksql/kernel/protocol/ddl"
 	"ksql/ksql"
 	"reflect"
 	"testing"
@@ -20,7 +21,7 @@ func TestMetadataRestAnalysis_Deserialize(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			ma := MetadataRestAnalysis{}
+			ma := ddl.MetadataRestAnalysis{}
 			if got := ma.Deserialize(tt.query); !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("Deserialize() = %v, want %v", got, tt.want)
 			}
