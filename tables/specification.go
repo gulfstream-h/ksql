@@ -213,17 +213,17 @@ func CreateTable[S any](
 	)
 
 	rmSchema := schema.SerializeProvidedStruct(s)
+	searchFields := schema.ParseStructToFields(tableName, rmSchema)
 
-	meta := ksql.Metadata{
+	metadata := ksql.Metadata{
 		Topic:       *settings.SourceTopic,
 		ValueFormat: kinds.JSON.String(),
 	}
 
-	query, ok := ksql.SelectAsStruct(s).
-		From(tableName).
-		WithMeta(meta).
+	query, ok := ksql.Create(ksql.TABLE, tableName).
+		SchemaFields(searchFields...).
+		With(metadata).
 		Expression()
-
 	if !ok {
 		return nil, errors.New("cannot build query for table creation")
 	}
@@ -247,7 +247,7 @@ func CreateTable[S any](
 		}
 
 		var (
-			create dao.CreateRelationResponse
+			create []dao.CreateRelationResponse
 		)
 
 		if err := jsoniter.Unmarshal(val, &create); err != nil {
@@ -331,7 +331,7 @@ func CreateTableAsSelect[S any](
 		}
 
 		var (
-			create dao.CreateRelationResponse
+			create []dao.CreateRelationResponse
 		)
 
 		if err := jsoniter.Unmarshal(val, &create); err != nil {

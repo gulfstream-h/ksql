@@ -54,6 +54,13 @@ type DescribeResponse struct {
 func (dr DescribeResponse) DTO() dto.RelationDescription {
 	fields := make([]dto.Field, len(dr.SourceDescription.Fields))
 
+	for i, field := range dr.SourceDescription.Fields {
+		fields[i] = dto.Field{
+			Name: field.Name,
+			Kind: field.Schema.Type,
+		}
+	}
+
 	return dto.RelationDescription{
 		Name:             dr.SourceDescription.Name,
 		Fields:           fields,

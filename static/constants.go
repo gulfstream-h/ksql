@@ -3,7 +3,7 @@ package static
 import "time"
 
 const (
-	KSQL            = "KSQL"
+	KSQL            = "ksql"
 	KsqlConnTimeout = 30 * time.Second
 )
 

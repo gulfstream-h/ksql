@@ -42,7 +42,7 @@ func Serialize(val any) string {
 	case []byte:
 		return string(v)
 	case string:
-		return v
+		return "'" + v + "'"
 	case fmt.Stringer:
 		return v.String()
 	case float32, float64:

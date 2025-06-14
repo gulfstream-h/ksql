@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	jsoniter "github.com/json-iterator/go"
 	"io"
 	"ksql/config"
 	"ksql/static"
@@ -61,11 +62,17 @@ func (n *network) Perform(
 	query string,
 	pollingAlgo Poller) (<-chan []byte, error) {
 
+	q, _ := jsoniter.Marshal(struct {
+		KSQL string `json:"ksql"`
+	}{
+		KSQL: query,
+	})
+
 	req, err := http.NewRequestWithContext(
 		ctx,
 		method,
-		n.host,
-		bytes.NewReader([]byte(query)),
+		n.host+"/ksql",
+		bytes.NewReader(q),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("error while formating req: %w", err)
@@ -83,7 +90,43 @@ func (n *network) Perform(
 	if resp, err = n.httpClient.Do(req); err != nil {
 		return nil, fmt.Errorf("error while performing req: %w", err)
 	}
-	defer resp.Body.Close()
+
+	return pollingAlgo.Process(resp.Body), nil
+}
+
+func (n *network) PerformSelect(
+	ctx context.Context,
+	method string,
+	query string,
+	pollingAlgo Poller) (<-chan []byte, error) {
+
+	q, _ := jsoniter.Marshal(struct {
+		KSQL string `json:"ksql"`
+	}{
+		KSQL: query,
+	})
+
+	req, err := http.NewRequestWithContext(
+		ctx,
+		method,
+		n.host+"/query",
+		bytes.NewReader(q),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("error while formating req: %w", err)
+	}
+	req.Header.Set(
+		static.ContentType,
+		static.HeaderKSQL,
+	)
+
+	var (
+		resp *http.Response
+	)
+
+	if resp, err = n.httpClient.Do(req); err != nil {
+		return nil, fmt.Errorf("error while performing req: %w", err)
+	}
 
 	return pollingAlgo.Process(resp.Body), nil
 }

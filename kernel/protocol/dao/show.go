@@ -16,7 +16,7 @@ type ShowTopics struct {
 }
 
 type Stream struct {
-	KafkaType   string `json:"type"`
+	Type        string `json:"type"`
 	Name        string `json:"name"`
 	Topic       string `json:"topic"`
 	KeyFormat   string `json:"keyFormat"`
@@ -24,12 +24,11 @@ type Stream struct {
 	IsWindowed  bool   `json:"isWindowed"`
 }
 
-// curl -X POST \\n  -H "Content-Type: application/vnd.ksql.v1+json" \\n  -d '{"ksql": "SHOW STREAMS;"}' \\n  "http://localhost:8088/ksql"
-type ShowStreams struct {
-	KafkaType string   `json:"type"`
-	Command   string   `json:"statementText"`
-	Streams   []Stream `json:"streams"`
-	Warnings  []any    `json:"warnings"`
+type StreamsInfo struct {
+	Type          string   `json:"@type"`
+	StatementText string   `json:"statementText"`
+	Streams       []Stream `json:"streams"`
+	Warnings      []any    `json:"warnings"`
 }
 
 type Table struct {
@@ -57,7 +56,7 @@ func (st ShowTopics) DTO() dto.ShowTopics {
 	return dto.ShowTopics{Topics: topicInfos}
 }
 
-func (ss ShowStreams) DTO() dto.ShowStreams {
+func (ss StreamsInfo) DTO() dto.ShowStreams {
 	streamsInfos := make([]dto.RelationInfo, len(ss.Streams))
 	for i, stream := range ss.Streams {
 		streamsInfos[i] = dto.RelationInfo{
