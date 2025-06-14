@@ -22,6 +22,8 @@ type (
 		Less(val any) Expression
 		GreaterEq(val any) Expression
 		LessEq(val any) Expression
+		Asc() OrderedExpression
+		Desc() OrderedExpression
 	}
 
 	Nullable interface {

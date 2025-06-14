@@ -5,27 +5,38 @@ import (
 	"strings"
 )
 
-type Field interface {
-	Comparable
-	Ordered
-	Nullable
-	ComparableArray
+type (
+	Field interface {
+		Comparable
+		Ordered
+		Nullable
+		ComparableArray
 
-	Schema() string
-	Column() string
-	Alias() string
-	As(alias string) Field
-	Copy() Field
-	Expression() (string, bool)
-}
+		Schema() string
+		Column() string
+		Alias() string
+		As(alias string) Field
+		Copy() Field
+		Expression() (string, bool)
+	}
 
-var _ Field = (*field)(nil)
+	field struct {
+		alias  string
+		schema string
+		col    string
+	}
 
-type field struct {
-	alias  string
-	schema string
-	col    string
-}
+	aggregatedField struct {
+		alias string
+		fn    AggregateFunction
+		Field
+	}
+)
+
+var (
+	_ Field = (*field)(nil)
+	_ Field = (*aggregatedField)(nil)
+)
 
 func (f *field) String() string {
 	return fmt.Sprintf("schema: %s, column: %s, alias: %s", f.schema, f.col, f.alias)
@@ -113,6 +124,13 @@ func (f *field) Copy() Field {
 	}
 }
 
+func (f *field) Asc() OrderedExpression {
+	return newOrderedExpression(f, Ascending)
+}
+func (f *field) Desc() OrderedExpression {
+	return newOrderedExpression(f, Descending)
+}
+
 func (f *field) parse(s string) {
 
 	if len(s) == 0 {
@@ -133,4 +151,87 @@ func (f *field) parse(s string) {
 	if len(tokens) == 1 {
 		f.col = tokens[0]
 	}
+}
+
+func NewAggregatedField(fn AggregateFunction) Field {
+	if fn == nil {
+		return nil
+	}
+
+	return &aggregatedField{
+		fn: fn,
+	}
+}
+
+func (af *aggregatedField) Greater(val any) Expression {
+	return NewBooleanExp(af, val, more)
+}
+
+func (af *aggregatedField) Less(val any) Expression {
+	return NewBooleanExp(af, val, less)
+}
+
+func (af *aggregatedField) GreaterEq(val any) Expression {
+	return NewBooleanExp(af, val, moreEqual)
+}
+
+func (af *aggregatedField) LessEq(val any) Expression {
+	return NewBooleanExp(af, val, lessEqual)
+}
+
+func (af *aggregatedField) IsNotNull() Expression {
+	return NewBooleanExp(af, nil, isNotNull)
+}
+
+func (af *aggregatedField) In(val ...any) Expression {
+	return NewBooleanExp(af, val, in)
+}
+
+func (af *aggregatedField) NotIn(val ...any) Expression {
+	return NewBooleanExp(af, val, notIn)
+}
+
+func (af *aggregatedField) IsNull() Expression {
+	return NewBooleanExp(af, nil, isNull)
+}
+
+func (af *aggregatedField) Asc() OrderedExpression {
+	return newOrderedExpression(af, Ascending)
+}
+
+func (af *aggregatedField) Desc() OrderedExpression {
+	return newOrderedExpression(af, Descending)
+}
+
+func (af *aggregatedField) Schema() string {
+	return ""
+}
+
+func (af *aggregatedField) Column() string {
+	return ""
+}
+
+func (af *aggregatedField) As(a string) Field {
+	af.alias = a
+	return af
+}
+
+func (af *aggregatedField) Alias() string {
+	if len(af.alias) > 0 {
+		return af.alias
+	}
+
+	if af.fn == nil {
+		return ""
+	}
+
+	return af.fn.Alias()
+}
+
+func (af *aggregatedField) Expression() (string, bool) {
+	if af.fn == nil {
+		return "", false
+	}
+
+	return af.fn.Expression()
 }

@@ -84,8 +84,10 @@ func ParseStructToFields(
 			continue
 		}
 
+		taggedName := field.Tag.Get("ksql")
+
 		fields = append(fields, SearchField{
-			Name:     field.Name,
+			Name:     taggedName,
 			Relation: structName,
 			Kind:     ksqlKind,
 		})
