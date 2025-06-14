@@ -43,12 +43,12 @@ func (f *field) Alias() string {
 	return f.alias
 }
 func (f *field) Expression() (string, bool) {
-	if len(f.schema) != 0 {
-		return fmt.Sprintf("%s.%s", f.schema, f.col), true
+	if len(f.col) == 0 && len(f.schema) == 0 {
+		return "", false
 	}
 
-	if len(f.schema) == 0 {
-		return "", false
+	if len(f.schema) != 0 {
+		return fmt.Sprintf("%s.%s", f.schema, f.col), true
 	}
 
 	return f.col, true
@@ -110,6 +110,15 @@ func (f *field) Copy() Field {
 }
 
 func (f *field) parse(s string) {
+
+	if len(s) == 0 {
+		return
+	}
+
+	if s[0] == '.' || s[len(s)-1] == '.' {
+		return
+	}
+
 	tokens := strings.Split(s, ".")
 
 	if len(tokens) == 2 {

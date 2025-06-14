@@ -69,6 +69,8 @@ func (j *join) Expression() (string, bool) {
 		operationString = "OUTER JOIN"
 	case Cross:
 		operationString = "CROSS JOIN"
+	default:
+		return "", false
 	}
 	return fmt.Sprintf(
 		"%s %s ON %s",
