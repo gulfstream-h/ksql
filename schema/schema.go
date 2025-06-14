@@ -6,6 +6,7 @@ import (
 	"ksql/kinds"
 	"ksql/static"
 	"reflect"
+	"strings"
 )
 
 // SerializeFieldsToStruct - creates struct from composition
@@ -39,7 +40,7 @@ func ParseStructToFieldsDictionary(
 ) map[string]SearchField {
 
 	var (
-		fields map[string]SearchField
+		fields = make(map[string]SearchField)
 	)
 
 	for i := 0; i < runtimeStruct.NumField(); i++ {
@@ -84,7 +85,7 @@ func ParseStructToFields(
 		}
 
 		fields = append(fields, SearchField{
-			Name:     field.Tag.Get(static.KSQL),
+			Name:     field.Name,
 			Relation: structName,
 			Kind:     ksqlKind,
 		})
@@ -99,12 +100,13 @@ func SerializeProvidedStruct(
 	schema any) reflect.Type {
 
 	var (
-		values map[string]kinds.Ktype
+		values = make(map[string]kinds.Ktype)
 	)
 
 	fields := structs.Fields(schema)
 
 	for _, field := range fields {
+		fmt.Println(field.Name())
 		tag := field.Tag(static.KSQL)
 		kind := field.Kind()
 
@@ -113,7 +115,7 @@ func SerializeProvidedStruct(
 			continue
 		}
 
-		values[tag] = ksqlKind
+		values[strings.ToUpper(tag)] = ksqlKind
 	}
 
 	return createProjection(values)
@@ -132,11 +134,11 @@ func SerializeRemoteSchema(
 
 	for k, v := range fields {
 		switch v {
-		case "INT":
+		case "INT", "INTEGER":
 			schemaFields[k] = kinds.Int
 		case "FLOAT":
 			schemaFields[k] = kinds.Float
-		case "VARCHAR":
+		case "VARCHAR", "STRING":
 			schemaFields[k] = kinds.String
 		case "BOOL":
 			schemaFields[k] = kinds.Bool
@@ -154,6 +156,8 @@ func createProjection(
 	var (
 		fields = make([]reflect.StructField, 0, len(fieldsList))
 	)
+
+	fmt.Println(fieldsList)
 
 	for name, kind := range fieldsList {
 		fields = append(fields, reflect.StructField{

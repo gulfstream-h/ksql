@@ -20,7 +20,7 @@ func Register[S any](
 		err    error
 	)
 
-	stream, err = GetStream[S](ctx, settings.Name, settings)
+	stream, err = GetStream[S](ctx, settings.Name)
 	if err != nil {
 		if errors.Is(err, static.ErrStreamDoesNotExist) {
 			return CreateStream[S](ctx, settings.Name, settings)

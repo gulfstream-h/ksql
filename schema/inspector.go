@@ -30,8 +30,8 @@ func CompareStructs(
 	map[string]bool, map[string]struct{}) {
 
 	var (
-		commonMap map[string]bool
-		diffMap   map[string]struct{}
+		commonMap = make(map[string]bool)
+		diffMap   = make(map[string]struct{})
 	)
 
 	for i := 0; i < firstStruct.NumField(); i++ {

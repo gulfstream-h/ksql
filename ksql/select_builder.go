@@ -1,6 +1,7 @@
 package ksql
 
 import (
+	"fmt"
 	"ksql/schema"
 	"reflect"
 	"strings"
@@ -16,7 +17,7 @@ type (
 		WithCTE(inner SelectBuilder) SelectBuilder
 		WithMeta(with Metadata) SelectBuilder
 		Select(fields ...Field) SelectBuilder
-		SelectStruct(val any) SelectBuilder
+		SelectStruct(name string, val reflect.Type) SelectBuilder
 		From(schema string) SelectBuilder
 		Where(expressions ...Expression) SelectBuilder
 		Having(expressions ...Expression) SelectBuilder
@@ -94,9 +95,9 @@ func Select(fields ...Field) SelectBuilder {
 	return sb.Select(fields...)
 }
 
-func SelectAsStruct(val any) SelectBuilder {
+func SelectAsStruct(name string, val reflect.Type) SelectBuilder {
 	sb := newSelectBuilder()
-	return sb.SelectStruct(val)
+	return sb.SelectStruct(name, val)
 }
 
 func (s *selectBuilder) SchemaFields() []schema.SearchField {
@@ -106,26 +107,20 @@ func (s *selectBuilder) SchemaFields() []schema.SearchField {
 	return s.ctx.Fields()
 }
 
-func (s *selectBuilder) SelectStruct(val any) SelectBuilder {
-	t := reflect.TypeOf(val)
-	if t.Kind() == reflect.Ptr {
-		t = t.Elem()
-	}
-	if t.Kind() != reflect.Struct {
-		// todo: return error
-		return nil
-	}
-	structFields := schema.ParseStructToFields(t.Name(), t)
+func (s *selectBuilder) SelectStruct(name string, val reflect.Type) SelectBuilder {
+	fmt.Println(val.Name())
+
+	structFields := schema.ParseStructToFields(val.Name(), val)
 
 	if s.ctx != nil {
 		s.ctx.AddFields(structFields...)
 	}
 
-	fields := make([]Field, len(structFields))
+	fields := make([]Field, 0, len(structFields))
 
 	for i := range structFields {
 		f := field{
-			schema: structFields[i].Relation,
+			schema: name,
 			col:    structFields[i].Name,
 		}
 		fields = append(fields, &f)
@@ -147,7 +142,7 @@ func (s *selectBuilder) Alias() string {
 func (s *selectBuilder) Select(fields ...Field) SelectBuilder {
 	s.fields = append(s.fields, fields...)
 
-	structFields := make([]schema.SearchField, len(fields))
+	structFields := make([]schema.SearchField, 0, len(fields))
 	for idx := range fields {
 		f := schema.SearchField{
 			Name:     fields[idx].Column(),
@@ -197,11 +192,11 @@ func (s *selectBuilder) OuterJoin(
 
 func (s *selectBuilder) From(sch string) SelectBuilder {
 	if s.ctx != nil {
-		t := schema.SerializeProvidedStruct(sch)
-		fieldMap := schema.ParseStructToFieldsDictionary(sch, t)
-		for _, field := range fieldMap {
-			s.ctx.AddFields(field)
-		}
+		//t := schema.SerializeProvidedStruct(sch)
+		//fieldMap := schema.ParseStructToFieldsDictionary(sch, t)
+		//for _, field := range fieldMap {
+		//	s.ctx.AddFields(field)
+		//}
 	}
 
 	s.fromEx = s.fromEx.From(sch)
@@ -302,7 +297,7 @@ func (s *selectBuilder) Expression() (string, bool) {
 		return "", false
 	}
 
-	builder.WriteString("\n")
+	builder.WriteString(" ")
 	builder.WriteString(fromString)
 
 	for idx := range s.joinExs {
@@ -311,7 +306,7 @@ func (s *selectBuilder) Expression() (string, bool) {
 			return "", false
 		}
 
-		builder.WriteString("\n")
+		builder.WriteString(" ")
 		builder.WriteString(expression)
 	}
 
@@ -321,7 +316,7 @@ func (s *selectBuilder) Expression() (string, bool) {
 			return "", false
 		}
 
-		builder.WriteString("\n")
+		builder.WriteString(" ")
 		builder.WriteString(whereString)
 	}
 
@@ -330,7 +325,7 @@ func (s *selectBuilder) Expression() (string, bool) {
 		if !ok {
 			return "", false
 		}
-		builder.WriteString("\n")
+		builder.WriteString(" ")
 		builder.WriteString(havingString)
 	}
 
@@ -340,11 +335,13 @@ func (s *selectBuilder) Expression() (string, bool) {
 			return "", false
 		}
 
-		builder.WriteString("\n")
+		builder.WriteString(" ")
 		builder.WriteString(groupByString)
 	}
 
 	builder.WriteString(s.meta.Expression())
+
+	builder.WriteString(";")
 
 	return builder.String(), true
 }

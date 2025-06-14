@@ -33,14 +33,14 @@ func (d *describe) Expression() (string, bool) {
 
 	switch d.typ {
 	case STREAM:
-		operation = "DESCRIBE STREAM "
+		operation = "DESCRIBE "
 	case TABLE:
-		operation = "DESCRIBE TABLE "
+		operation = "DESCRIBE "
 	case TOPIC:
-		operation = "DESCRIBE TOPIC "
+		operation = "DESCRIBE "
 	default:
 		return "", false
 	}
 
-	return operation + d.Schema(), true
+	return operation + d.Schema() + ";", true
 }

@@ -4,14 +4,31 @@ Copyright © 2025 NAME HERE <EMAIL ADDRESS>
 package cmd
 
 import (
+	"github.com/joho/godotenv"
+	"log/slog"
 	"os"
 
 	"github.com/spf13/cobra"
 )
 
+var dbURL string
+
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
-	Use:   "ksql",
+	Use: "ksql",
+	PersistentPreRun: func(cmd *cobra.Command, args []string) {
+		if !cmd.Flags().Changed("db_url") {
+			if err := godotenv.Load(); err != nil {
+				slog.Error("cannot load .env file", "error", err)
+			}
+
+			if env := os.Getenv("KSQL_DB_URL"); env != "" {
+				dbURL = env
+			}
+		}
+
+		slog.Info("final db_url", "value", dbURL)
+	},
 	Short: "A brief description of your application",
 	Long: `A longer description that spans multiple lines and likely contains
 examples and usage of using your application. For example:
@@ -34,13 +51,8 @@ func Execute() {
 }
 
 func init() {
-	// Here you will define your flags and configuration settings.
-	// Cobra supports persistent flags, which, if defined here,
-	// will be global for your application.
-
-	// rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.ksql.yaml)")
-
-	// Cobra also supports local flags, which will only run
-	// when this action is called directly.
+	rootCmd.
+		PersistentFlags().
+		StringVar(&dbURL, "db_url", "", "database URL")
 	rootCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 }

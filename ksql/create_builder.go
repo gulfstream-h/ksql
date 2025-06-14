@@ -104,13 +104,13 @@ func (c *create) Expression() (string, bool) {
 		for idx := range c.fields {
 			item := c.fields[idx]
 
-			if len(item.Relation) != 0 {
-				builder.WriteString(item.Relation + ".")
-			}
+			//if len(item.Relation) != 0 {
+			//	builder.WriteString(item.Relation + ".")
+			//}
 
 			builder.WriteString(item.Name + " " + item.Kind.GetKafkaRepresentation())
 
-			if idx != 0 && idx != len(c.fields)-1 {
+			if idx != len(c.fields)-1 {
 				builder.WriteString(", ")
 			}
 		}
@@ -128,6 +128,8 @@ func (c *create) Expression() (string, bool) {
 		builder.WriteString(expr)
 		builder.WriteString("\n")
 	}
+
+	builder.WriteString(";")
 
 	return builder.String(), true
 }
