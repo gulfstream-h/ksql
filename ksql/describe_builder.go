@@ -42,5 +42,5 @@ func (d *describe) Expression() (string, bool) {
 		return "", false
 	}
 
-	return operation + d.Schema(), true
+	return operation + d.Schema() + ";", true
 }

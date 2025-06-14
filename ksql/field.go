@@ -27,6 +27,10 @@ type field struct {
 	col    string
 }
 
+func (f *field) String() string {
+	return fmt.Sprintf("schema: %s, column: %s, alias: %s", f.schema, f.col, f.alias)
+}
+
 func F(s string) Field {
 	f := field{}
 	f.parse(s)

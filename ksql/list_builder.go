@@ -22,11 +22,11 @@ func (l *list) Expression() (string, bool) {
 
 	switch l.typ {
 	case STREAM:
-		operation = "LIST STREAMS"
+		operation = "LIST STREAMS;"
 	case TABLE:
-		operation = "LIST TABLES"
+		operation = "LIST TABLES;"
 	case TOPIC:
-		operation = "LIST TOPICS"
+		operation = "LIST TOPICS;"
 	default:
 		return "", false
 	}

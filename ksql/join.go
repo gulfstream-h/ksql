@@ -8,6 +8,7 @@ type (
 	JoinExpression interface {
 		Schema() string
 		On() Expression
+		Type() JoinType
 		Expression() (string, bool)
 	}
 
@@ -42,6 +43,10 @@ func (j *join) Schema() string {
 
 func (j *join) On() Expression {
 	return j.on
+}
+
+func (j *join) Type() JoinType {
+	return j.operation
 }
 
 func (j *join) Expression() (string, bool) {

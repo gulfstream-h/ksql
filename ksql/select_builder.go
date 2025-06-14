@@ -147,7 +147,7 @@ func (s *selectBuilder) Alias() string {
 func (s *selectBuilder) Select(fields ...Field) SelectBuilder {
 	s.fields = append(s.fields, fields...)
 
-	structFields := make([]schema.SearchField, len(fields))
+	structFields := make([]schema.SearchField, 0, len(fields))
 	for idx := range fields {
 		f := schema.SearchField{
 			Name:     fields[idx].Column(),
@@ -345,6 +345,7 @@ func (s *selectBuilder) Expression() (string, bool) {
 	}
 
 	builder.WriteString(s.meta.Expression())
+	builder.WriteString(";")
 
 	return builder.String(), true
 }
