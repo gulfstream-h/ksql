@@ -113,19 +113,23 @@ func (c *create) Expression() (string, bool) {
 				builder.WriteString(", ")
 			}
 		}
-		builder.WriteString(") ")
+		builder.WriteString(")")
 	}
 
-	builder.WriteString(c.meta.Expression())
+	metaExpression := c.meta.Expression()
+	if len(metaExpression) > 0 {
+		builder.WriteString(" ")
+		builder.WriteString(metaExpression)
+	}
 
 	if c.asSelect != nil {
 		expr, ok := c.asSelect.Expression()
 		if !ok {
 			return "", false
 		}
-		builder.WriteString("AS \n")
+		builder.WriteString(" AS ")
 		builder.WriteString(expr)
-		builder.WriteString("\n")
+		return builder.String(), true
 	}
 
 	builder.WriteString(";")
