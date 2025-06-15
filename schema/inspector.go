@@ -18,6 +18,7 @@ type SearchField struct {
 	Relation string      // stream/table name
 	Kind     kinds.Ktype // internal type, describing primitive types
 	Value    *string     // value to be inserted (valid only for streams)
+	Tag      string
 }
 
 // CompareStructs - checks if two structs matches

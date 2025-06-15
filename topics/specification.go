@@ -49,15 +49,15 @@ func ListTopics(ctx context.Context) (dto.ShowTopics, error) {
 		}
 
 		var (
-			topics dao.ShowTopics
+			topics []dao.ShowTopics
 		)
 
-		if err := jsoniter.Unmarshal(val, &topics); err != nil {
+		if err = jsoniter.Unmarshal(val, &topics); err != nil {
 			err = errors.Join(static.ErrUnserializableResponse, err)
 			return dto.ShowTopics{}, err
 		}
 
-		return topics.DTO(), nil
+		return topics[0].DTO(), nil
 	}
 }
 

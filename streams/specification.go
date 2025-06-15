@@ -148,7 +148,7 @@ func Drop(ctx context.Context, stream string) error {
 			drop []dao.DropInfo
 		)
 
-		if err := jsoniter.Unmarshal(val, &drop); err != nil {
+		if err = jsoniter.Unmarshal(val, &drop); err != nil {
 			return fmt.Errorf("cannot unmarshal drop response: %w", err)
 		}
 
@@ -194,8 +194,6 @@ func GetStream[S any](
 		responseSchema[field.Name] = field.Kind
 	}
 
-	slog.Info("response", responseSchema)
-
 	remoteSchema := schema.SerializeRemoteSchema(responseSchema)
 	matchMap, diffMap := schema.CompareStructs(scheme, remoteSchema)
 
@@ -228,6 +226,7 @@ func CreateStream[S any](
 
 	metadata := ksql.Metadata{
 		Topic:       *settings.SourceTopic,
+		Partitions:  int(*settings.Partitions),
 		ValueFormat: kinds.JSON.String(),
 	}
 
@@ -557,7 +556,7 @@ func (s *Stream[S]) SelectWithEmit(
 		valuesC = make(chan S)
 	)
 
-	query, ok := ksql.SelectAsStruct("", *s.remoteSchema).
+	query, ok := ksql.SelectAsStruct(s.Name, *s.remoteSchema).
 		From(s.Name).
 		WithMeta(ksql.Metadata{ValueFormat: kinds.JSON.String()}).
 		Expression()
@@ -566,17 +565,25 @@ func (s *Stream[S]) SelectWithEmit(
 		return nil, errors.New("cannot build select query")
 	}
 
-	pipeline, err := network.Net.Perform(
+	query = "SELECT AMOUNT, CLIENT_HASH FROM NEW_STREAM;"
+
+	pipeline, err := network.Net.PerformSelect(
 		ctx,
 		http.MethodPost,
 		query,
-		&network.ShortPolling{},
+		&network.LongPolling{},
 	)
 	if err != nil {
 		return nil, fmt.Errorf("cannot perform request: %w", err)
 	}
 
 	go func() {
+
+		var (
+			iter    = 0
+			headers dao.Header
+		)
+
 		for {
 			select {
 			case <-ctx.Done():
@@ -587,10 +594,33 @@ func (s *Stream[S]) SelectWithEmit(
 					close(valuesC)
 					return
 				}
-				if err := jsoniter.Unmarshal(val, &value); err != nil {
-					close(valuesC)
+
+				if iter == 0 {
+					str := val[1 : len(val)-1]
+
+					if err = jsoniter.Unmarshal(str, &headers); err != nil {
+						panic(err)
+						return
+					}
+
+					iter++
+					continue
+				}
+
+				fmt.Println(headers.Header.Schema)
+
+				var (
+					row dao.Row
+				)
+				fmt.Println(string(val))
+
+				if err = jsoniter.Unmarshal(val[:len(val)-1], &row); err != nil {
+					fmt.Println(err)
 					return
 				}
+
+				fmt.Print("STRUCT ")
+				fmt.Println(row)
 
 				valuesC <- value
 			}

@@ -5,6 +5,8 @@ package cmd
 
 import (
 	"github.com/spf13/cobra"
+	"ksql/config"
+	"ksql/kernel/network"
 	"ksql/migrations"
 	"log"
 )
@@ -15,7 +17,12 @@ var downCmd = &cobra.Command{
 	Short: "Discard changes. Invokes down-migration in provided file",
 	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
-		if err := migrations.New(".").Down(args[0]); err != nil {
+		network.Init(config.Config{
+			Host:       dbURL,
+			TimeoutSec: 30,
+		})
+
+		if err := migrations.New(dbURL, ".").Down(args[0]); err != nil {
 			log.Fatalf("cannot down migration %w", err)
 		}
 	},

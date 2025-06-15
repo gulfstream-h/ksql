@@ -20,7 +20,7 @@ func Register[S any](
 		err   error
 	)
 
-	table, err = GetTable[S](ctx, settings.Name, settings)
+	table, err = GetTable[S](ctx, settings.Name)
 	if err != nil {
 		if errors.Is(err, static.ErrTableDoesNotExist) {
 			return CreateTable[S](ctx, settings.Name, settings)

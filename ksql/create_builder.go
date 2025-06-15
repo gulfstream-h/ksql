@@ -110,6 +110,10 @@ func (c *create) Expression() (string, bool) {
 
 			builder.WriteString(item.Name + " " + item.Kind.GetKafkaRepresentation())
 
+			if item.Tag != "" && c.typ != STREAM {
+				builder.WriteString(" " + item.Tag + " ")
+			}
+
 			if idx != len(c.fields)-1 {
 				builder.WriteString(", ")
 			}

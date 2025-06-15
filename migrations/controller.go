@@ -3,20 +3,21 @@ package migrations
 import (
 	"context"
 	"errors"
+	"fmt"
 	"ksql/kernel/network"
 	"ksql/kinds"
 	"ksql/shared"
 	"ksql/static"
 	"ksql/streams"
 	"ksql/tables"
+	"log/slog"
 	"net/http"
-	"os"
 	"time"
 )
 
 const (
-	systemStreamName = "seeker-stream"
-	systemTableName  = "seeker-table"
+	systemStreamName = "seeker_stream"
+	systemTableName  = "seeker_table"
 )
 
 type ksqlController struct {
@@ -27,25 +28,32 @@ type ksqlController struct {
 
 type (
 	migrationRelation struct {
-		Version   time.Time `ksql:"version"`
-		UpdatedAt time.Time `ksql:"updated_at"`
+		Version   string `ksql:"version,PRIMARY KEY"`
+		UpdatedAt string `ksql:"updated_at"`
 	}
 )
 
-func newKsqlController() controller {
+func newKsqlController(host string) controller {
 	return &ksqlController{
-		host: os.Getenv("KSQL_HOST"),
+		host: host,
 	}
 }
 
 func (ctrl *ksqlController) createSystemRelations(
 	ctx context.Context) (*tables.Table[migrationRelation], error) {
 
+	var (
+		topic      = "migrations"
+		partitions = uint8(1)
+	)
+
 	settings := shared.StreamSettings{
-		Format: kinds.JSON,
+		Format:      kinds.JSON,
+		SourceTopic: &topic,
+		Partitions:  &partitions,
 	}
 
-	_, err := streams.CreateStream[migrationRelation](
+	migStream, err := streams.CreateStream[migrationRelation](
 		ctx,
 		systemStreamName,
 		settings)
@@ -53,8 +61,11 @@ func (ctrl *ksqlController) createSystemRelations(
 		return nil, err
 	}
 
-	migTable, err := tables.CreateTable[migrationRelation](ctx, "system", shared.TableSettings{
-		Format: kinds.JSON,
+	ctrl.stream = migStream
+
+	migTable, err := tables.CreateTable[migrationRelation](ctx, systemTableName, shared.TableSettings{
+		SourceTopic: &topic,
+		Format:      kinds.JSON,
 	})
 	if err != nil {
 		return nil, err
@@ -67,11 +78,12 @@ func (k *ksqlController) GetLatestVersion(ctx context.Context) (time.Time, error
 	migrationTable, err := tables.GetTable[migrationRelation](
 		ctx,
 		systemTableName,
-		shared.TableSettings{},
 	)
 
 	if errors.Is(err, static.ErrTableDoesNotExist) {
+		slog.Info("migration table doesnt exist")
 		migrationTable, err = k.createSystemRelations(ctx)
+		return time.Time{}, err
 	}
 
 	if err != nil {
@@ -80,12 +92,20 @@ func (k *ksqlController) GetLatestVersion(ctx context.Context) (time.Time, error
 
 	k.table = migrationTable
 
-	message, err := migrationTable.SelectOnce(ctx)
+	message, err := migrationTable.SelectWithEmit(ctx)
 	if err != nil {
 		return time.Time{}, err
 	}
 
-	return message.Version, nil
+	msg := <-message
+
+	v, err := time.Parse(time.RFC3339, msg.UpdatedAt)
+	if err != nil {
+		fmt.Println(err)
+		return time.Time{}, err
+	}
+
+	return v, nil
 }
 
 func (k *ksqlController) UpgradeWithMigration(

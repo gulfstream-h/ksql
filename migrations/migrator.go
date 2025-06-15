@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -14,10 +15,10 @@ type migrator struct {
 	migrationPath   string
 }
 
-func New(migrationPath string) Migrator {
+func New(host, migrationPath string) Migrator {
 	return &migrator{
 		migrationPath: migrationPath,
-		ctrl:          newKsqlController(),
+		ctrl:          newKsqlController(host),
 	}
 }
 
@@ -75,14 +76,16 @@ func (m *migrator) Up(filename string) error {
 	}
 
 	filenameSegments := strings.Split(filename, "_")
-	if len(filenameSegments) != 2 {
+	if len(filenameSegments) < 2 {
 		return ErrMalformedMigrationFile
 	}
 
-	version, err := time.Parse(time.RFC3339, filenameSegments[0])
+	versionInt, err := strconv.Atoi(filenameSegments[0])
 	if err != nil {
 		return errors.Join(ErrMalformedMigrationFile, err)
 	}
+
+	version := time.Unix(int64(versionInt), 0)
 
 	if version.Before(currentVersion) {
 		return errors.New("cannot up migration, cuz current version is ahead")
@@ -133,7 +136,7 @@ func (m *migrator) Down(filename string) error {
 }
 
 func (m *migrator) ReadUpQuery(fileName string) (string, error) {
-	file, err := os.ReadFile(m.migrationPath + "/" + fileName)
+	file, err := os.ReadFile("./migrations/" + fileName)
 	if err != nil {
 		return "", err
 	}
@@ -143,7 +146,7 @@ func (m *migrator) ReadUpQuery(fileName string) (string, error) {
 		return "", errors.Join(ErrMalformedMigrationFile, errors.New("missing migration prefix"))
 	}
 
-	query, found := strings.CutSuffix(partialQuery, "-- +seeker Down")
+	query, _, found := strings.Cut(partialQuery, "-- +seeker Down")
 	if !found {
 		return "", errors.Join(ErrMalformedMigrationFile, errors.New("missing migration suffix"))
 	}

@@ -88,12 +88,12 @@ func parseInsertQuery(partialQuery string) ksql.Query {
 		Query: ksql.INSERT,
 	}
 
-	buffer, found := strings.CutPrefix(partialQuery, "INTO")
+	_, buffer, found := strings.Cut(partialQuery, "INTO")
 	if !found {
 		return query
 	}
 
-	name, found := strings.CutSuffix(buffer, "(")
+	name, _, found := strings.Cut(buffer, "(")
 	if !found {
 		return query
 	}
@@ -108,7 +108,7 @@ func parseCreateQuery(partialQuery string) ksql.Query {
 		Query: ksql.CREATE,
 	}
 
-	buffer := strings.Split(partialQuery, "")
+	buffer := strings.Split(partialQuery, " ")
 	if len(buffer) < 3 {
 		return query
 	}
