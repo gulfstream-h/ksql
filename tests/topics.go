@@ -13,7 +13,7 @@ import (
 	"time"
 )
 
-func mainu() {
+func mainr() {
 	network.Init(config.Config{
 		Host:       "http://localhost:8088",
 		TimeoutSec: 30,
@@ -78,7 +78,7 @@ func getStream() {
 }
 
 func dropStream() {
-	if err := streams.Drop(context.TODO(), "NEW_STREAM"); err != nil {
+	if err := streams.Drop(context.TODO(), "SEEKER_STREAM"); err != nil {
 		panic(err)
 	}
 }
@@ -213,7 +213,11 @@ func describeTable() {
 }
 
 func dropTable() {
-	if err := tables.Drop(context.TODO(), "NEUE_TABLE"); err != nil {
+	if err := tables.Drop(context.TODO(), "QUERYABLE_SEEKER_TABLE"); err != nil {
+		panic(err)
+	}
+
+	if err := tables.Drop(context.TODO(), "SEEKER_TABLE"); err != nil {
 		panic(err)
 	}
 }

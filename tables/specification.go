@@ -317,6 +317,7 @@ func CreateTable[S any](
 		}
 
 		return &Table[S]{
+			Name:         tableName,
 			sourceTopic:  settings.SourceTopic,
 			partitions:   settings.Partitions,
 			remoteSchema: &rmSchema,

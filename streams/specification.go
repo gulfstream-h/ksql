@@ -276,6 +276,7 @@ func CreateStream[S any](
 		}
 
 		return &Stream[S]{
+			Name:         streamName,
 			partitions:   settings.Partitions,
 			remoteSchema: &rmSchema,
 			format:       settings.Format,

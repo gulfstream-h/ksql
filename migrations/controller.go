@@ -71,6 +71,17 @@ func (ctrl *ksqlController) createSystemRelations(
 		return nil, err
 	}
 
+	if err = migStream.Insert(ctx, map[string]any{
+		"version":      time.Time{}.Format(time.RFC3339),
+		"updated_at":   time.Time{}.Format(time.RFC3339),
+		"last_version": time.Time{}.Format(time.RFC3339),
+	}); err != nil {
+		slog.Error("cannot insert default values to migration stream",
+			"error", err.Error())
+
+		return nil, err
+	}
+
 	return migTable, nil
 }
 
@@ -113,11 +124,15 @@ func (k *ksqlController) UpgradeWithMigration(
 	version time.Time,
 	query string) error {
 
-	if k.stream == nil {
+	stream, err := streams.GetStream[migrationRelation](ctx, systemStreamName)
+	if err != nil {
+		slog.Error("cannot get migration stream",
+			"error", err.Error())
+
 		return ErrMigrationServiceNotAvailable
 	}
 
-	if _, err := network.Net.Perform(
+	if _, err = network.Net.Perform(
 		ctx,
 		http.MethodPost,
 		query, network.ShortPolling{},
@@ -130,7 +145,7 @@ func (k *ksqlController) UpgradeWithMigration(
 		"updated_at": time.Now().Format(time.RFC3339),
 	}
 
-	if err := k.stream.Insert(ctx, fields); err != nil {
+	if err = stream.Insert(ctx, fields); err != nil {
 		return errors.Join(ErrMigrationServiceNotAvailable, err)
 	}
 
