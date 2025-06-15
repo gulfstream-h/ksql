@@ -1,9 +1,7 @@
 package ksql
 
 import (
-	"fmt"
 	"ksql/schema"
-	"reflect"
 	"strings"
 )
 
@@ -17,7 +15,7 @@ type (
 		WithCTE(inner SelectBuilder) SelectBuilder
 		WithMeta(with Metadata) SelectBuilder
 		Select(fields ...Field) SelectBuilder
-		SelectStruct(name string, val reflect.Type) SelectBuilder
+		SelectStruct(name string, val any) SelectBuilder
 		From(schema string) SelectBuilder
 		Where(expressions ...Expression) SelectBuilder
 		Having(expressions ...Expression) SelectBuilder
@@ -98,7 +96,7 @@ func Select(fields ...Field) SelectBuilder {
 	return sb.Select(fields...)
 }
 
-func SelectAsStruct(name string, val reflect.Type) SelectBuilder {
+func SelectAsStruct(name string, val any) SelectBuilder {
 	sb := newSelectBuilder()
 	return sb.SelectStruct(name, val)
 }
@@ -110,10 +108,9 @@ func (s *selectBuilder) SchemaFields() []schema.SearchField {
 	return s.ctx.Fields()
 }
 
-func (s *selectBuilder) SelectStruct(name string, val reflect.Type) SelectBuilder {
-	fmt.Println(val.Name())
+func (s *selectBuilder) SelectStruct(name string, val any) SelectBuilder {
 
-	structFields := schema.ParseStructToFields(val.Name(), val)
+	structFields := schema.ParseStructToFields(name, val)
 
 	if s.ctx != nil {
 		s.ctx.AddFields(structFields...)

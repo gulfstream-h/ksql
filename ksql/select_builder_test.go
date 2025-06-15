@@ -2,7 +2,6 @@ package ksql
 
 import (
 	"github.com/stretchr/testify/assert"
-	"reflect"
 	"testing"
 )
 
@@ -513,7 +512,7 @@ func Test_SelectExpression(t *testing.T) {
 				}
 			}
 			if tc.structScan != nil {
-				sb = sb.SelectStruct("users", reflect.TypeOf(tc.structScan))
+				sb = sb.SelectStruct("users", tc.structScan)
 			}
 
 			gotExpr, gotOK := sb.Where(tc.whereExpressions...).

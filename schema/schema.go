@@ -5,6 +5,7 @@ import (
 	"github.com/fatih/structs"
 	"ksql/kinds"
 	"ksql/static"
+	"ksql/util"
 	"reflect"
 	"strings"
 )
@@ -69,27 +70,33 @@ func ParseStructToFieldsDictionary(
 // current fields describes all required info for DDL
 func ParseStructToFields(
 	structName string,
-	runtimeStruct reflect.Type,
+	runtimeStruct any,
 ) []SearchField {
 
 	var (
 		fields []SearchField
 	)
 
-	for i := 0; i < runtimeStruct.NumField(); i++ {
-		field := runtimeStruct.Field(i)
+	structType := reflect.TypeOf(runtimeStruct)
+	val := reflect.ValueOf(runtimeStruct)
 
-		ksqlKind, err := kinds.ToKsql(field.Type.Kind())
+	for i := 0; i < structType.NumField(); i++ {
+		fieldType := structType.Field(i)
+		fieldVal := val.Field(i)
+
+		ksqlKind, err := kinds.ToKsql(fieldType.Type.Kind())
 		if err != nil {
 			continue
 		}
 
-		taggedName := field.Tag.Get("ksql")
+		taggedName := fieldType.Tag.Get("ksql")
+		serializedVal := util.Serialize(fieldVal.Interface())
 
 		fields = append(fields, SearchField{
 			Name:     taggedName,
 			Relation: structName,
 			Kind:     ksqlKind,
+			Value:    &serializedVal,
 		})
 	}
 
@@ -108,7 +115,6 @@ func SerializeProvidedStruct(
 	fields := structs.Fields(schema)
 
 	for _, field := range fields {
-		fmt.Println(field.Name())
 		tag := field.Tag(static.KSQL)
 		kind := field.Kind()
 
@@ -158,8 +164,6 @@ func createProjection(
 	var (
 		fields = make([]reflect.StructField, 0, len(fieldsList))
 	)
-
-	fmt.Println(fieldsList)
 
 	for name, kind := range fieldsList {
 		fields = append(fields, reflect.StructField{

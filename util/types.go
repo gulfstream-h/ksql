@@ -52,6 +52,9 @@ func Serialize(val any) string {
 	case uint, uint8, uint16, uint32, uint64:
 		return fmt.Sprintf("%d", v)
 	default:
+		if IsNil(v) {
+			return "NULL"
+		}
 		return ""
 	}
 }
