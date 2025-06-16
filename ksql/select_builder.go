@@ -1,9 +1,7 @@
 package ksql
 
 import (
-	"fmt"
 	"ksql/schema"
-	"reflect"
 	"strings"
 )
 
@@ -17,11 +15,12 @@ type (
 		WithCTE(inner SelectBuilder) SelectBuilder
 		WithMeta(with Metadata) SelectBuilder
 		Select(fields ...Field) SelectBuilder
-		SelectStruct(name string, val reflect.Type) SelectBuilder
+		SelectStruct(name string, val any) SelectBuilder
 		From(schema string) SelectBuilder
 		Where(expressions ...Expression) SelectBuilder
 		Having(expressions ...Expression) SelectBuilder
 		GroupBy(fields ...Field) SelectBuilder
+		OrderBy(expressions ...OrderedExpression) SelectBuilder
 		Expression() (string, bool)
 	}
 
@@ -61,6 +60,7 @@ type (
 		whereEx   WhereExpression
 		havingEx  HavingExpression
 		groupByEx GroupExpression
+		orderByEx OrderByExpression
 	}
 
 	selectBuilderCtx struct {
@@ -86,6 +86,7 @@ func newSelectBuilder() SelectBuilder {
 		whereEx:   NewWhereExpression(),
 		havingEx:  NewHavingExpression(),
 		groupByEx: NewGroupByExpression(),
+		orderByEx: NewOrderByExpression(),
 	}
 }
 
@@ -95,7 +96,7 @@ func Select(fields ...Field) SelectBuilder {
 	return sb.Select(fields...)
 }
 
-func SelectAsStruct(name string, val reflect.Type) SelectBuilder {
+func SelectAsStruct(name string, val any) SelectBuilder {
 	sb := newSelectBuilder()
 	return sb.SelectStruct(name, val)
 }
@@ -107,10 +108,9 @@ func (s *selectBuilder) SchemaFields() []schema.SearchField {
 	return s.ctx.Fields()
 }
 
-func (s *selectBuilder) SelectStruct(name string, val reflect.Type) SelectBuilder {
-	fmt.Println(val.Name())
+func (s *selectBuilder) SelectStruct(name string, val any) SelectBuilder {
 
-	structFields := schema.ParseStructToFields(val.Name(), val)
+	structFields := schema.ParseStructToFields(name, val)
 
 	if s.ctx != nil {
 		s.ctx.AddFields(structFields...)
@@ -232,6 +232,11 @@ func (s *selectBuilder) WithMeta(
 	return s
 }
 
+func (s *selectBuilder) OrderBy(expressions ...OrderedExpression) SelectBuilder {
+	s.orderByEx.OrderBy(expressions...)
+	return s
+}
+
 func (s *selectBuilder) Expression() (string, bool) {
 	var (
 		builder      = new(strings.Builder)
@@ -320,15 +325,6 @@ func (s *selectBuilder) Expression() (string, bool) {
 		builder.WriteString(whereString)
 	}
 
-	if !s.havingEx.IsEmpty() {
-		havingString, ok := s.havingEx.Expression()
-		if !ok {
-			return "", false
-		}
-		builder.WriteString(" ")
-		builder.WriteString(havingString)
-	}
-
 	if !s.groupByEx.IsEmpty() {
 		groupByString, ok := s.groupByEx.Expression()
 		if !ok {
@@ -339,8 +335,26 @@ func (s *selectBuilder) Expression() (string, bool) {
 		builder.WriteString(groupByString)
 	}
 
-	builder.WriteString(s.meta.Expression())
+	if !s.havingEx.IsEmpty() {
+		havingString, ok := s.havingEx.Expression()
+		if !ok {
+			return "", false
+		}
+		builder.WriteString(" ")
+		builder.WriteString(havingString)
+	}
 
+	if !s.orderByEx.IsEmpty() {
+		orderByString, ok := s.orderByEx.Expression()
+		if !ok {
+			return "", false
+		}
+
+		builder.WriteString(" ")
+		builder.WriteString(orderByString)
+	}
+
+	builder.WriteString(s.meta.Expression())
 	builder.WriteString(";")
 
 	return builder.String(), true

@@ -2,7 +2,6 @@ package ksql
 
 import (
 	"ksql/schema"
-	"reflect"
 	"strings"
 )
 
@@ -11,7 +10,7 @@ type (
 		Expression() (string, bool)
 		AsSelect(builder SelectBuilder) CreateBuilder
 		SchemaFields(fields ...schema.SearchField) CreateBuilder
-		SchemaFromStruct(schemaStruct any) CreateBuilder
+		SchemaFromStruct(schemaName string, schemaStruct any) CreateBuilder
 		With(metadata Metadata) CreateBuilder
 		Type() Reference
 		Schema() string
@@ -61,10 +60,10 @@ func (c *create) SchemaFields(
 }
 
 func (c *create) SchemaFromStruct(
+	schemaName string,
 	schemaStruct any,
 ) CreateBuilder {
-	t := reflect.TypeOf(schemaStruct)
-	c.fields = append(c.fields, schema.ParseStructToFields(t.Name(), t)...)
+	c.fields = append(c.fields, schema.ParseStructToFields(schemaName, schemaStruct)...)
 
 	return c
 }
@@ -118,19 +117,23 @@ func (c *create) Expression() (string, bool) {
 				builder.WriteString(", ")
 			}
 		}
-		builder.WriteString(") ")
+		builder.WriteString(")")
 	}
 
-	builder.WriteString(c.meta.Expression())
+	metaExpression := c.meta.Expression()
+	if len(metaExpression) > 0 {
+		builder.WriteString(" ")
+		builder.WriteString(metaExpression)
+	}
 
 	if c.asSelect != nil {
 		expr, ok := c.asSelect.Expression()
 		if !ok {
 			return "", false
 		}
-		builder.WriteString("AS \n")
+		builder.WriteString(" AS ")
 		builder.WriteString(expr)
-		builder.WriteString("\n")
+		return builder.String(), true
 	}
 
 	builder.WriteString(";")
