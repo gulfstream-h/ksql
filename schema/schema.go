@@ -79,7 +79,7 @@ func ParseStructToFieldsDictionary(
 // current fields describes all required info for DDL
 func ParseStructToFields(
 	structName string,
-	runtimeStruct any,
+	runtimeStruct reflect.Type,
 ) []SearchField {
 
 	var (

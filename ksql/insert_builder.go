@@ -3,6 +3,7 @@ package ksql
 import (
 	"ksql/schema"
 	"ksql/util"
+	"reflect"
 	"strings"
 )
 
@@ -71,7 +72,7 @@ func (i *insertBuilder) AsSelect(selectBuilder SelectBuilder) InsertBuilder {
 }
 
 func (i *insertBuilder) InsertStruct(relationName string, val any) InsertBuilder {
-	fields := schema.ParseStructToFields(relationName, val)
+	fields := schema.ParseStructToFields(relationName, reflect.TypeOf(val))
 	values := make(map[string]string, len(fields))
 	for _, field := range fields {
 		if field.Value == nil {

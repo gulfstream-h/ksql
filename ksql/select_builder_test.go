@@ -91,7 +91,10 @@ func Test_SelectExpression(t *testing.T) {
 			structScan: reflect.TypeOf(struct {
 				ID   int    `ksql:"id"`
 				Name string `ksql:"name"`
-			}{}),
+			}{
+				ID:   1,
+				Name: "Name",
+			}),
 			schemaFrom: "users",
 			wantExpr:   "SELECT users.id, users.name FROM users;",
 			expectOK:   true,

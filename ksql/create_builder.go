@@ -2,6 +2,7 @@ package ksql
 
 import (
 	"ksql/schema"
+	"reflect"
 	"strings"
 )
 
@@ -63,7 +64,7 @@ func (c *create) SchemaFromStruct(
 	schemaName string,
 	schemaStruct any,
 ) CreateBuilder {
-	c.fields = append(c.fields, schema.ParseStructToFields(schemaName, schemaStruct)...)
+	c.fields = append(c.fields, schema.ParseStructToFields(schemaName, reflect.TypeOf(schemaStruct))...)
 
 	return c
 }
