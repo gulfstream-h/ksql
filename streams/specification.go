@@ -363,7 +363,7 @@ func CreateStreamAsSelect[S any](
 // written fields are defined by user
 func (s *Stream[S]) Insert(
 	ctx context.Context,
-	fields ksql.Rows,
+	fields ksql.Row,
 ) error {
 
 	scheme := *s.remoteSchema

@@ -5,6 +5,7 @@ import (
 	"github.com/fatih/structs"
 	"ksql/kinds"
 	"ksql/static"
+	"ksql/util"
 	"reflect"
 	"regexp"
 	"strings"
@@ -78,20 +79,28 @@ func ParseStructToFieldsDictionary(
 // current fields describes all required info for DDL
 func ParseStructToFields(
 	structName string,
-	runtimeStruct reflect.Type,
+	runtimeStruct any,
 ) []SearchField {
 
 	var (
 		fields []SearchField
 	)
 
-	for i := 0; i < runtimeStruct.NumField(); i++ {
-		field := runtimeStruct.Field(i)
+	structType := reflect.TypeOf(runtimeStruct)
+	val := reflect.ValueOf(runtimeStruct)
 
-		ksqlKind, err := kinds.ToKsql(field.Type.Kind())
+	for i := 0; i < structType.NumField(); i++ {
+		fieldType := structType.Field(i)
+		fieldVal := val.Field(i)
+
+		ksqlKind, err := kinds.ToKsql(fieldType.Type.Kind())
 		if err != nil {
 			continue
 		}
+
+
+		taggedName := fieldType.Tag.Get("ksql")
+		serializedVal := util.Serialize(fieldVal.Interface())
 
 		var tag string
 
@@ -100,9 +109,10 @@ func ParseStructToFields(
 		}
 
 		fields = append(fields, SearchField{
-			Name:     field.Name,
+			Name:     taggedName,
 			Relation: structName,
 			Kind:     ksqlKind,
+			Value:    &serializedVal,
 			Tag:      tag,
 		})
 	}

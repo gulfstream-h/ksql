@@ -21,6 +21,7 @@ type (
 		Where(expressions ...Expression) SelectBuilder
 		Having(expressions ...Expression) SelectBuilder
 		GroupBy(fields ...Field) SelectBuilder
+		OrderBy(expressions ...OrderedExpression) SelectBuilder
 		Expression() (string, bool)
 	}
 
@@ -60,6 +61,7 @@ type (
 		whereEx   WhereExpression
 		havingEx  HavingExpression
 		groupByEx GroupExpression
+		orderByEx OrderByExpression
 	}
 
 	selectBuilderCtx struct {
@@ -85,6 +87,7 @@ func newSelectBuilder() SelectBuilder {
 		whereEx:   NewWhereExpression(),
 		havingEx:  NewHavingExpression(),
 		groupByEx: NewGroupByExpression(),
+		orderByEx: NewOrderByExpression(),
 	}
 }
 
@@ -229,6 +232,11 @@ func (s *selectBuilder) WithMeta(
 	return s
 }
 
+func (s *selectBuilder) OrderBy(expressions ...OrderedExpression) SelectBuilder {
+	s.orderByEx.OrderBy(expressions...)
+	return s
+}
+
 func (s *selectBuilder) Expression() (string, bool) {
 	var (
 		builder      = new(strings.Builder)
@@ -317,15 +325,6 @@ func (s *selectBuilder) Expression() (string, bool) {
 		builder.WriteString(whereString)
 	}
 
-	if !s.havingEx.IsEmpty() {
-		havingString, ok := s.havingEx.Expression()
-		if !ok {
-			return "", false
-		}
-		builder.WriteString(" ")
-		builder.WriteString(havingString)
-	}
-
 	if !s.groupByEx.IsEmpty() {
 		groupByString, ok := s.groupByEx.Expression()
 		if !ok {
@@ -336,8 +335,26 @@ func (s *selectBuilder) Expression() (string, bool) {
 		builder.WriteString(groupByString)
 	}
 
-	builder.WriteString(s.meta.Expression())
+	if !s.havingEx.IsEmpty() {
+		havingString, ok := s.havingEx.Expression()
+		if !ok {
+			return "", false
+		}
+		builder.WriteString(" ")
+		builder.WriteString(havingString)
+	}
 
+	if !s.orderByEx.IsEmpty() {
+		orderByString, ok := s.orderByEx.Expression()
+		if !ok {
+			return "", false
+		}
+
+		builder.WriteString(" ")
+		builder.WriteString(orderByString)
+	}
+
+	builder.WriteString(s.meta.Expression())
 	builder.WriteString(";")
 
 	return builder.String(), true
