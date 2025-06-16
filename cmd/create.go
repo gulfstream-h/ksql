@@ -23,6 +23,7 @@ var createCmd = &cobra.Command{
 		file, err := os.Create(fileName)
 		if err != nil {
 			slog.Debug("cannot create migration file",
+				"error",
 				err.Error())
 			return
 		}
