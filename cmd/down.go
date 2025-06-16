@@ -23,7 +23,7 @@ var downCmd = &cobra.Command{
 		})
 
 		if err := migrations.New(dbURL, ".").Down(args[0]); err != nil {
-			log.Fatalf("cannot down migration " + err.Error())
+			log.Fatalf("cannot down migration ")
 		}
 	},
 }
