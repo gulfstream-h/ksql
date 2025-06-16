@@ -3,7 +3,6 @@ package migrations
 import (
 	"context"
 	"errors"
-	"fmt"
 	"ksql/kernel/network"
 	"ksql/kinds"
 	"ksql/shared"
@@ -28,7 +27,7 @@ type ksqlController struct {
 
 type (
 	migrationRelation struct {
-		Version   string `ksql:"version,PRIMARY KEY"`
+		Version   string `ksql:"version,PRIMARYKEY"`
 		UpdatedAt string `ksql:"updated_at"`
 	}
 )
@@ -76,7 +75,7 @@ func (ctrl *ksqlController) createSystemRelations(
 		"updated_at":   time.Time{}.Format(time.RFC3339),
 		"last_version": time.Time{}.Format(time.RFC3339),
 	}); err != nil {
-		slog.Error("cannot insert default values to migration stream",
+		slog.Debug("cannot insert default values to migration stream",
 			"error", err.Error())
 
 		return nil, err
@@ -92,7 +91,7 @@ func (k *ksqlController) GetLatestVersion(ctx context.Context) (time.Time, error
 	)
 
 	if errors.Is(err, static.ErrTableDoesNotExist) {
-		slog.Info("migration table doesnt exist")
+		slog.Debug("migration table doesnt exist")
 		migrationTable, err = k.createSystemRelations(ctx)
 		return time.Time{}, err
 	}
@@ -112,7 +111,6 @@ func (k *ksqlController) GetLatestVersion(ctx context.Context) (time.Time, error
 
 	v, err := time.Parse(time.RFC3339, msg.UpdatedAt)
 	if err != nil {
-		fmt.Println(err)
 		return time.Time{}, err
 	}
 
@@ -126,7 +124,7 @@ func (k *ksqlController) UpgradeWithMigration(
 
 	stream, err := streams.GetStream[migrationRelation](ctx, systemStreamName)
 	if err != nil {
-		slog.Error("cannot get migration stream",
+		slog.Debug("cannot get migration stream",
 			"error", err.Error())
 
 		return ErrMigrationServiceNotAvailable

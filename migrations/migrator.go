@@ -3,6 +3,7 @@ package migrations
 import (
 	"context"
 	"errors"
+	"log/slog"
 	"math"
 	"os"
 	"strconv"
@@ -29,7 +30,7 @@ func (m *migrator) AutoMigrate(ctx context.Context) error {
 		return ErrMigrationServiceNotAvailable
 	}
 
-	files, err := os.ReadDir(m.migrationPath)
+	files, err := os.ReadDir("./migrations")
 	if err != nil {
 		return err
 	}
@@ -40,14 +41,16 @@ func (m *migrator) AutoMigrate(ctx context.Context) error {
 		}
 
 		filenameSegments := strings.Split(file.Name(), "_")
-		if len(filenameSegments) != 2 {
+		if len(filenameSegments) < 2 {
 			return ErrMalformedMigrationFile
 		}
 
-		version, err := time.Parse(time.RFC3339, filenameSegments[0])
+		versionInt, err := strconv.Atoi(filenameSegments[0])
 		if err != nil {
 			return errors.Join(ErrMalformedMigrationFile, err)
 		}
+
+		version := time.Unix(int64(versionInt), 0)
 
 		if version.Before(currentVersion) {
 			continue
@@ -73,16 +76,19 @@ func (m *migrator) AutoMigrate(ctx context.Context) error {
 func (m *migrator) Up(filename string) error {
 	currentVersion, err := m.ctrl.GetLatestVersion(context.TODO())
 	if err != nil {
+		slog.Debug("cannot get actual version")
 		return ErrMigrationServiceNotAvailable
 	}
 
 	filenameSegments := strings.Split(filename, "_")
 	if len(filenameSegments) < 2 {
+		slog.Debug("cannot split filename")
 		return ErrMalformedMigrationFile
 	}
 
 	versionInt, err := strconv.Atoi(filenameSegments[0])
 	if err != nil {
+		slog.Debug("cannot convert version to time")
 		return errors.Join(ErrMalformedMigrationFile, err)
 	}
 
@@ -144,7 +150,7 @@ func (m *migrator) Down(filename string) error {
 }
 
 func (m *migrator) ReadUpQuery(fileName string) (string, error) {
-	file, err := os.ReadFile("./migrations/" + fileName)
+	file, err := os.ReadFile("./" + fileName)
 	if err != nil {
 		return "", err
 	}
@@ -163,7 +169,7 @@ func (m *migrator) ReadUpQuery(fileName string) (string, error) {
 }
 
 func (m *migrator) ReadDownQuery(fileName string) (string, error) {
-	file, err := os.ReadFile(m.migrationPath + "/" + fileName)
+	file, err := os.ReadFile("./migrations" + "/" + fileName)
 	if err != nil {
 		return "", err
 	}
@@ -177,7 +183,7 @@ func (m *migrator) ReadDownQuery(fileName string) (string, error) {
 }
 
 func (m *migrator) FindPrecedingMigration(currentVersion int64) time.Time {
-	directories, err := os.ReadDir(m.migrationPath)
+	directories, err := os.ReadDir("./migrations")
 	if err != nil {
 		return time.Time{}
 	}

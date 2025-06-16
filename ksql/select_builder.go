@@ -1,7 +1,6 @@
 package ksql
 
 import (
-	"fmt"
 	"ksql/schema"
 	"reflect"
 	"strings"
@@ -108,8 +107,6 @@ func (s *selectBuilder) SchemaFields() []schema.SearchField {
 }
 
 func (s *selectBuilder) SelectStruct(name string, val reflect.Type) SelectBuilder {
-	fmt.Println(val.Name())
-
 	structFields := schema.ParseStructToFields(val.Name(), val)
 
 	if s.ctx != nil {

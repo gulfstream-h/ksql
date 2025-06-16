@@ -37,8 +37,6 @@ func ListStreams(ctx context.Context) (dto.ShowStreams, error) {
 
 	query := util.MustTrue(ksql.List(ksql.STREAM).Expression)
 
-	slog.Info(query)
-
 	pipeline, err := network.Net.Perform(
 		ctx,
 		http.MethodPost,
@@ -81,8 +79,6 @@ func ListStreams(ctx context.Context) (dto.ShowStreams, error) {
 func Describe(ctx context.Context, stream string) (dto.RelationDescription, error) {
 	query := util.MustTrue(ksql.Describe(ksql.STREAM, stream).Expression)
 
-	slog.Info(query)
-
 	pipeline, err := network.Net.Perform(
 		ctx,
 		http.MethodPost,
@@ -102,7 +98,6 @@ func Describe(ctx context.Context, stream string) (dto.RelationDescription, erro
 			return dto.RelationDescription{}, static.ErrMalformedResponse
 		}
 
-		slog.Info(string(val))
 		var (
 			describe []dao.DescribeResponse
 		)
@@ -198,12 +193,10 @@ func GetStream[S any](
 	matchMap, diffMap := schema.CompareStructs(scheme, remoteSchema)
 
 	if len(diffMap) != 0 {
-		slog.Info("match", "fields", matchMap)
-		slog.Info("diff", "fields", diffMap)
+		slog.Debug("match", "fields", matchMap)
+		slog.Debug("diff", "fields", diffMap)
 		return nil, errors.New("schemes doesnt match")
 	}
-
-	slog.Info("new struct serialized", "fields", matchMap)
 
 	return streamInstance, nil
 }
@@ -235,8 +228,6 @@ func CreateStream[S any](
 		With(metadata).
 		Expression()
 
-	fmt.Println(query)
-
 	pipeline, err := network.Net.Perform(
 		ctx,
 		http.MethodPost,
@@ -258,8 +249,6 @@ func CreateStream[S any](
 		var (
 			create []dao.CreateRelationResponse
 		)
-
-		slog.Info("response", "r", string(val))
 
 		if err := jsoniter.Unmarshal(val, &create); err != nil {
 			return nil, fmt.Errorf("cannot unmarshal create response: %w", err)
@@ -304,7 +293,7 @@ func CreateStreamAsSelect[S any](
 	matchMap, diffMap := schema.CompareStructs(scheme, rmScheme)
 
 	if len(matchMap) == 0 {
-		fmt.Println(diffMap)
+		slog.Debug("structs difference", "diff", diffMap)
 		return nil, errors.New("schemes doesnt match")
 	}
 
@@ -406,8 +395,6 @@ func (s *Stream[S]) Insert(
 		return errors.New("cannot build insert query")
 	}
 
-	fmt.Println(query)
-
 	pipeline, err := network.Net.Perform(
 		ctx,
 		http.MethodPost,
@@ -425,8 +412,6 @@ func (s *Stream[S]) Insert(
 		if !ok {
 			return static.ErrMalformedResponse
 		}
-
-		fmt.Println(string(val))
 
 		var (
 			insert []dao.CreateRelationResponse
@@ -459,7 +444,7 @@ func (s *Stream[S]) InsertAs(
 	matchMap, diffMap := schema.CompareStructs(scheme, rmScheme)
 
 	if len(matchMap) == 0 {
-		fmt.Println(diffMap)
+		slog.Debug("structs diff", "diff", diffMap)
 		return errors.New("schemes doesnt match")
 	}
 
@@ -535,8 +520,6 @@ func (s *Stream[S]) SelectOnce(
 			return value, static.ErrMalformedResponse
 		}
 
-		fmt.Println(string(val))
-
 		if err := jsoniter.Unmarshal(val, &value); err != nil {
 			return value, fmt.Errorf("cannot unmarshal select response: %w", err)
 		}
@@ -600,7 +583,6 @@ func (s *Stream[S]) SelectWithEmit(
 					str := val[1 : len(val)-1]
 
 					if err = jsoniter.Unmarshal(str, &headers); err != nil {
-						panic(err)
 						return
 					}
 
@@ -608,20 +590,13 @@ func (s *Stream[S]) SelectWithEmit(
 					continue
 				}
 
-				fmt.Println(headers.Header.Schema)
-
 				var (
 					row dao.Row
 				)
-				fmt.Println(string(val))
 
 				if err = jsoniter.Unmarshal(val[:len(val)-1], &row); err != nil {
-					fmt.Println(err)
 					return
 				}
-
-				fmt.Print("STRUCT ")
-				fmt.Println(row)
 
 				valuesC <- value
 			}

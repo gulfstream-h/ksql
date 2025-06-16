@@ -26,8 +26,6 @@ var rootCmd = &cobra.Command{
 				dbURL = env
 			}
 		}
-
-		slog.Info("final db_url", "value", dbURL)
 	},
 	Short: "A brief description of your application",
 	Long: `A longer description that spans multiple lines and likely contains

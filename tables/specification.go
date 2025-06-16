@@ -89,7 +89,6 @@ func Describe(ctx context.Context, stream string) (dto.RelationDescription, erro
 		&network.ShortPolling{},
 	)
 	if err != nil {
-		fmt.Println(err)
 		err = fmt.Errorf("cannot perform request: %w", err)
 		return dto.RelationDescription{}, err
 	}
@@ -105,8 +104,6 @@ func Describe(ctx context.Context, stream string) (dto.RelationDescription, erro
 		var (
 			describe []dao.DescribeResponse
 		)
-
-		fmt.Println(string(val))
 
 		if strings.Contains(string(val), "Could not find STREAM/TABLE") {
 			return dto.RelationDescription{}, static.ErrTableDoesNotExist
@@ -202,12 +199,10 @@ func GetTable[S any](
 	matchMap, diffMap := schema.CompareStructs(scheme, remoteSchema)
 
 	if len(diffMap) != 0 {
-		slog.Info("match", "fields", matchMap)
-		slog.Info("diff", "fields", diffMap)
+		slog.Debug("match", "fields", matchMap)
+		slog.Debug("diff", "fields", diffMap)
 		return nil, errors.New("schemes doesnt match")
 	}
-
-	slog.Info("new struct serialized", "fields", matchMap)
 
 	return tableInstance, nil
 }
@@ -240,8 +235,6 @@ func CreateTable[S any](
 		return nil, errors.New("cannot build query for table creation")
 	}
 
-	fmt.Println(query)
-
 	pipeline, err := network.Net.Perform(
 		ctx,
 		http.MethodPost,
@@ -263,8 +256,6 @@ func CreateTable[S any](
 		var (
 			create []dao.CreateRelationResponse
 		)
-
-		fmt.Println(string(val))
 
 		if err = jsoniter.Unmarshal(val, &create); err != nil {
 			return nil, fmt.Errorf("cannot unmarshal create response: %w", err)
@@ -298,8 +289,6 @@ func CreateTable[S any](
 			var (
 				create []dao.CreateRelationResponse
 			)
-
-			fmt.Println(string(val))
 
 			if err = jsoniter.Unmarshal(val, &create); err != nil {
 				return nil, fmt.Errorf("cannot unmarshal create response: %w", err)
@@ -347,7 +336,7 @@ func CreateTableAsSelect[S any](
 	matchMap, diffMap := schema.CompareStructs(scheme, rmScheme)
 
 	if len(matchMap) == 0 {
-		fmt.Println(diffMap)
+		slog.Debug("structs diff", "diff", diffMap)
 		return nil, errors.New("schemes doesnt match")
 	}
 
@@ -511,10 +500,7 @@ func (s *Table[S]) SelectWithEmit(
 				if iter == 0 {
 					str := val[1 : len(val)-1]
 
-					fmt.Println(string(val))
-
 					if err = jsoniter.Unmarshal(str, &headers); err != nil {
-						panic(err)
 						return
 					}
 
@@ -522,24 +508,18 @@ func (s *Table[S]) SelectWithEmit(
 					continue
 				}
 
-				fmt.Println(headers.Header.Schema)
-
 				var (
 					row dao.Row
 				)
-				fmt.Println(string(val))
 
 				if err = jsoniter.Unmarshal(val[:len(val)-1], &row); err != nil {
-					fmt.Println(err)
 					return
 				}
 
 				mappa, err := schema.ParseHeadersAndValues(headers.Header.Schema, row.Row.Columns)
 				if err != nil {
-					panic(err)
+					return
 				}
-
-				fmt.Println(mappa)
 
 				t := reflect.ValueOf(&value)
 				if t.Kind() != reflect.Ptr || t.Elem().Kind() != reflect.Struct {

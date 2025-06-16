@@ -57,7 +57,10 @@ func ParseStructToFieldsDictionary(
 			continue
 		}
 
-		tag := field.Tag.Get(static.KSQL)
+		tag, found := strings.CutPrefix(string(field.Tag), "ksql:")
+		if !found {
+			return nil
+		}
 
 		fields[tag] = SearchField{
 			Name:     tag,
@@ -120,7 +123,6 @@ func SerializeProvidedStruct(
 
 	for _, field := range fields {
 		ident := Ident{}
-		fmt.Println(field.Name())
 		tag := strings.Split(field.Tag(static.KSQL), ",")
 
 		if len(tag) == 2 {
@@ -177,8 +179,6 @@ func createProjection(
 	var (
 		fields = make([]reflect.StructField, 0, len(fieldsList))
 	)
-
-	fmt.Println(fieldsList)
 
 	for name, kind := range fieldsList {
 		var tag reflect.StructTag

@@ -85,7 +85,7 @@ func (k Ktype) Example() any {
 	case Bool:
 		return true
 	case Int:
-		return 0
+		return -1
 	case Float:
 		return 2.71
 	case String:

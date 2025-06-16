@@ -9,6 +9,24 @@ import (
 	"strings"
 )
 
+// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+// Current module is in night-mode
+// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+// KafkaSerializer - is general for marshaling and unmarshalling
+// is provides concrete instructions for each layer of query
+// which data must be parsed and the way it should be translated
+// to schema analysis and to string representation of code-build query
+type KafkaSerializer struct {
+	QueryAlgo    ksql.Query
+	SchemaAlgo   []schema.SearchField
+	JoinAlgo     proto.Join
+	CondAlgo     proto.Cond
+	GroupBy      []schema.SearchField
+	MetadataAlgo proto.With
+	CTE          map[string]KafkaSerializer
+}
+
 // KafkaDeserializer - contains all parse algorithms
 // that can be used translate string representation of
 // stream/table to internal representation of KafkaSerializer
@@ -78,6 +96,7 @@ func (kd KafkaDeserializer) Deserialize(
 		return ks
 	}
 
+	// REGULAR MUST RETURN SELECT name, amount FROM orders_table
 	ks.QueryAlgo = kd.QueryAlgo.Deserialize(reg.FindString(partialQuery), qt)
 
 	if qt == ksql.SELECT {
@@ -100,10 +119,11 @@ func (kd KafkaDeserializer) Deserialize(
 	ks.JoinAlgo = kd.JoinAlgo.Deserialize(reg.FindString(partialQuery))
 	partialQuery = reg.ReplaceAllString(partialQuery, "")
 
-	reg = regexp.MustCompile(groupByRegular)
-
-	ks.GroupBy = kd.GroupByAlgo.Deserialize(reg.FindString(partialQuery))
-	partialQuery = reg.ReplaceAllString(partialQuery, "")
+	// TODO: fix panic!!!
+	//reg = regexp.MustCompile(groupByRegular)
+	//
+	//ks.GroupBy = kd.GroupByAlgo.Deserialize(reg.FindString(partialQuery))
+	//partialQuery = reg.ReplaceAllString(partialQuery, "")
 
 	reg = regexp.MustCompile(whereRegular)
 
@@ -118,7 +138,6 @@ func (kd KafkaDeserializer) Deserialize(
 	ks.CondAlgo = kd.ConditionalAlgo.Deserialize(whereClause, havingClause)
 
 	reg = regexp.MustCompile(metadataRegular)
-
 	ks.MetadataAlgo = kd.MetadataAlgo.Deserialize(reg.FindString(partialQuery))
 	partialQuery = reg.ReplaceAllString(partialQuery, "")
 

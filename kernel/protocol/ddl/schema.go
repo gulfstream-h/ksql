@@ -101,7 +101,7 @@ func parseSelect(partialQuery string) []schema.SearchField {
 		return nil
 	}
 
-	q, found = strings.CutPrefix(q, "FROM")
+	q, found = strings.CutSuffix(q, "FROM")
 	if !found {
 		return nil
 	}
@@ -116,7 +116,7 @@ func parseSelect(partialQuery string) []schema.SearchField {
 		sf := schema.SearchField{}
 		alias, field, found := strings.Cut(rawField, ".")
 		if !found {
-			sf.Name = field
+			sf.Name = rawField
 		} else {
 			sf.Relation = alias
 			sf.Name = field
