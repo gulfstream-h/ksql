@@ -79,11 +79,21 @@ func (kd KafkaDeserializer) Deserialize(
 	}
 
 	ks.QueryAlgo = kd.QueryAlgo.Deserialize(reg.FindString(partialQuery), qt)
-	partialQuery = reg.ReplaceAllString(partialQuery, "")
 
-	reg = regexp.MustCompile(schemeRegular)
+	if qt == ksql.SELECT {
+		reg = regexp.MustCompile(schemeRegular)
+	}
+
 	ks.SchemaAlgo = kd.SchemaAlgo.Deserialize(reg.FindString(partialQuery), qt)
 	partialQuery = reg.ReplaceAllString(partialQuery, "")
+
+	if qt == ksql.INSERT || qt == ksql.CREATE {
+		for idx := range ks.SchemaAlgo {
+			ks.SchemaAlgo[idx].Relation = ks.QueryAlgo.Name
+		}
+
+		return ks
+	}
 
 	reg = regexp.MustCompile(joinsRegular)
 

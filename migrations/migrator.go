@@ -3,7 +3,9 @@ package migrations
 import (
 	"context"
 	"errors"
+	"math"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -14,10 +16,10 @@ type migrator struct {
 	migrationPath   string
 }
 
-func New(migrationPath string) Migrator {
+func New(host, migrationPath string) Migrator {
 	return &migrator{
 		migrationPath: migrationPath,
-		ctrl:          newKsqlController(),
+		ctrl:          newKsqlController(host),
 	}
 }
 
@@ -75,14 +77,16 @@ func (m *migrator) Up(filename string) error {
 	}
 
 	filenameSegments := strings.Split(filename, "_")
-	if len(filenameSegments) != 2 {
+	if len(filenameSegments) < 2 {
 		return ErrMalformedMigrationFile
 	}
 
-	version, err := time.Parse(time.RFC3339, filenameSegments[0])
+	versionInt, err := strconv.Atoi(filenameSegments[0])
 	if err != nil {
 		return errors.Join(ErrMalformedMigrationFile, err)
 	}
+
+	version := time.Unix(int64(versionInt), 0)
 
 	if version.Before(currentVersion) {
 		return errors.New("cannot up migration, cuz current version is ahead")
@@ -106,26 +110,33 @@ func (m *migrator) Down(filename string) error {
 		return ErrMigrationServiceNotAvailable
 	}
 
+	currentVersion = time.Unix(1749923469, 0)
+
 	filenameSegments := strings.Split(filename, "_")
-	if len(filenameSegments) != 2 {
+	if len(filenameSegments) < 2 {
 		return ErrMalformedMigrationFile
 	}
 
-	version, err := time.Parse(time.RFC3339, filenameSegments[0])
+	versionInt, err := strconv.Atoi(filenameSegments[0])
 	if err != nil {
 		return errors.Join(ErrMalformedMigrationFile, err)
 	}
+
+	version := time.Unix(int64(versionInt), 0)
 
 	if version != currentVersion {
 		return errors.New("cannot down migration, cuz current version is not equal to invoked")
 	}
 
-	query, err := m.ReadUpQuery(filename)
+	query, err := m.ReadDownQuery(filename)
 	if err != nil {
 		return err
 	}
 
-	if err = m.ctrl.UpgradeWithMigration(context.TODO(), version, query); err != nil {
+	//TODO MAKE ERROR CHECK
+	lastVersion := m.FindPrecedingMigration(int64(versionInt))
+
+	if err = m.ctrl.UpgradeWithMigration(context.TODO(), lastVersion, query); err != nil {
 		return err
 	}
 
@@ -133,7 +144,7 @@ func (m *migrator) Down(filename string) error {
 }
 
 func (m *migrator) ReadUpQuery(fileName string) (string, error) {
-	file, err := os.ReadFile(m.migrationPath + "/" + fileName)
+	file, err := os.ReadFile("./migrations/" + fileName)
 	if err != nil {
 		return "", err
 	}
@@ -143,7 +154,7 @@ func (m *migrator) ReadUpQuery(fileName string) (string, error) {
 		return "", errors.Join(ErrMalformedMigrationFile, errors.New("missing migration prefix"))
 	}
 
-	query, found := strings.CutSuffix(partialQuery, "-- +seeker Down")
+	query, _, found := strings.Cut(partialQuery, "-- +seeker Down")
 	if !found {
 		return "", errors.Join(ErrMalformedMigrationFile, errors.New("missing migration suffix"))
 	}
@@ -157,10 +168,40 @@ func (m *migrator) ReadDownQuery(fileName string) (string, error) {
 		return "", err
 	}
 
-	query, found := strings.CutPrefix(string(file), "-- +seeker Down")
+	_, query, found := strings.Cut(string(file), "-- +seeker Down")
 	if !found {
 		return "", errors.Join(ErrMalformedMigrationFile, errors.New("missing migration prefix"))
 	}
 
 	return query, nil
+}
+
+func (m *migrator) FindPrecedingMigration(currentVersion int64) time.Time {
+	directories, err := os.ReadDir(m.migrationPath)
+	if err != nil {
+		return time.Time{}
+	}
+
+	var (
+		lastVersion int64 = math.MinInt64
+	)
+
+	for _, dir := range directories {
+		metaLabels := strings.Split(dir.Name(), "_")
+		if len(metaLabels) < 2 {
+			return time.Time{}
+		}
+
+		version, err := strconv.ParseInt(metaLabels[0], 10, 64)
+		if err != nil {
+			return time.Time{}
+		}
+
+		if lastVersion < version &&
+			version != currentVersion {
+			lastVersion = version
+		}
+	}
+
+	return time.Unix(lastVersion, 0)
 }

@@ -13,12 +13,12 @@ type (
 
 func parseCreate(partialQuery string) []schema.SearchField {
 
-	partialQuery, found := strings.CutPrefix(partialQuery, "(")
+	_, partialQuery, found := strings.Cut(partialQuery, "(")
 	if !found {
 		return nil
 	}
 
-	partialQuery, found = strings.CutPrefix(partialQuery, ")")
+	partialQuery, _, found = strings.Cut(partialQuery, ")")
 	if !found {
 		return nil
 	}
@@ -41,10 +41,10 @@ func parseCreate(partialQuery string) []schema.SearchField {
 			Name: words[0],
 		}
 
-		switch words[1] {
-		case "VARCHAR":
+		switch strings.TrimSpace(words[1]) {
+		case "VARCHAR", "STRING":
 			field.Kind = kinds.String
-		case "INT":
+		case "INT", "BIGINT":
 			field.Kind = kinds.Int
 		case "FLOAT":
 			field.Kind = kinds.Float
@@ -59,12 +59,7 @@ func parseCreate(partialQuery string) []schema.SearchField {
 }
 
 func parseInsert(partialQuery string) []schema.SearchField {
-	fields, found := strings.CutPrefix(partialQuery, "INTO")
-	if !found {
-		return nil
-	}
-
-	shm, fields, found := strings.Cut(fields, "(")
+	_, fields, found := strings.Cut(partialQuery, "(")
 	if !found {
 		return nil
 	}
@@ -92,9 +87,8 @@ func parseInsert(partialQuery string) []schema.SearchField {
 
 	for i := 0; i < len(fieldsSplitted); i++ {
 		searchFields[i] = schema.SearchField{
-			Name:     fieldsSplitted[i],
-			Relation: shm,
-			Value:    &valuesSplitted[i],
+			Name:  fieldsSplitted[i],
+			Value: &valuesSplitted[i],
 		}
 	}
 

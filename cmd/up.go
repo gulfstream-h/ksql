@@ -5,6 +5,8 @@ package cmd
 
 import (
 	"github.com/spf13/cobra"
+	"ksql/config"
+	"ksql/kernel/network"
 	"ksql/migrations"
 	"log"
 )
@@ -15,7 +17,12 @@ var upCmd = &cobra.Command{
 	Short: "Apply changes. Invokes up-migration in provided file",
 	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
-		if err := migrations.New(".").Up(args[0]); err != nil {
+		network.Init(config.Config{
+			Host:       dbURL,
+			TimeoutSec: 30,
+		})
+
+		if err := migrations.New(dbURL, ".").Up(args[0]); err != nil {
 			log.Fatalf("cannot up migration %w", err)
 		}
 	},

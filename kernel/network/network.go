@@ -124,7 +124,9 @@ func (n *network) PerformSelect(
 		resp *http.Response
 	)
 
-	if resp, err = n.httpClient.Do(req); err != nil {
+	cli := http.DefaultClient
+
+	if resp, err = cli.Do(req); err != nil {
 		return nil, fmt.Errorf("error while performing req: %w", err)
 	}
 
