@@ -23,7 +23,7 @@ var upCmd = &cobra.Command{
 		})
 
 		if err := migrations.New(dbURL, ".").Up(args[0]); err != nil {
-			log.Fatalf("cannot up migration %w", err)
+			log.Fatalf("cannot up migration" + err.Error())
 		}
 	},
 }

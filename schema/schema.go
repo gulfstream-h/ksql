@@ -5,7 +5,6 @@ import (
 	"github.com/fatih/structs"
 	"ksql/kinds"
 	"ksql/static"
-	"ksql/util"
 	"reflect"
 	"regexp"
 	"strings"
@@ -86,32 +85,24 @@ func ParseStructToFields(
 		fields []SearchField
 	)
 
-	structType := reflect.TypeOf(runtimeStruct)
-	val := reflect.ValueOf(runtimeStruct)
+	for i := 0; i < runtimeStruct.NumField(); i++ {
+		field := runtimeStruct.Field(i)
 
-	for i := 0; i < structType.NumField(); i++ {
-		fieldType := structType.Field(i)
-		fieldVal := val.Field(i)
-
-		ksqlKind, err := kinds.ToKsql(fieldType.Type.Kind())
+		ksqlKind, err := kinds.ToKsql(field.Type.Kind())
 		if err != nil {
 			continue
 		}
 
-		taggedName := fieldType.Tag.Get("ksql")
-		serializedVal := util.Serialize(fieldVal.Interface())
-
 		var tag string
 
-		if fieldType.Tag != "" {
-			tag, _ = strings.CutPrefix(string(fieldType.Tag), "ksql:")
+		if field.Tag != "" {
+			tag, _ = strings.CutPrefix(string(field.Tag), "ksql:")
 		}
 
 		fields = append(fields, SearchField{
-			Name:     taggedName,
+			Name:     field.Name,
 			Relation: structName,
 			Kind:     ksqlKind,
-			Value:    &serializedVal,
 			Tag:      tag,
 		})
 	}

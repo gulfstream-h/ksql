@@ -79,7 +79,7 @@ func RegisterTopic[S any](
 //
 //	topics, err := ListTopics(ctx)
 //	if err != nil {
-//		log.Fatalf("cannot init ksql by listing topics: %w", err)
+//
 //	}
 //
 //	for _, topic := range topics.Topics {
