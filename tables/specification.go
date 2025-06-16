@@ -413,7 +413,7 @@ func (s *Table[S]) SelectOnce(
 	meta := ksql.Metadata{ValueFormat: kinds.JSON.String()}
 
 	query, ok := ksql.Create(ksql.TABLE, s.Name).
-		SchemaFromStruct(*s.remoteSchema).
+		SchemaFromStruct(s.Name, *s.remoteSchema).
 		With(meta).
 		Expression()
 

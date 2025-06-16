@@ -98,14 +98,13 @@ func ParseStructToFields(
 			continue
 		}
 
-
 		taggedName := fieldType.Tag.Get("ksql")
 		serializedVal := util.Serialize(fieldVal.Interface())
 
 		var tag string
 
-		if field.Tag != "" {
-			tag, _ = strings.CutPrefix(string(field.Tag), "ksql:")
+		if fieldType.Tag != "" {
+			tag, _ = strings.CutPrefix(string(fieldType.Tag), "ksql:")
 		}
 
 		fields = append(fields, SearchField{

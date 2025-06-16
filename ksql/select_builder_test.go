@@ -2,6 +2,7 @@ package ksql
 
 import (
 	"github.com/stretchr/testify/assert"
+	"reflect"
 	"testing"
 )
 
@@ -15,7 +16,7 @@ func Test_SelectExpression(t *testing.T) {
 		havingExpressions  []Expression
 		groupByFields      []Field
 		orderbyExpressions []OrderedExpression
-		structScan         any
+		structScan         reflect.Type
 		wantExpr           string
 		expectOK           bool
 	}{
@@ -87,10 +88,10 @@ func Test_SelectExpression(t *testing.T) {
 		},
 		{
 			name: "SELECT with struct scan",
-			structScan: struct {
+			structScan: reflect.TypeOf(struct {
 				ID   int    `ksql:"id"`
 				Name string `ksql:"name"`
-			}{},
+			}{}),
 			schemaFrom: "users",
 			wantExpr:   "SELECT users.id, users.name FROM users;",
 			expectOK:   true,
