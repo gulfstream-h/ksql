@@ -32,6 +32,7 @@ var createCmd = &cobra.Command{
 
 		if _, err = file.WriteString(content); err != nil {
 			slog.Debug("cannot write content to migration file",
+				"error",
 				err.Error())
 			return
 		}
