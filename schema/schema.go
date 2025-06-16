@@ -5,6 +5,7 @@ import (
 	"github.com/fatih/structs"
 	"ksql/kinds"
 	"ksql/static"
+	"ksql/util"
 	"reflect"
 	"regexp"
 	"strings"
@@ -74,9 +75,50 @@ func ParseStructToFieldsDictionary(
 }
 
 // ParseStructToFields - returns array of SearchField
+// from user-provided struct
+// current fields describes all required info for DDL
+func ParseStructToFields(name string, runtimeStruct any) []SearchField {
+	var (
+		fields []SearchField
+	)
+
+	structType := reflect.TypeOf(runtimeStruct)
+	val := reflect.ValueOf(runtimeStruct)
+
+	for i := 0; i < structType.NumField(); i++ {
+		fieldType := structType.Field(i)
+		fieldVal := val.Field(i)
+
+		ksqlKind, err := kinds.ToKsql(fieldType.Type.Kind())
+		if err != nil {
+			continue
+		}
+
+		taggedName := fieldType.Tag.Get("ksql")
+		serializedVal := util.Serialize(fieldVal.Interface())
+
+		var tag string
+
+		if fieldType.Tag != "" {
+			tag, _ = strings.CutPrefix(string(fieldType.Tag), "ksql:")
+		}
+
+		fields = append(fields, SearchField{
+			Name:     taggedName,
+			Relation: name,
+			Kind:     ksqlKind,
+			Value:    &serializedVal,
+			Tag:      tag,
+		})
+	}
+
+	return fields
+}
+
+// ParseReflectStructToFields - returns array of SearchField
 // from in-code serialized struct or from runtime generated structure
 // current fields describes all required info for DDL
-func ParseStructToFields(
+func ParseReflectStructToFields(
 	structName string,
 	runtimeStruct reflect.Type,
 ) []SearchField {

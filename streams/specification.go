@@ -215,7 +215,7 @@ func CreateStream[S any](
 	)
 
 	rmSchema := schema.SerializeProvidedStruct(s)
-	searchFields := schema.ParseStructToFields(streamName, rmSchema)
+	searchFields := schema.ParseReflectStructToFields(streamName, rmSchema)
 
 	metadata := ksql.Metadata{
 		Topic:       *settings.SourceTopic,

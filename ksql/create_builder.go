@@ -12,6 +12,10 @@ type (
 		AsSelect(builder SelectBuilder) CreateBuilder
 		SchemaFields(fields ...schema.SearchField) CreateBuilder
 		SchemaFromStruct(schemaName string, schemaStruct any) CreateBuilder
+		SchemaFromRemoteStruct(
+			schemaName string,
+			schemaStruct reflect.Type,
+		) CreateBuilder
 		With(metadata Metadata) CreateBuilder
 		Type() Reference
 		Schema() string
@@ -64,8 +68,17 @@ func (c *create) SchemaFromStruct(
 	schemaName string,
 	schemaStruct any,
 ) CreateBuilder {
-	c.fields = append(c.fields, schema.ParseStructToFields(schemaName, reflect.TypeOf(schemaStruct))...)
+	c.fields = append(c.fields, schema.ParseStructToFields(schemaName, schemaStruct)...)
 
+	return c
+}
+
+func (c *create) SchemaFromRemoteStruct(
+	schemaName string,
+	schemaStruct reflect.Type,
+) CreateBuilder {
+
+	c.fields = append(c.fields, schema.ParseReflectStructToFields(schemaName, schemaStruct)...)
 	return c
 }
 

@@ -220,7 +220,7 @@ func CreateTable[S any](
 	)
 
 	rmSchema := schema.SerializeProvidedStruct(s)
-	searchFields := schema.ParseStructToFields(tableName, rmSchema)
+	searchFields := schema.ParseReflectStructToFields(tableName, rmSchema)
 
 	metadata := ksql.Metadata{
 		Topic:       *settings.SourceTopic,
@@ -413,7 +413,7 @@ func (s *Table[S]) SelectOnce(
 	meta := ksql.Metadata{ValueFormat: kinds.JSON.String()}
 
 	query, ok := ksql.Create(ksql.TABLE, s.Name).
-		SchemaFromStruct(s.Name, *s.remoteSchema).
+		SchemaFromRemoteStruct(s.Name, *s.remoteSchema).
 		With(meta).
 		Expression()
 

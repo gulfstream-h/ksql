@@ -110,7 +110,7 @@ func (s *selectBuilder) SchemaFields() []schema.SearchField {
 }
 
 func (s *selectBuilder) SelectStruct(name string, val reflect.Type) SelectBuilder {
-	structFields := schema.ParseStructToFields(val.Name(), val)
+	structFields := schema.ParseReflectStructToFields(val.Name(), val)
 
 	if s.ctx != nil {
 		s.ctx.AddFields(structFields...)

@@ -57,7 +57,7 @@ func TestParseStructToFields(t *testing.T) {
 	}
 
 	typ := SerializeFieldsToStruct(fields)
-	result := ParseStructToFields("TestStruct", typ)
+	result := ParseReflectStructToFields("TestStruct", typ)
 
 	if len(result) != len(fields) {
 		t.Fatalf("expected %d fields, got %d", len(fields), len(result))
