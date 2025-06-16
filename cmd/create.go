@@ -23,7 +23,7 @@ var createCmd = &cobra.Command{
 		file, err := os.Create(fileName)
 		if err != nil {
 			slog.Debug("cannot create migration file",
-				err)
+				err.Error())
 			return
 		}
 		defer file.Close()
@@ -32,7 +32,7 @@ var createCmd = &cobra.Command{
 
 		if _, err = file.WriteString(content); err != nil {
 			slog.Debug("cannot write content to migration file",
-				err)
+				err.Error())
 			return
 		}
 

@@ -75,8 +75,7 @@ func (ctrl *ksqlController) createSystemRelations(
 		"updated_at":   time.Time{}.Format(time.RFC3339),
 		"last_version": time.Time{}.Format(time.RFC3339),
 	}); err != nil {
-		slog.Debug("cannot insert default values to migration stream",
-			"error", err.Error())
+		slog.Debug("cannot insert default values to migration stream")
 
 		return nil, err
 	}
