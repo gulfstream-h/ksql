@@ -96,11 +96,11 @@ func ParseStructToFields(
 		var tag string
 
 		if field.Tag != "" {
-			tag, _ = strings.CutPrefix(string(field.Tag), "ksql:")
+			tag = field.Tag.Get("ksql")
 		}
 
 		fields = append(fields, SearchField{
-			Name:     field.Name,
+			Name:     tag,
 			Relation: structName,
 			Kind:     ksqlKind,
 			Tag:      tag,

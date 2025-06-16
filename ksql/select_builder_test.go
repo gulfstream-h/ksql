@@ -516,7 +516,7 @@ func Test_SelectExpression(t *testing.T) {
 				}
 			}
 			if tc.structScan != nil {
-				sb = sb.SelectStruct("table", tc.structScan)
+				sb = sb.SelectStruct("users", tc.structScan)
 			}
 
 			gotExpr, gotOK := sb.Where(tc.whereExpressions...).
