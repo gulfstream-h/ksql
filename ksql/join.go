@@ -8,6 +8,7 @@ type (
 	JoinExpression interface {
 		Schema() string
 		On() Expression
+		Type() JoinType
 		Expression() (string, bool)
 	}
 
@@ -44,6 +45,10 @@ func (j *join) On() Expression {
 	return j.on
 }
 
+func (j *join) Type() JoinType {
+	return j.operation
+}
+
 func (j *join) Expression() (string, bool) {
 	var (
 		operationString string
@@ -69,6 +74,8 @@ func (j *join) Expression() (string, bool) {
 		operationString = "OUTER JOIN"
 	case Cross:
 		operationString = "CROSS JOIN"
+	default:
+		return "", false
 	}
 	return fmt.Sprintf(
 		"%s %s ON %s",

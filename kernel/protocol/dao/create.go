@@ -18,7 +18,7 @@ type RelationInfo struct {
 }
 
 type (
-	CreateRelationResponse []RelationInfo
+	CreateRelationResponse RelationInfo
 )
 
 // error {"@type":"statement_error","error_code":40001,"message":"Cannot add table 'TESTIFY': A stream with the same name already exists","statementText":"CREATE TABLE TESTIFY (ID INTEGER) WITH (CLEANUP_POLICY='compact', KAFKA_TOPIC='example_topic', KEY_FORMAT='KAFKA', VALUE_FORMAT='JSON');","entities":[]}%

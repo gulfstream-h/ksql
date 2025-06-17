@@ -11,7 +11,10 @@ import (
 	"ksql/kinds"
 	"ksql/ksql"
 	"ksql/schema"
+	"ksql/shared"
 	"ksql/static"
+	"log/slog"
+
 	"ksql/util"
 	"net/http"
 	"reflect"
@@ -54,24 +57,27 @@ func ListStreams(ctx context.Context) (dto.ShowStreams, error) {
 		}
 
 		var (
-			streams dao.ShowStreams
+			streams []dao.StreamsInfo
 		)
 
-		if err := jsoniter.Unmarshal(val, &streams); err != nil {
+		if err = jsoniter.Unmarshal(val, &streams); err != nil {
 			err = errors.Join(static.ErrUnserializableResponse, err)
 			return dto.ShowStreams{}, err
 		}
 
-		return streams.DTO(), nil
+		if len(streams) == 0 {
+			return dto.ShowStreams{}, errors.New("no streams have been found")
+		}
+
+		return streams[0].DTO(), nil
 	}
 }
 
 // Describe - responses with stream description.
 // Can be used for table schema and query by which
 // it was created
-func (s *Stream[S]) Describe(ctx context.Context) (dto.RelationDescription, error) {
-
-	query := util.MustTrue(ksql.Describe(ksql.STREAM, s.Name).Expression)
+func Describe(ctx context.Context, stream string) (dto.RelationDescription, error) {
+	query := util.MustTrue(ksql.Describe(ksql.STREAM, stream).Expression)
 
 	pipeline, err := network.Net.Perform(
 		ctx,
@@ -93,23 +99,27 @@ func (s *Stream[S]) Describe(ctx context.Context) (dto.RelationDescription, erro
 		}
 
 		var (
-			describe dao.DescribeResponse
+			describe []dao.DescribeResponse
 		)
 
-		if err := jsoniter.Unmarshal(val, &describe); err != nil {
+		if err = jsoniter.Unmarshal(val, &describe); err != nil {
 			err = errors.Join(static.ErrUnserializableResponse, err)
 			return dto.RelationDescription{}, err
 		}
 
-		return describe.DTO(), nil
+		if len(describe) == 0 {
+			return dto.RelationDescription{}, errors.New("stream not found")
+		}
+
+		return describe[0].DTO(), nil
 	}
 }
 
 // Drop - drops stream from ksqlDB instance
 // with parent topic. Also deletes projection from list
-func (s *Stream[S]) Drop(ctx context.Context) error {
+func Drop(ctx context.Context, stream string) error {
 
-	query := util.MustTrue(ksql.Drop(ksql.STREAM, s.Name).Expression)
+	query := util.MustTrue(ksql.Drop(ksql.STREAM, stream).Expression)
 
 	pipeline, err := network.Net.Perform(
 		ctx,
@@ -130,15 +140,19 @@ func (s *Stream[S]) Drop(ctx context.Context) error {
 		}
 
 		var (
-			drop dao.DropInfo
+			drop []dao.DropInfo
 		)
 
-		if err := jsoniter.Unmarshal(val, &drop); err != nil {
+		if err = jsoniter.Unmarshal(val, &drop); err != nil {
 			return fmt.Errorf("cannot unmarshal drop response: %w", err)
 		}
 
-		if drop.CommandStatus.Status != static.SUCCESS {
-			return fmt.Errorf("cannot drop stream: %s", drop.CommandStatus.Status)
+		if len(drop) == 0 {
+			return errors.New("cannot drop stream")
+		}
+
+		if drop[0].CommandStatus.Status != static.SUCCESS {
+			return fmt.Errorf("cannot drop stream: %s", drop[0].CommandStatus.Status)
 		}
 
 		return nil
@@ -151,22 +165,19 @@ func (s *Stream[S]) Drop(ctx context.Context) error {
 // struct tags and remote schema
 func GetStream[S any](
 	ctx context.Context,
-	stream string,
-	settings StreamSettings) (*Stream[S], error) {
+	stream string) (*Stream[S], error) {
 
 	var (
 		s S
 	)
 
-	scheme := schema.SerializeProvidedStruct(s)
+	scheme := schema.SerializeProvidedStruct(&s)
 
 	streamInstance := &Stream[S]{
 		Name:         stream,
-		partitions:   settings.Partitions,
 		remoteSchema: &scheme,
-		format:       settings.Format,
 	}
-	desc, err := streamInstance.Describe(ctx)
+	desc, err := Describe(ctx, stream)
 	if err != nil {
 		if errors.Is(err, static.ErrStreamDoesNotExist) || len(desc.Fields) == 0 {
 			return nil, err
@@ -175,7 +186,7 @@ func GetStream[S any](
 	}
 
 	var (
-		responseSchema = map[string]string{}
+		responseSchema = make(map[string]string)
 	)
 
 	for _, field := range desc.Fields {
@@ -185,8 +196,9 @@ func GetStream[S any](
 	remoteSchema := schema.SerializeRemoteSchema(responseSchema)
 	matchMap, diffMap := schema.CompareStructs(scheme, remoteSchema)
 
-	if len(matchMap) == 0 {
-		fmt.Println(diffMap)
+	if len(diffMap) != 0 {
+		slog.Debug("match", "fields", matchMap)
+		slog.Debug("diff", "fields", diffMap)
 		return nil, errors.New("schemes doesnt match")
 	}
 
@@ -199,7 +211,7 @@ func GetStream[S any](
 func CreateStream[S any](
 	ctx context.Context,
 	streamName string,
-	settings StreamSettings,
+	settings shared.StreamSettings,
 ) (*Stream[S], error) {
 
 	var (
@@ -207,12 +219,12 @@ func CreateStream[S any](
 	)
 
 	rmSchema := schema.SerializeProvidedStruct(s)
-	searchFields := schema.ParseStructToFields(streamName, rmSchema)
+	searchFields := schema.ParseReflectStructToFields(streamName, rmSchema)
 
 	metadata := ksql.Metadata{
 		Topic:       *settings.SourceTopic,
-		ValueFormat: kinds.JSON.String(),
 		Partitions:  int(*settings.Partitions),
+		ValueFormat: kinds.JSON.String(),
 	}
 
 	query, _ := ksql.Create(ksql.STREAM, streamName).
@@ -239,7 +251,7 @@ func CreateStream[S any](
 		}
 
 		var (
-			create dao.CreateRelationResponse
+			create []dao.CreateRelationResponse
 		)
 
 		if err := jsoniter.Unmarshal(val, &create); err != nil {
@@ -257,6 +269,7 @@ func CreateStream[S any](
 		}
 
 		return &Stream[S]{
+			Name:         streamName,
 			partitions:   settings.Partitions,
 			remoteSchema: &rmSchema,
 			format:       settings.Format,
@@ -271,7 +284,7 @@ func CreateStream[S any](
 func CreateStreamAsSelect[S any](
 	ctx context.Context,
 	streamName string,
-	settings StreamSettings,
+	settings shared.StreamSettings,
 	selectBuilder ksql.SelectBuilder) (*Stream[S], error) {
 
 	var (
@@ -284,7 +297,7 @@ func CreateStreamAsSelect[S any](
 	matchMap, diffMap := schema.CompareStructs(scheme, rmScheme)
 
 	if len(matchMap) == 0 {
-		fmt.Println(diffMap)
+		slog.Debug("structs difference", "diff", diffMap)
 		return nil, errors.New("schemes doesnt match")
 	}
 
@@ -320,7 +333,7 @@ func CreateStreamAsSelect[S any](
 		}
 
 		var (
-			create dao.CreateRelationResponse
+			create []dao.CreateRelationResponse
 		)
 
 		if err := jsoniter.Unmarshal(val, &create); err != nil {
@@ -354,7 +367,7 @@ func CreateStreamAsSelect[S any](
 // written fields are defined by user
 func (s *Stream[S]) Insert(
 	ctx context.Context,
-	fields ksql.Rows,
+	fields ksql.Row,
 ) error {
 
 	scheme := *s.remoteSchema
@@ -405,7 +418,7 @@ func (s *Stream[S]) Insert(
 		}
 
 		var (
-			insert dao.CreateRelationResponse
+			insert []dao.CreateRelationResponse
 		)
 
 		if err := jsoniter.Unmarshal(val, &insert); err != nil {
@@ -435,7 +448,7 @@ func (s *Stream[S]) InsertAs(
 	matchMap, diffMap := schema.CompareStructs(scheme, rmScheme)
 
 	if len(matchMap) == 0 {
-		fmt.Println(diffMap)
+		slog.Debug("structs diff", "diff", diffMap)
 		return errors.New("schemes doesnt match")
 	}
 
@@ -470,10 +483,6 @@ func (s *Stream[S]) InsertAs(
 			return fmt.Errorf("cannot unmarshal insert response: %w", err)
 		}
 
-		if len(insert) == 0 {
-			return nil
-		}
-
 		return errors.New("unpredictable error occurred while inserting")
 	}
 }
@@ -488,20 +497,20 @@ func (s *Stream[S]) SelectOnce(
 		value S
 	)
 
-	query, ok := ksql.SelectAsStruct(*s.remoteSchema).
+	query, ok := ksql.
+		SelectAsStruct(s.Name, *s.remoteSchema).
 		From(s.Name).
-		WithMeta(ksql.Metadata{ValueFormat: kinds.JSON.String()}).
 		Expression()
 
 	if !ok {
 		return value, errors.New("cannot build select query")
 	}
 
-	pipeline, err := network.Net.Perform(
+	pipeline, err := network.Net.PerformSelect(
 		ctx,
 		http.MethodPost,
 		query,
-		&network.ShortPolling{},
+		&network.LongPolling{},
 	)
 	if err != nil {
 		return value, fmt.Errorf("cannot perform request: %w", err)
@@ -535,7 +544,7 @@ func (s *Stream[S]) SelectWithEmit(
 		valuesC = make(chan S)
 	)
 
-	query, ok := ksql.SelectAsStruct(*s.remoteSchema).
+	query, ok := ksql.SelectAsStruct(s.Name, *s.remoteSchema).
 		From(s.Name).
 		WithMeta(ksql.Metadata{ValueFormat: kinds.JSON.String()}).
 		Expression()
@@ -544,17 +553,25 @@ func (s *Stream[S]) SelectWithEmit(
 		return nil, errors.New("cannot build select query")
 	}
 
-	pipeline, err := network.Net.Perform(
+	query = "SELECT AMOUNT, CLIENT_HASH FROM NEW_STREAM;"
+
+	pipeline, err := network.Net.PerformSelect(
 		ctx,
 		http.MethodPost,
 		query,
-		&network.ShortPolling{},
+		&network.LongPolling{},
 	)
 	if err != nil {
 		return nil, fmt.Errorf("cannot perform request: %w", err)
 	}
 
 	go func() {
+
+		var (
+			iter    = 0
+			headers dao.Header
+		)
+
 		for {
 			select {
 			case <-ctx.Done():
@@ -565,8 +582,23 @@ func (s *Stream[S]) SelectWithEmit(
 					close(valuesC)
 					return
 				}
-				if err := jsoniter.Unmarshal(val, &value); err != nil {
-					close(valuesC)
+
+				if iter == 0 {
+					str := val[1 : len(val)-1]
+
+					if err = jsoniter.Unmarshal(str, &headers); err != nil {
+						return
+					}
+
+					iter++
+					continue
+				}
+
+				var (
+					row dao.Row
+				)
+
+				if err = jsoniter.Unmarshal(val[:len(val)-1], &row); err != nil {
 					return
 				}
 
@@ -576,26 +608,4 @@ func (s *Stream[S]) SelectWithEmit(
 	}()
 
 	return valuesC, nil
-}
-
-// ToTopic - propagates stream data to new topic
-// stream scheme is fully extended to new topic
-func (s *Stream[S]) ToTopic(topicName string) (topic static.Topic[S]) {
-	topic.Name = topicName
-	topic.Partitions = int(*s.partitions)
-
-	return
-}
-
-// ToTable - propagates stream data to new table
-// and shares schema with it
-func (s *Stream[S]) ToTable(tableName string) (table static.Table[S]) {
-	static.StreamsProjections.Store(tableName, static.StreamSettings{
-		Name:       tableName,
-		Partitions: s.partitions,
-	})
-
-	table.Name = tableName
-
-	return
 }

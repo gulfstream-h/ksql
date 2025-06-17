@@ -39,7 +39,7 @@ func (w *where) Expression() (string, bool) {
 			return "", false
 		}
 
-		if i != len(w.conditionals)-1 && !isFirst {
+		if !isFirst {
 			builder.WriteString(" AND ")
 		}
 

@@ -5,8 +5,6 @@ import (
 	"ksql/static"
 	"ksql/streams"
 	"ksql/tables"
-	"log"
-	"time"
 )
 
 type (
@@ -73,21 +71,21 @@ func RegisterTopic[S any](
 }
 
 // init() - lists all topics existing in kafka
-func init() {
-	ctx, cancel := context.WithTimeout(
-		context.Background(),
-		time.Duration(30)*time.Second)
-	defer cancel()
-
-	topics, err := ListTopics(ctx)
-	if err != nil {
-		log.Fatalf("cannot init ksql by listing topics: %w", err)
-	}
-
-	for _, topic := range topics.Topics {
-		topicProjections[topic.Name] = TopicSettings{}
-	}
-}
+//func init() {
+//	ctx, cancel := context.WithTimeout(
+//		context.Background(),
+//		time.Duration(30)*time.Second)
+//	defer cancel()
+//
+//	topics, err := ListTopics(ctx)
+//	if err != nil {
+//
+//	}
+//
+//	for _, topic := range topics.Topics {
+//		topicProjections[topic.Name] = TopicSettings{}
+//	}
+//}
 
 // GetTopicProjection - safe and encapsulated wrapper for receiving in-memory
 // settings of topic. Can be used in outer packages

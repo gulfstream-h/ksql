@@ -51,7 +51,7 @@ func (h *having) Expression() (string, bool) {
 			return "", false
 		}
 
-		if i != len(h.conditionals)-1 && !isFirst {
+		if !isFirst {
 			builder.WriteString(" AND ")
 		}
 

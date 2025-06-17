@@ -9,9 +9,8 @@ import (
 	"ksql/kernel/protocol/dao"
 	"ksql/kernel/protocol/dto"
 	"ksql/ksql"
+	"ksql/shared"
 	"ksql/static"
-	"ksql/streams"
-	"ksql/tables"
 	"net/http"
 )
 
@@ -50,22 +49,26 @@ func ListTopics(ctx context.Context) (dto.ShowTopics, error) {
 		}
 
 		var (
-			topics dao.ShowTopics
+			topics []dao.ShowTopics
 		)
 
-		if err := jsoniter.Unmarshal(val, &topics); err != nil {
+		if err = jsoniter.Unmarshal(val, &topics); err != nil {
 			err = errors.Join(static.ErrUnserializableResponse, err)
 			return dto.ShowTopics{}, err
 		}
 
-		return topics.DTO(), nil
+		if len(topics) == 0 {
+			return dto.ShowTopics{}, errors.New("no topics have been found")
+		}
+
+		return topics[0].DTO(), nil
 	}
 }
 
-func (t *Topic[S]) RegisterStream(streamName string) streams.StreamSettings {
+func (t *Topic[S]) RegisterStream(streamName string) shared.StreamSettings {
 	partitions := uint8(t.Partitions)
 
-	streamSettings := streams.StreamSettings{
+	streamSettings := shared.StreamSettings{
 		Name:        streamName,
 		SourceTopic: &t.Name,
 		Partitions:  &partitions,
@@ -74,17 +77,17 @@ func (t *Topic[S]) RegisterStream(streamName string) streams.StreamSettings {
 		},
 	}
 
-	static.StreamsProjections.Store(streamName, static.StreamSettings(streamSettings))
+	static.StreamsProjections.Store(streamName, streamSettings)
 
 	t.ChildObjects.Streams[streamName] = struct{}{}
 
 	return streamSettings
 }
 
-func (t *Topic[S]) RegisterTable(tableName string) tables.TableSettings {
+func (t *Topic[S]) RegisterTable(tableName string) shared.TableSettings {
 	partitions := uint8(t.Partitions)
 
-	tableSettings := tables.TableSettings{
+	tableSettings := shared.TableSettings{
 		Name:        tableName,
 		SourceTopic: &t.Name,
 		Partitions:  &partitions,
@@ -93,7 +96,7 @@ func (t *Topic[S]) RegisterTable(tableName string) tables.TableSettings {
 		},
 	}
 
-	static.TablesProjections.Store(tableName, static.TableSettings(tableSettings))
+	static.TablesProjections.Store(tableName, tableSettings)
 
 	t.ChildObjects.Tables[tableName] = struct{}{}
 

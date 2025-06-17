@@ -3,6 +3,7 @@ package schema
 import (
 	"errors"
 	"ksql/kinds"
+	"ksql/shared"
 	"ksql/static"
 	"reflect"
 )
@@ -17,6 +18,7 @@ type SearchField struct {
 	Relation string      // stream/table name
 	Kind     kinds.Ktype // internal type, describing primitive types
 	Value    *string     // value to be inserted (valid only for streams)
+	Tag      string
 }
 
 // CompareStructs - checks if two structs matches
@@ -29,8 +31,8 @@ func CompareStructs(
 	map[string]bool, map[string]struct{}) {
 
 	var (
-		commonMap map[string]bool
-		diffMap   map[string]struct{}
+		commonMap = make(map[string]bool)
+		diffMap   = make(map[string]struct{})
 	)
 
 	for i := 0; i < firstStruct.NumField(); i++ {
@@ -56,7 +58,7 @@ func CompareStructs(
 func FindRelationFields(relationName string) (map[string]SearchField, error) {
 	streamSettings, exists := static.StreamsProjections.Load(relationName)
 	if exists {
-		settings, ok := streamSettings.(static.StreamSettings)
+		settings, ok := streamSettings.(shared.StreamSettings)
 		if !ok {
 			return nil, errors.New("invalid map values have been inserted")
 		}
@@ -65,7 +67,7 @@ func FindRelationFields(relationName string) (map[string]SearchField, error) {
 
 	tableSettings, exists := static.TablesProjections.Load(relationName)
 	if exists {
-		settings, ok := tableSettings.(static.TableSettings)
+		settings, ok := tableSettings.(shared.TableSettings)
 		if !ok {
 			return nil, errors.New("invalid map values have been inserted")
 		}

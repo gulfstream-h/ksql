@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"ksql/util"
 	"strconv"
+	"strings"
 )
 
 type (
@@ -21,6 +22,8 @@ type (
 		Less(val any) Expression
 		GreaterEq(val any) Expression
 		LessEq(val any) Expression
+		Asc() OrderedExpression
+		Desc() OrderedExpression
 	}
 
 	Nullable interface {
@@ -118,7 +121,10 @@ func (b *booleanExp) Expression() (string, bool) {
 		if !util.IsIterable(b.right) {
 			return "", false
 		}
-		rightString = util.FormatSlice(b.right)
+		rightString, ok = util.FormatSlice(b.right)
+		if !ok {
+			return "", false
+		}
 		return fmt.Sprintf("%s %s %s", expression, operation, rightString), true
 	}
 
@@ -130,10 +136,27 @@ func (b *booleanExp) Expression() (string, bool) {
 	case uint, uint8, uint16, uint32, uint64:
 		rightString = fmt.Sprintf("%d", v)
 	case float32, float64:
-		rightString = fmt.Sprintf("%f", v)
+		rightString = fmt.Sprintf("%v", v)
 	case string:
 		rightString = fmt.Sprintf("'%s'", v)
+	case bool:
+		rightString = strings.ToUpper(strconv.FormatBool(v))
+	case Field:
+		rightString, ok = v.Expression()
+		if !ok {
+			return "", false
+		}
 	default:
+		if util.IsNil(v) {
+			switch b.operation {
+			case equal:
+				return fmt.Sprintf("%s IS NULL", expression), true
+			case notEqual:
+				return fmt.Sprintf("%s IS NOT NULL", expression), true
+			default:
+				return "", false
+			}
+		}
 		rightString = util.Serialize(b.right)
 		if len(rightString) == 0 {
 			return "", false

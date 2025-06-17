@@ -11,10 +11,13 @@ import (
 	"ksql/kinds"
 	"ksql/ksql"
 	"ksql/schema"
+	"ksql/shared"
 	"ksql/static"
 	"ksql/util"
+	"log/slog"
 	"net/http"
 	"reflect"
+	"strings"
 )
 
 // Table - is full-functional type,
@@ -57,24 +60,27 @@ func ListTables(ctx context.Context) (
 		}
 
 		var (
-			tables dao.ShowTables
+			tables []dao.ShowTables
 		)
 
-		if err := jsoniter.Unmarshal(val, &tables); err != nil {
+		if err = jsoniter.Unmarshal(val, &tables); err != nil {
 			err = errors.Join(static.ErrUnserializableResponse, err)
 			return dto.ShowTables{}, err
 		}
 
-		return tables.DTO(), nil
+		if len(tables) == 0 {
+			return dto.ShowTables{}, errors.New("no tables have been found")
+		}
+
+		return tables[0].DTO(), nil
 	}
 }
 
 // Describe - responses with table description.
 // Can be used for table schema and query by which
 // it was created
-func (s *Table[S]) Describe(ctx context.Context) (dto.RelationDescription, error) {
-
-	query := util.MustTrue(ksql.Describe(ksql.TABLE, s.Name).Expression)
+func Describe(ctx context.Context, stream string) (dto.RelationDescription, error) {
+	query := util.MustTrue(ksql.Describe(ksql.TABLE, stream).Expression)
 
 	pipeline, err := network.Net.Perform(
 		ctx,
@@ -96,22 +102,30 @@ func (s *Table[S]) Describe(ctx context.Context) (dto.RelationDescription, error
 		}
 
 		var (
-			describe dao.DescribeResponse
+			describe []dao.DescribeResponse
 		)
 
-		if err := jsoniter.Unmarshal(val, &describe); err != nil {
+		if strings.Contains(string(val), "Could not find STREAM/TABLE") {
+			return dto.RelationDescription{}, static.ErrTableDoesNotExist
+		}
+
+		if err = jsoniter.Unmarshal(val, &describe); err != nil {
 			err = errors.Join(static.ErrUnserializableResponse, err)
 			return dto.RelationDescription{}, err
 		}
 
-		return describe.DTO(), nil
+		if len(describe) == 0 {
+			return dto.RelationDescription{}, errors.New("table not found")
+		}
+
+		return describe[0].DTO(), nil
 	}
 }
 
 // Drop - drops table from ksqlDB instance
 // with parent topic. Also deletes projection from list
-func (s *Table[S]) Drop(ctx context.Context) error {
-	query := util.MustTrue(ksql.Drop(ksql.TABLE, s.Name).Expression)
+func Drop(ctx context.Context, name string) error {
+	query := util.MustTrue(ksql.Drop(ksql.TABLE, name).Expression)
 
 	pipeline, err := network.Net.Perform(
 		ctx,
@@ -132,15 +146,19 @@ func (s *Table[S]) Drop(ctx context.Context) error {
 		}
 
 		var (
-			drop dao.DropInfo
+			drop []dao.DropInfo
 		)
 
-		if err := jsoniter.Unmarshal(val, &drop); err != nil {
+		if err = jsoniter.Unmarshal(val, &drop); err != nil {
 			return fmt.Errorf("cannot unmarshal drop response: %w", err)
 		}
 
-		if drop.CommandStatus.Status != static.SUCCESS {
-			return fmt.Errorf("cannot drop table: %s", drop.CommandStatus.Status)
+		if len(drop) == 0 {
+			return errors.New("cannot drop stream")
+		}
+
+		if drop[0].CommandStatus.Status != static.SUCCESS {
+			return fmt.Errorf("cannot drop table: %s", drop[0].CommandStatus.Status)
 		}
 
 		return nil
@@ -153,8 +171,7 @@ func (s *Table[S]) Drop(ctx context.Context) error {
 // struct tags and remote schema
 func GetTable[S any](
 	ctx context.Context,
-	table string,
-	settings TableSettings) (*Table[S], error) {
+	table string) (*Table[S], error) {
 
 	var (
 		s S
@@ -164,11 +181,9 @@ func GetTable[S any](
 
 	tableInstance := &Table[S]{
 		Name:         table,
-		partitions:   settings.Partitions,
 		remoteSchema: &scheme,
-		format:       settings.Format,
 	}
-	desc, err := tableInstance.Describe(ctx)
+	desc, err := Describe(ctx, table)
 	if err != nil {
 		if errors.Is(err, static.ErrTableDoesNotExist) {
 			return nil, err
@@ -177,22 +192,19 @@ func GetTable[S any](
 	}
 
 	var (
-		responseSchema = map[string]string{}
+		responseSchema = make(map[string]string)
 	)
 
 	for _, field := range desc.Fields {
 		responseSchema[field.Name] = field.Kind
 	}
 
-	if responseSchema == nil {
-		return nil, static.ErrTableDoesNotExist
-	}
-
 	remoteSchema := schema.SerializeRemoteSchema(responseSchema)
 	matchMap, diffMap := schema.CompareStructs(scheme, remoteSchema)
 
-	if len(matchMap) == 0 {
-		fmt.Println(diffMap)
+	if len(diffMap) != 0 {
+		slog.Debug("match", "fields", matchMap)
+		slog.Debug("diff", "fields", diffMap)
 		return nil, errors.New("schemes doesnt match")
 	}
 
@@ -205,24 +217,24 @@ func GetTable[S any](
 func CreateTable[S any](
 	ctx context.Context,
 	tableName string,
-	settings TableSettings) (*Table[S], error) {
+	settings shared.TableSettings) (*Table[S], error) {
 
 	var (
 		s S
 	)
 
 	rmSchema := schema.SerializeProvidedStruct(s)
+	searchFields := schema.ParseReflectStructToFields(tableName, rmSchema)
 
-	meta := ksql.Metadata{
+	metadata := ksql.Metadata{
 		Topic:       *settings.SourceTopic,
 		ValueFormat: kinds.JSON.String(),
 	}
 
-	query, ok := ksql.SelectAsStruct(s).
-		From(tableName).
-		WithMeta(meta).
+	query, ok := ksql.Create(ksql.TABLE, tableName).
+		SchemaFields(searchFields...).
+		With(metadata).
 		Expression()
-
 	if !ok {
 		return nil, errors.New("cannot build query for table creation")
 	}
@@ -246,10 +258,10 @@ func CreateTable[S any](
 		}
 
 		var (
-			create dao.CreateRelationResponse
+			create []dao.CreateRelationResponse
 		)
 
-		if err := jsoniter.Unmarshal(val, &create); err != nil {
+		if err = jsoniter.Unmarshal(val, &create); err != nil {
 			return nil, fmt.Errorf("cannot unmarshal create response: %w", err)
 		}
 
@@ -263,7 +275,42 @@ func CreateTable[S any](
 			return nil, fmt.Errorf("unsuccesful respose. msg: %s", status.CommandStatus.Message)
 		}
 
+		query = fmt.Sprintf("CREATE TABLE QUERYABLE_%s AS SELECT * FROM %s;", tableName, tableName)
+
+		pipeline, err = network.Net.Perform(ctx, http.MethodPost, query, network.ShortPolling{})
+		if err != nil {
+			return nil, fmt.Errorf("cannot perform request: %w", err)
+		}
+
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		case val, ok := <-pipeline:
+			if !ok {
+				return nil, static.ErrMalformedResponse
+			}
+
+			var (
+				create []dao.CreateRelationResponse
+			)
+
+			if err = jsoniter.Unmarshal(val, &create); err != nil {
+				return nil, fmt.Errorf("cannot unmarshal create response: %w", err)
+			}
+
+			if len(create) < 1 {
+				return nil, fmt.Errorf("unsuccessful response")
+			}
+
+			status := create[0]
+
+			if status.CommandStatus.Status != static.SUCCESS {
+				return nil, fmt.Errorf("unsuccesful respose. msg: %s", status.CommandStatus.Message)
+			}
+		}
+
 		return &Table[S]{
+			Name:         tableName,
 			sourceTopic:  settings.SourceTopic,
 			partitions:   settings.Partitions,
 			remoteSchema: &rmSchema,
@@ -279,7 +326,7 @@ func CreateTable[S any](
 func CreateTableAsSelect[S any](
 	ctx context.Context,
 	tableName string,
-	settings TableSettings,
+	settings shared.TableSettings,
 	selectQuery ksql.SelectBuilder,
 ) (*Table[S], error) {
 
@@ -293,7 +340,7 @@ func CreateTableAsSelect[S any](
 	matchMap, diffMap := schema.CompareStructs(scheme, rmScheme)
 
 	if len(matchMap) == 0 {
-		fmt.Println(diffMap)
+		slog.Debug("structs diff", "diff", diffMap)
 		return nil, errors.New("schemes doesnt match")
 	}
 
@@ -330,7 +377,7 @@ func CreateTableAsSelect[S any](
 		}
 
 		var (
-			create dao.CreateRelationResponse
+			create []dao.CreateRelationResponse
 		)
 
 		if err := jsoniter.Unmarshal(val, &create); err != nil {
@@ -370,7 +417,7 @@ func (s *Table[S]) SelectOnce(
 	meta := ksql.Metadata{ValueFormat: kinds.JSON.String()}
 
 	query, ok := ksql.Create(ksql.TABLE, s.Name).
-		SchemaFromStruct(*s.remoteSchema).
+		SchemaFromRemoteStruct(s.Name, *s.remoteSchema).
 		With(meta).
 		Expression()
 
@@ -417,28 +464,32 @@ func (s *Table[S]) SelectWithEmit(
 		valuesC = make(chan S)
 	)
 
-	meta := ksql.Metadata{ValueFormat: kinds.JSON.String()}
-
-	query, ok := ksql.Create(ksql.TABLE, s.Name).
-		SchemaFromStruct(*s.remoteSchema).
-		With(meta).
+	query, ok := ksql.SelectAsStruct("QUERYABLE_"+s.Name, *s.remoteSchema).
+		From(s.Name).
+		WithMeta(ksql.Metadata{ValueFormat: kinds.JSON.String()}).
 		Expression()
-
 	if !ok {
 		return nil, errors.New("cannot build query for table creation")
 	}
 
-	pipeline, err := network.Net.Perform(
+	query = "SELECT VERSION, UPDATED_AT FROM QUERYABLE_seeker_table;"
+
+	pipeline, err := network.Net.PerformSelect(
 		ctx,
 		http.MethodPost,
 		query,
-		&network.ShortPolling{},
+		&network.LongPolling{},
 	)
 	if err != nil {
 		return nil, fmt.Errorf("cannot perform request: %w", err)
 	}
 
 	go func() {
+		var (
+			iter    = 0
+			headers dao.Header
+		)
+
 		for {
 			select {
 			case <-ctx.Done():
@@ -449,9 +500,53 @@ func (s *Table[S]) SelectWithEmit(
 					close(valuesC)
 					return
 				}
-				if err := jsoniter.Unmarshal(val, &value); err != nil {
-					close(valuesC)
+
+				if iter == 0 {
+					str := val[1 : len(val)-1]
+
+					if err = jsoniter.Unmarshal(str, &headers); err != nil {
+						return
+					}
+
+					iter++
+					continue
+				}
+
+				var (
+					row dao.Row
+				)
+
+				if err = jsoniter.Unmarshal(val[:len(val)-1], &row); err != nil {
 					return
+				}
+
+				mappa, err := schema.ParseHeadersAndValues(headers.Header.Schema, row.Row.Columns)
+				if err != nil {
+					return
+				}
+
+				t := reflect.ValueOf(&value)
+				if t.Kind() != reflect.Ptr || t.Elem().Kind() != reflect.Struct {
+					panic("value must be a pointer to a struct")
+				}
+				t = t.Elem()
+				tt := t.Type()
+
+				for k, v := range mappa {
+					for i := 0; i < t.NumField(); i++ {
+						structField := tt.Field(i)
+						fieldVal := t.Field(i)
+
+						if strings.EqualFold(structField.Tag.Get("ksql"), k) {
+							if fieldVal.CanSet() && v != nil {
+								val := reflect.ValueOf(v)
+								if val.Type().ConvertibleTo(fieldVal.Type()) {
+									fieldVal.Set(val.Convert(fieldVal.Type()))
+								}
+							}
+							break
+						}
+					}
 				}
 
 				valuesC <- value
@@ -460,27 +555,4 @@ func (s *Table[S]) SelectWithEmit(
 	}()
 
 	return valuesC, nil
-}
-
-// ToTopic - propagates table data to new topic
-// table scheme is fully extended to new topic
-func (s *Table[S]) ToTopic(topicName string) (topic static.Topic[S]) {
-	topic.Name = topicName
-	topic.Partitions = int(*s.partitions)
-
-	return
-}
-
-// ToStream - propagates table data to new stream
-// and shares schema with it
-func (s *Table[S]) ToStream(streamName string) (stream static.Stream[S]) {
-	static.StreamsProjections.Store(streamName, static.StreamSettings{
-		Name:        streamName,
-		SourceTopic: s.sourceTopic,
-		Partitions:  s.partitions,
-	})
-
-	stream.Name = streamName
-
-	return
 }

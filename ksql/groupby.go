@@ -39,7 +39,7 @@ func (g *group) Expression() (string, bool) {
 
 	var (
 		builder = new(strings.Builder)
-		isFirst = false
+		isFirst = true
 	)
 
 	builder.WriteString("GROUP BY ")
@@ -50,12 +50,12 @@ func (g *group) Expression() (string, bool) {
 			return "", false
 		}
 
-		if i != len(g.fields)-1 && !isFirst {
+		if !isFirst {
 			builder.WriteString(", ")
 		}
 
 		builder.WriteString(ex)
-		isFirst = true
+		isFirst = false
 	}
 
 	return builder.String(), true

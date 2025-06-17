@@ -49,6 +49,10 @@ func (el *expressionList) Expression() (string, bool) {
 		isFirst = true
 	)
 
+	if len(el.expressions) == 0 {
+		return "", false
+	}
+
 	switch el.opType {
 	case OrType:
 		operation = " OR "
@@ -56,13 +60,15 @@ func (el *expressionList) Expression() (string, bool) {
 		operation = " AND "
 	}
 
+	builder.WriteString("( ")
+
 	for idx := range el.expressions {
 		exp, ok := el.expressions[idx].Expression()
 		if !ok {
 			return "", false
 		}
 
-		if idx != len(el.expressions)-1 && !isFirst {
+		if !isFirst {
 			builder.WriteString(operation)
 		}
 
@@ -70,6 +76,8 @@ func (el *expressionList) Expression() (string, bool) {
 		isFirst = false
 
 	}
+
+	builder.WriteString(" )")
 
 	return builder.String(), true
 }
