@@ -6,6 +6,7 @@ import (
 	"ksql/kinds"
 	"ksql/static"
 	"ksql/util"
+	"log/slog"
 	"reflect"
 	"regexp"
 	"strings"
@@ -81,6 +82,16 @@ func ParseStructToFields(name string, runtimeStruct any) []SearchField {
 	var (
 		fields []SearchField
 	)
+
+	if _, ok := runtimeStruct.([]any); ok {
+		slog.Debug("runtimeStruct cannot be slice")
+		return nil
+	}
+
+	if _, ok := runtimeStruct.(reflect.Type); ok {
+		slog.Debug("runtimeStruct is already reflect type")
+		return nil
+	}
 
 	structType := reflect.TypeOf(runtimeStruct)
 	val := reflect.ValueOf(runtimeStruct)
