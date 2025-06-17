@@ -15,6 +15,7 @@ func Test_SelectExpression(t *testing.T) {
 		join               []JoinExpression
 		havingExpressions  []Expression
 		groupByFields      []Field
+		windowEx           WindowExpression
 		orderbyExpressions []OrderedExpression
 		structScan         reflect.Type
 		wantExpr           string
@@ -495,6 +496,38 @@ func Test_SelectExpression(t *testing.T) {
 			wantExpr: "SELECT table1.column1, table2.column2, table3.column3 FROM table1 JOIN table2 ON table1.id = table2.id LEFT JOIN table3 ON table2.id = table3.id WHERE table1.column1 > 10 AND table3.column3 != 0 ORDER BY table1.column1 ASC;",
 			expectOK: true,
 		},
+		{
+			name:       "SELECT with Tumbling Window",
+			fields:     []Field{F("table.column1"), Count(F("table.column2")).As("count_column2")},
+			schemaFrom: "table",
+			windowEx:   NewTumblingWindow(TimeUnit{Val: 10, Unit: Seconds}),
+			wantExpr:   "SELECT table.column1, COUNT(table.column2) AS count_column2 FROM table TUMBLING (SIZE 10 SECONDS);",
+			expectOK:   true,
+		},
+		{
+			name:       "SELECT with Hopping Window",
+			fields:     []Field{F("table.column1"), Sum(F("table.column2")).As("sum_column2")},
+			schemaFrom: "table",
+			windowEx:   NewHoppingWindow(TimeUnit{Val: 10, Unit: Seconds}, TimeUnit{Val: 5, Unit: Seconds}),
+			wantExpr:   "SELECT table.column1, SUM(table.column2) AS sum_column2 FROM table HOPPING (SIZE 10 SECONDS, ADVANCE BY 5 SECONDS);",
+			expectOK:   true,
+		},
+		{
+			name:       "SELECT with Session Window",
+			fields:     []Field{F("table.column1"), Avg(F("table.column2")).As("avg_column2")},
+			schemaFrom: "table",
+			windowEx:   NewSessionWindow(TimeUnit{Val: 15, Unit: Seconds}),
+			wantExpr:   "SELECT table.column1, AVG(table.column2) AS avg_column2 FROM table SESSION (15 SECONDS);",
+			expectOK:   true,
+		},
+		{
+			name:       "SELECT with invalid Window (negative size)",
+			fields:     []Field{F("table.column1")},
+			schemaFrom: "table",
+			windowEx:   NewTumblingWindow(TimeUnit{Val: -10, Unit: Seconds}),
+			wantExpr:   "",
+			expectOK:   false,
+		},
 	}
 	for _, tc := range testcases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -520,6 +553,7 @@ func Test_SelectExpression(t *testing.T) {
 			}
 
 			gotExpr, gotOK := sb.Where(tc.whereExpressions...).
+				Windowed(tc.windowEx).
 				GroupBy(tc.groupByFields...).
 				Having(tc.havingExpressions...).
 				OrderBy(tc.orderbyExpressions...).
