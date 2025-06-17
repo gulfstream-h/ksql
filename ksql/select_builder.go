@@ -19,6 +19,7 @@ type (
 		SelectStruct(name string, val reflect.Type) SelectBuilder
 		From(schema string) SelectBuilder
 		Where(expressions ...Expression) SelectBuilder
+		Windowed(window WindowExpression) SelectBuilder
 		Having(expressions ...Expression) SelectBuilder
 		GroupBy(fields ...Field) SelectBuilder
 		OrderBy(expressions ...OrderedExpression) SelectBuilder
@@ -59,6 +60,7 @@ type (
 		joinExs   []JoinExpression
 		fromEx    FromExpression
 		whereEx   WhereExpression
+		windowEx  WindowExpression
 		havingEx  HavingExpression
 		groupByEx GroupExpression
 		orderByEx OrderByExpression
@@ -100,6 +102,11 @@ func Select(fields ...Field) SelectBuilder {
 func SelectAsStruct(name string, val reflect.Type) SelectBuilder {
 	sb := newSelectBuilder()
 	return sb.SelectStruct(name, val)
+}
+
+func (s *selectBuilder) Windowed(window WindowExpression) SelectBuilder {
+	s.windowEx = window
+	return s
 }
 
 func (s *selectBuilder) SchemaFields() []schema.SearchField {
@@ -323,6 +330,16 @@ func (s *selectBuilder) Expression() (string, bool) {
 
 		builder.WriteString(" ")
 		builder.WriteString(whereString)
+	}
+
+	if s.windowEx != nil {
+		windowString, ok := s.windowEx.Expression()
+		if !ok {
+			return "", false
+		}
+
+		builder.WriteString(" ")
+		builder.WriteString(windowString)
 	}
 
 	if !s.groupByEx.IsEmpty() {
