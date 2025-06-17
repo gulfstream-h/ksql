@@ -1,6 +1,3 @@
-/*
-Copyright © 2025 NAME HERE <EMAIL ADDRESS>
-*/
 package cmd
 
 import (
@@ -8,7 +5,7 @@ import (
 	"ksql/config"
 	"ksql/kernel/network"
 	"ksql/migrations"
-	"log"
+	"log/slog"
 )
 
 // upCmd represents the up command
@@ -23,8 +20,11 @@ var upCmd = &cobra.Command{
 		})
 
 		if err := migrations.New(dbURL, ".").Up(args[0]); err != nil {
-			log.Fatalf("cannot up migration")
+			slog.Error("cannot up migration", "error", err.Error())
+			return
 		}
+
+		slog.Info("migration was successfully executed", "filename", args[0])
 	},
 }
 

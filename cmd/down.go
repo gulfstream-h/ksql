@@ -1,6 +1,3 @@
-/*
-Copyright © 2025 NAME HERE <EMAIL ADDRESS>
-*/
 package cmd
 
 import (
@@ -8,7 +5,7 @@ import (
 	"ksql/config"
 	"ksql/kernel/network"
 	"ksql/migrations"
-	"log"
+	"log/slog"
 )
 
 // downCmd represents the down command
@@ -23,8 +20,11 @@ var downCmd = &cobra.Command{
 		})
 
 		if err := migrations.New(dbURL, ".").Down(args[0]); err != nil {
-			log.Fatalf("cannot down migration ")
+			slog.Error("cannot down migration", "error", err.Error())
+			return
 		}
+
+		slog.Info("down migration successfully executed", "filename", args[0])
 	},
 }
 

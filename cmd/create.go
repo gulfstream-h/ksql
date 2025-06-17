@@ -1,6 +1,3 @@
-/*
-Copyright © 2025 NAME HERE <EMAIL ADDRESS>
-*/
 package cmd
 
 import (
@@ -22,7 +19,7 @@ var createCmd = &cobra.Command{
 
 		file, err := os.Create(fileName)
 		if err != nil {
-			slog.Debug("cannot create migration file",
+			slog.Error("cannot create migration file",
 				"error",
 				err.Error())
 			return
@@ -32,7 +29,7 @@ var createCmd = &cobra.Command{
 		content := "-- +seeker Up\n --write your up-migration here--\n-- +seeker Down\n--write your down-migration here--"
 
 		if _, err = file.WriteString(content); err != nil {
-			slog.Debug("cannot write content to migration file",
+			slog.Error("cannot write content to migration file",
 				"error",
 				err.Error())
 			return
