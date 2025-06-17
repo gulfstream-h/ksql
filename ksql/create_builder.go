@@ -124,8 +124,8 @@ func (c *create) Expression() (string, bool) {
 			builder.WriteString(item.Name + " " + item.Kind.GetKafkaRepresentation())
 
 			if item.Tag != "" && c.typ != STREAM {
-				if item.Tag == "PRIMARYKEY" {
-					builder.WriteString(" " + item.Tag + " ")
+				if item.Tag == "primary" {
+					builder.WriteString(" PRIMARY KEY ")
 				}
 			}
 

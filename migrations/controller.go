@@ -27,7 +27,7 @@ type ksqlController struct {
 
 type (
 	migrationRelation struct {
-		Version   string `ksql:"version,PRIMARYKEY"`
+		Version   string `ksql:"version,primary"`
 		UpdatedAt string `ksql:"updated_at"`
 	}
 )

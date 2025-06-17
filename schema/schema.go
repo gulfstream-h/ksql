@@ -167,6 +167,10 @@ func SerializeProvidedStruct(
 		ident := Ident{}
 		tag := strings.Split(field.Tag(static.KSQL), ",")
 
+		if len(tag) == 0 {
+			continue
+		}
+
 		if len(tag) == 2 {
 			ident.RelationLabel = tag[1]
 		}
