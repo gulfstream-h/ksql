@@ -5,6 +5,8 @@ import (
 	"testing"
 )
 
+// TODO: add more testCases?
+
 func TestSerializeFieldsToStruct(t *testing.T) {
 	fields := []SearchField{
 		{Name: "ID", Kind: kinds.Int},
