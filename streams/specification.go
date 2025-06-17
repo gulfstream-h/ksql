@@ -147,6 +147,10 @@ func Drop(ctx context.Context, stream string) error {
 			return fmt.Errorf("cannot unmarshal drop response: %w", err)
 		}
 
+		if len(drop) == 0 {
+			return errors.New("cannot drop stream")
+		}
+
 		if drop[0].CommandStatus.Status != static.SUCCESS {
 			return fmt.Errorf("cannot drop stream: %s", drop[0].CommandStatus.Status)
 		}

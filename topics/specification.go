@@ -57,6 +57,10 @@ func ListTopics(ctx context.Context) (dto.ShowTopics, error) {
 			return dto.ShowTopics{}, err
 		}
 
+		if len(topics) == 0 {
+			return dto.ShowTopics{}, errors.New("no topics have been found")
+		}
+
 		return topics[0].DTO(), nil
 	}
 }
