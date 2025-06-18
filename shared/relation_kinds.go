@@ -31,7 +31,7 @@ type TableSettings struct {
 }
 
 type Linter interface {
-	InitLinter(ctx context.Context) error
+	InitLinter(context.Context) error
 }
 
 type Config interface {

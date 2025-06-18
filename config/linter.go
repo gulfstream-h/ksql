@@ -25,6 +25,7 @@ func (mode _NoReflectionMode) InitLinter(ctx context.Context) error {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
+	static.ReflectionFlag = true
 	slog.Debug("reflection mode is enabled")
 
 	streamList, err := streams.ListStreams(ctx)

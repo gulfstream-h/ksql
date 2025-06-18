@@ -11,6 +11,8 @@ import "sync"
 // of holding and processable fields
 
 var (
+	ReflectionFlag bool
+
 	StreamsProjections sync.Map
 
 	TablesProjections sync.Map
