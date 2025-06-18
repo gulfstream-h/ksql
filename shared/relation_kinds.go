@@ -29,3 +29,12 @@ type TableSettings struct {
 	Format      kinds.ValueFormat
 	DeleteFunc  func(context.Context)
 }
+
+type Linter interface {
+	InitLinter(context.Context) error
+}
+
+type Config interface {
+	Linter
+	Configure(context.Context) error
+}

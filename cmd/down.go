@@ -1,9 +1,9 @@
 package cmd
 
 import (
+	"context"
 	"github.com/spf13/cobra"
 	"ksql/config"
-	"ksql/kernel/network"
 	"ksql/migrations"
 	"log/slog"
 )
@@ -14,10 +14,11 @@ var downCmd = &cobra.Command{
 	Short: "Discard changes. Invokes down-migration in provided file",
 	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
-		network.Init(config.Config{
-			Host:       dbURL,
-			TimeoutSec: 30,
-		})
+		err := config.New(dbURL, 30, false).Configure(context.Background())
+		if err != nil {
+			slog.Error("cannot initialize config", "error", err.Error())
+			return
+		}
 
 		if err := migrations.New(dbURL, ".").Down(args[0]); err != nil {
 			slog.Error("cannot down migration", "error", err.Error())

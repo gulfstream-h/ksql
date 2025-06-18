@@ -7,7 +7,6 @@ import (
 	"fmt"
 	jsoniter "github.com/json-iterator/go"
 	"io"
-	"ksql/config"
 	"ksql/static"
 	"net/http"
 	"time"
@@ -27,19 +26,14 @@ type network struct {
 
 // Init - entry point for all ksql usage
 // it initiates http connection with ksql-client
-func Init(config config.Config) {
-	client := http.Client{}
-
-	if config.TimeoutSec == 0 {
-		client.Timeout = time.Duration(config.TimeoutSec) * time.Second
-	} else {
-		client.Timeout = static.KsqlConnTimeout
+func Init(host string, timeout time.Duration) {
+	client := http.Client{
+		Timeout: timeout,
 	}
 
 	Net = network{
-		host:       config.Host,
+		host:       host,
 		httpClient: &client,
-		timeoutSec: config.TimeoutSec,
 	}
 }
 

@@ -2,6 +2,7 @@ package ksql
 
 import (
 	"ksql/schema"
+	"ksql/static"
 	"reflect"
 	"strings"
 )
@@ -82,7 +83,16 @@ func (sbc *selectBuilderCtx) Fields() []schema.SearchField {
 }
 
 func newSelectBuilder() SelectBuilder {
+	var (
+		ctx selectBuilderContext
+	)
+
+	if static.ReflectionFlag {
+		ctx = &selectBuilderCtx{}
+	}
+
 	return &selectBuilder{
+		ctx:       ctx,
 		fields:    nil,
 		joinExs:   nil,
 		fromEx:    NewFromExpression(),
@@ -198,13 +208,13 @@ func (s *selectBuilder) OuterJoin(
 }
 
 func (s *selectBuilder) From(sch string) SelectBuilder {
-	if s.ctx != nil {
-		//t := schema.SerializeProvidedStruct(sch)
-		//fieldMap := schema.ParseStructToFieldsDictionary(sch, t)
-		//for _, field := range fieldMap {
-		//	s.ctx.AddFields(field)
-		//}
-	}
+	//if s.ctx != nil {
+	//	t := schema.SerializeProvidedStruct(sch)
+	//	fieldMap := schema.ParseStructToFieldsDictionary(sch, t)
+	//	for _, field := range fieldMap {
+	//		s.ctx.AddFields(field)
+	//	}
+	//}
 
 	s.fromEx = s.fromEx.From(sch)
 	return s
