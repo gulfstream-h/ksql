@@ -39,7 +39,7 @@ func (mode _NoReflectionMode) InitLinter(ctx context.Context) error {
 		description, err := streams.Describe(ctx, stream.Name)
 		if err != nil {
 			slog.Error("cannot describe stream", "error", err.Error())
-			continue
+			return fmt.Errorf("cannot describe stream: %w", err)
 		}
 
 		var (
@@ -69,7 +69,7 @@ func (mode _NoReflectionMode) InitLinter(ctx context.Context) error {
 		description, err := streams.Describe(ctx, table.Name)
 		if err != nil {
 			slog.Error("cannot describe table", "error", err.Error())
-			continue
+			return fmt.Errorf("cannot describe table: %w", err)
 		}
 
 		var (
