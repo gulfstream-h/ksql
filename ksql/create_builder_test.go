@@ -132,13 +132,13 @@ func Test_CreateAsSelectExpression(t *testing.T) {
 	}{
 		{
 			name: "Create Stream with simple SELECT",
-			createSQL: Create(STREAM, "stream_name").
+			createSQL: Create(TABLE, "stream_name").
 				AsSelect(
 					Select(F("table1.column1"), F("table1.column2")).
 						From("table1", TABLE).
 						Where(F("table1.column1").Greater(10)),
 				),
-			expected: "CREATE STREAM stream_name AS SELECT table1.column1, table1.column2 FROM table1 WHERE table1.column1 > 10;",
+			expected: "CREATE TABLE stream_name AS SELECT table1.column1, table1.column2 FROM table1 WHERE table1.column1 > 10;",
 			wantOk:   true,
 		},
 		{
@@ -170,12 +170,11 @@ func Test_CreateAsSelectExpression(t *testing.T) {
 			createSQL: Create(TABLE, "table_name").
 				AsSelect(
 					Select(F("table1.column1"), Count(F("table1.column2")).As("count_column2")).
-						From("table1", 0).
-						Windowed(NewTumblingWindow(TimeUnit{Unit: Seconds, Val: 5})).
+						From("table1", TABLE).
 						GroupBy(F("table1.column1")).
 						Having(Count(F("table1.column2")).Greater(1)),
 				),
-			expected: "CREATE TABLE table_name AS SELECT table1.column1, COUNT(table1.column2) AS count_column2 FROM table1 GROUP BY table1.column1 WINDOW TUMBLING (SIZE 5 SECONDS) HAVING COUNT(table1.column2) > 1;",
+			expected: "CREATE TABLE table_name AS SELECT table1.column1, COUNT(table1.column2) AS count_column2 FROM table1 GROUP BY table1.column1 HAVING COUNT(table1.column2) > 1;",
 			wantOk:   true,
 		},
 		{

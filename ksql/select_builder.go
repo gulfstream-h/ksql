@@ -11,6 +11,8 @@ import (
 type (
 	SelectBuilder interface {
 		Joiner
+		aggregated() bool
+		windowed() bool
 
 		SchemaFields() []schema.SearchField
 		As(alias string) SelectBuilder
@@ -27,6 +29,7 @@ type (
 		GroupBy(fields ...Field) SelectBuilder
 		OrderBy(expressions ...OrderedExpression) SelectBuilder
 		EmitChanges() SelectBuilder
+		EmitFinal() SelectBuilder
 		Expression() (string, bool)
 	}
 
@@ -58,6 +61,7 @@ type (
 		ctx         selectBuilderContext
 		ref         Reference
 		emitChanges bool
+		emitFinal   bool
 
 		alias     string
 		meta      Metadata
@@ -93,7 +97,7 @@ var (
 		return !(!builder.havingEx.IsEmpty() && builder.groupByEx.IsEmpty())
 	}
 
-	// 3. Aggregated functions should be used with GROUP BY clause
+	// 3. aggregated functions should be used with GROUP BY clause
 	aggregatedWithGroupBy = func(builder *selectBuilder) (valid bool) {
 		return !(builder.withAggregatedFields() && builder.groupByEx.IsEmpty() && builder.onlyAggregated())
 	}
@@ -108,12 +112,24 @@ var (
 		return !(builder.ref == TABLE && builder.windowEx != nil)
 	}
 
+	// 6. EMIT FINAL can be used only with tables
+	emitFinalWithTable = func(builder *selectBuilder) (valid bool) {
+		return !(builder.ref != TABLE && builder.emitFinal)
+	}
+
+	// 7. EMIT FINAL and EMIT CHANGES cannot be used together
+	emitFinalAndChanges = func(builder *selectBuilder) (valid bool) {
+		return !(builder.emitFinal && builder.emitChanges)
+	}
+
 	selectRuleSet = []selectBuilderRule{
 		groupByWindowed,
 		havingWithGroupBy,
 		aggregatedWithGroupBy,
 		emitChangesWithStream,
 		windowInTable,
+		emitFinalWithTable,
+		emitFinalAndChanges,
 	}
 )
 
@@ -159,6 +175,15 @@ func SelectAsStruct(name string, val reflect.Type) SelectBuilder {
 	return sb.SelectStruct(name, val)
 }
 
+func (s *selectBuilder) EmitFinal() SelectBuilder {
+	s.emitFinal = true
+	return s
+}
+
+func (s *selectBuilder) aggregated() bool {
+	return s.withAggregatedFields() || s.withAggregatedOperators() || s.windowed()
+}
+
 func (s *selectBuilder) EmitChanges() SelectBuilder {
 	s.emitChanges = true
 	return s
@@ -167,30 +192,8 @@ func (s *selectBuilder) EmitChanges() SelectBuilder {
 func (s *selectBuilder) Ref() Reference {
 	return s.ref
 }
-func (s *selectBuilder) withAggregatedFields() bool {
-	for idx := range s.fields {
-		_, ok := s.fields[idx].(*aggregatedField)
-		if ok {
-			return true
-		}
-	}
-	return false
-}
 
-func (s *selectBuilder) onlyAggregated() bool {
-	for idx := range s.fields {
-		if _, ok := s.fields[idx].(*aggregatedField); !ok {
-			return false
-		}
-	}
-	return len(s.fields) > 0
-}
-
-func (s *selectBuilder) withAggregatedOperators() bool {
-	return s.groupByEx != nil || s.havingEx != nil
-}
-
-func (s *selectBuilder) withWindowed() bool {
+func (s *selectBuilder) windowed() bool {
 	return s.windowEx != nil
 }
 
@@ -333,6 +336,29 @@ func (s *selectBuilder) WithMeta(
 func (s *selectBuilder) OrderBy(expressions ...OrderedExpression) SelectBuilder {
 	s.orderByEx.OrderBy(expressions...)
 	return s
+}
+
+func (s *selectBuilder) withAggregatedFields() bool {
+	for idx := range s.fields {
+		_, ok := s.fields[idx].(*aggregatedField)
+		if ok {
+			return true
+		}
+	}
+	return false
+}
+
+func (s *selectBuilder) onlyAggregated() bool {
+	for idx := range s.fields {
+		if _, ok := s.fields[idx].(*aggregatedField); !ok {
+			return false
+		}
+	}
+	return len(s.fields) > 0
+}
+
+func (s *selectBuilder) withAggregatedOperators() bool {
+	return s.groupByEx != nil || s.havingEx != nil
 }
 
 func (s *selectBuilder) Expression() (string, bool) {
@@ -480,6 +506,10 @@ func (s *selectBuilder) Expression() (string, bool) {
 
 	if s.emitChanges {
 		builder.WriteString(" EMIT CHANGES")
+	}
+
+	if s.emitFinal {
+		builder.WriteString(" EMIT FINAL")
 	}
 
 	builder.WriteString(s.meta.Expression())
