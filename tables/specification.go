@@ -465,7 +465,7 @@ func (s *Table[S]) SelectWithEmit(
 	)
 
 	query, ok := ksql.SelectAsStruct("QUERYABLE_"+s.Name, *s.remoteSchema).
-		From(s.Name).
+		From(s.Name, 0).
 		WithMeta(ksql.Metadata{ValueFormat: kinds.JSON.String()}).
 		Expression()
 	if !ok {

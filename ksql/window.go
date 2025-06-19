@@ -101,7 +101,7 @@ func (sw *tumblingWindow) Expression() (string, bool) {
 		return "", false
 	}
 
-	return "TUMBLING (SIZE " + strconv.FormatInt(sw.unit.Val, 10) + " " + timeUnitStr + ")", true
+	return "WINDOW TUMBLING (SIZE " + strconv.FormatInt(sw.unit.Val, 10) + " " + timeUnitStr + ")", true
 
 }
 
@@ -120,7 +120,7 @@ func (hw *hoppingWindow) Expression() (string, bool) {
 		return "", false
 	}
 
-	return "HOPPING (SIZE " + strconv.FormatInt(hw.size.Val, 10) + " " + sizeTimeUnit +
+	return "WINDOW HOPPING (SIZE " + strconv.FormatInt(hw.size.Val, 10) + " " + sizeTimeUnit +
 		", ADVANCE BY " + strconv.FormatInt(hw.advance.Val, 10) + " " + advanceTimeUnit + ")", true
 }
 
@@ -134,5 +134,5 @@ func (sw *sessionWindow) Expression() (string, bool) {
 		return "", false
 	}
 
-	return "SESSION (" + strconv.FormatInt(sw.gap.Val, 10) + " " + timeUnitStr + ")", true
+	return "WINDOW SESSION (" + strconv.FormatInt(sw.gap.Val, 10) + " " + timeUnitStr + ")", true
 }
