@@ -182,7 +182,7 @@ func Test_CreateAsSelectExpression(t *testing.T) {
 			createSQL: Create(STREAM, "stream_name").
 				AsSelect(
 					Select(F("table1.column1"), F("table2.column2"), Avg(F("table3.column3")).As("avg_column3")).
-						From("table1", 0).
+						From("table1", STREAM).
 						Join("table2", F("table1.id").Equal(F("table2.id"))).
 						LeftJoin("table3", F("table2.id").Equal(F("table3.id"))).
 						Where(F("table1.column1").Greater(10)).
