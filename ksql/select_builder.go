@@ -85,50 +85,26 @@ type (
 var (
 	// 1. GROUP BY requires WINDOW clause on streams
 	groupByWindowed = func(builder *selectBuilder) (valid bool) {
-		slog.Info("Validating group by with windowed",
-			"ref", builder.ref,
-			"windowEx", builder.windowEx == nil,
-			"emitChanges", builder.emitChanges,
-		)
 		return !(builder.ref == STREAM && builder.windowEx == nil && !builder.emitChanges)
 	}
 
 	// 2. No HAVING without GROUP BY
 	havingWithGroupBy = func(builder *selectBuilder) (valid bool) {
-		slog.Info("Validating having with group by",
-			"havingEx", builder.havingEx.IsEmpty(),
-			"groupByEx", builder.groupByEx.IsEmpty(),
-			"emitChanges", builder.emitChanges,
-		)
 		return !(!builder.havingEx.IsEmpty() && builder.groupByEx.IsEmpty())
 	}
 
 	// 3. Aggregated functions should be used with GROUP BY clause
 	aggregatedWithGroupBy = func(builder *selectBuilder) (valid bool) {
-		slog.Info("Validating aggregated with group by",
-			"withAggregatedFields", builder.withAggregatedFields(),
-			"groupByEx", builder.groupByEx.IsEmpty(),
-			"onlyAggregated", builder.onlyAggregated(),
-			"emitChanges", builder.emitChanges,
-		)
 		return !(builder.withAggregatedFields() && builder.groupByEx.IsEmpty() && builder.onlyAggregated())
 	}
 
 	// 4. EMIT CHANGES can be used only with streams
 	emitChangesWithStream = func(builder *selectBuilder) (valid bool) {
-		slog.Info("Validating emit changes with stream",
-			"ref", builder.ref,
-			"emitChanges", builder.emitChanges,
-		)
 		return !(builder.ref != STREAM && builder.emitChanges)
 	}
 
 	// 5. Windowed expressions are not allowed in TABLE references
 	windowInTable = func(builder *selectBuilder) (valid bool) {
-		slog.Info("Validating window in table",
-			"ref", builder.ref,
-			"windowEx", builder.windowEx != nil,
-		)
 		return !(builder.ref == TABLE && builder.windowEx != nil)
 	}
 
