@@ -132,13 +132,13 @@ func Test_CreateAsSelectExpression(t *testing.T) {
 	}{
 		{
 			name: "Create Stream with simple SELECT",
-			createSQL: Create(STREAM, "stream_name").
+			createSQL: Create(TABLE, "stream_name").
 				AsSelect(
 					Select(F("table1.column1"), F("table1.column2")).
-						From("table1").
+						From("table1", TABLE).
 						Where(F("table1.column1").Greater(10)),
 				),
-			expected: "CREATE STREAM stream_name AS SELECT table1.column1, table1.column2 FROM table1 WHERE table1.column1 > 10;",
+			expected: "CREATE TABLE stream_name AS SELECT table1.column1, table1.column2 FROM table1 WHERE table1.column1 > 10;",
 			wantOk:   true,
 		},
 		{
@@ -146,7 +146,7 @@ func Test_CreateAsSelectExpression(t *testing.T) {
 			createSQL: Create(TABLE, "table_name").
 				AsSelect(
 					Select(F("table1.column1"), F("table2.column2")).
-						From("table1").
+						From("table1", TABLE).
 						Join("table2", F("table1.id").Equal(F("table2.id"))),
 				),
 			expected: "CREATE TABLE table_name AS SELECT table1.column1, table2.column2 FROM table1 JOIN table2 ON table1.id = table2.id;",
@@ -157,11 +157,12 @@ func Test_CreateAsSelectExpression(t *testing.T) {
 			createSQL: Create(STREAM, "stream_name").
 				AsSelect(
 					Select(F("table1.column1"), F("table1.column2")).
-						From("table1").
+						From("table1", STREAM).
 						Where(F("table1.column1").Greater(5)).
+						Windowed(NewHoppingWindow(TimeUnit{Unit: Seconds, Val: 60}, TimeUnit{Unit: Seconds, Val: 30})).
 						OrderBy(F("table1.column1").Asc()),
 				),
-			expected: "CREATE STREAM stream_name AS SELECT table1.column1, table1.column2 FROM table1 WHERE table1.column1 > 5 ORDER BY table1.column1 ASC;",
+			expected: "CREATE STREAM stream_name AS SELECT table1.column1, table1.column2 FROM table1 WHERE table1.column1 > 5 WINDOW HOPPING (SIZE 60 SECONDS, ADVANCE BY 30 SECONDS) ORDER BY table1.column1 ASC;",
 			wantOk:   true,
 		},
 		{
@@ -169,7 +170,7 @@ func Test_CreateAsSelectExpression(t *testing.T) {
 			createSQL: Create(TABLE, "table_name").
 				AsSelect(
 					Select(F("table1.column1"), Count(F("table1.column2")).As("count_column2")).
-						From("table1").
+						From("table1", TABLE).
 						GroupBy(F("table1.column1")).
 						Having(Count(F("table1.column2")).Greater(1)),
 				),
@@ -181,15 +182,16 @@ func Test_CreateAsSelectExpression(t *testing.T) {
 			createSQL: Create(STREAM, "stream_name").
 				AsSelect(
 					Select(F("table1.column1"), F("table2.column2"), Avg(F("table3.column3")).As("avg_column3")).
-						From("table1").
+						From("table1", STREAM).
 						Join("table2", F("table1.id").Equal(F("table2.id"))).
 						LeftJoin("table3", F("table2.id").Equal(F("table3.id"))).
 						Where(F("table1.column1").Greater(10)).
+						Windowed(NewHoppingWindow(TimeUnit{Unit: Seconds, Val: 30}, TimeUnit{Unit: Seconds, Val: 15})).
 						GroupBy(F("table1.column1")).
 						Having(Avg(F("table3.column3")).Greater(50)).
 						OrderBy(F("avg_column3").Desc()),
 				),
-			expected: "CREATE STREAM stream_name AS SELECT table1.column1, table2.column2, AVG(table3.column3) AS avg_column3 FROM table1 JOIN table2 ON table1.id = table2.id LEFT JOIN table3 ON table2.id = table3.id WHERE table1.column1 > 10 GROUP BY table1.column1 HAVING AVG(table3.column3) > 50 ORDER BY avg_column3 DESC;",
+			expected: "CREATE STREAM stream_name AS SELECT table1.column1, table2.column2, AVG(table3.column3) AS avg_column3 FROM table1 JOIN table2 ON table1.id = table2.id LEFT JOIN table3 ON table2.id = table3.id WHERE table1.column1 > 10 GROUP BY table1.column1 WINDOW HOPPING (SIZE 30 SECONDS, ADVANCE BY 15 SECONDS) HAVING AVG(table3.column3) > 50 ORDER BY avg_column3 DESC;",
 			wantOk:   true,
 		},
 	}

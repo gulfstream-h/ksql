@@ -499,7 +499,7 @@ func (s *Stream[S]) SelectOnce(
 
 	query, ok := ksql.
 		SelectAsStruct(s.Name, *s.remoteSchema).
-		From(s.Name).
+		From(s.Name, ksql.STREAM).
 		Expression()
 
 	if !ok {
@@ -545,7 +545,7 @@ func (s *Stream[S]) SelectWithEmit(
 	)
 
 	query, ok := ksql.SelectAsStruct(s.Name, *s.remoteSchema).
-		From(s.Name).
+		From(s.Name, ksql.STREAM).
 		WithMeta(ksql.Metadata{ValueFormat: kinds.JSON.String()}).
 		Expression()
 

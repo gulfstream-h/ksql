@@ -215,9 +215,10 @@ func Test_SelectExpression(t *testing.T) {
 			fields: []Field{
 				Count(F("table.column1")).As("count_column1"),
 			},
-			schemaFrom: "table",
-			wantExpr:   "SELECT COUNT(table.column1) AS count_column1 FROM table;",
-			expectOK:   true,
+			groupByFields: []Field{F("count_column1")},
+			schemaFrom:    "table",
+			wantExpr:      "SELECT COUNT(table.column1) AS count_column1 FROM table GROUP BY count_column1;",
+			expectOK:      true,
 		},
 		{
 			name: "SELECT with INNER JOIN and WHERE clause",
@@ -362,9 +363,10 @@ func Test_SelectExpression(t *testing.T) {
 			fields: []Field{
 				Avg(F("table.column1")).As("avg_column1"),
 			},
-			schemaFrom: "table",
-			wantExpr:   "SELECT AVG(table.column1) AS avg_column1 FROM table;",
-			expectOK:   true,
+			groupByFields: []Field{F("avg_column1")},
+			schemaFrom:    "table",
+			wantExpr:      "SELECT AVG(table.column1) AS avg_column1 FROM table GROUP BY avg_column1;",
+			expectOK:      true,
 		},
 		{
 			name: "SELECT with multiple WHERE and GROUP BY",
@@ -497,30 +499,6 @@ func Test_SelectExpression(t *testing.T) {
 			expectOK: true,
 		},
 		{
-			name:       "SELECT with Tumbling Window",
-			fields:     []Field{F("table.column1"), Count(F("table.column2")).As("count_column2")},
-			schemaFrom: "table",
-			windowEx:   NewTumblingWindow(TimeUnit{Val: 10, Unit: Seconds}),
-			wantExpr:   "SELECT table.column1, COUNT(table.column2) AS count_column2 FROM table TUMBLING (SIZE 10 SECONDS);",
-			expectOK:   true,
-		},
-		{
-			name:       "SELECT with Hopping Window",
-			fields:     []Field{F("table.column1"), Sum(F("table.column2")).As("sum_column2")},
-			schemaFrom: "table",
-			windowEx:   NewHoppingWindow(TimeUnit{Val: 10, Unit: Seconds}, TimeUnit{Val: 5, Unit: Seconds}),
-			wantExpr:   "SELECT table.column1, SUM(table.column2) AS sum_column2 FROM table HOPPING (SIZE 10 SECONDS, ADVANCE BY 5 SECONDS);",
-			expectOK:   true,
-		},
-		{
-			name:       "SELECT with Session Window",
-			fields:     []Field{F("table.column1"), Avg(F("table.column2")).As("avg_column2")},
-			schemaFrom: "table",
-			windowEx:   NewSessionWindow(TimeUnit{Val: 15, Unit: Seconds}),
-			wantExpr:   "SELECT table.column1, AVG(table.column2) AS avg_column2 FROM table SESSION (15 SECONDS);",
-			expectOK:   true,
-		},
-		{
 			name:       "SELECT with invalid Window (negative size)",
 			fields:     []Field{F("table.column1")},
 			schemaFrom: "table",
@@ -532,7 +510,7 @@ func Test_SelectExpression(t *testing.T) {
 	for _, tc := range testcases {
 		t.Run(tc.name, func(t *testing.T) {
 			sb := newSelectBuilder()
-			sb = sb.Select(tc.fields...).From(tc.schemaFrom)
+			sb = sb.Select(tc.fields...).From(tc.schemaFrom, TABLE)
 
 			for _, j := range tc.join {
 				switch j.Type() {
@@ -562,6 +540,87 @@ func Test_SelectExpression(t *testing.T) {
 			assert.Equal(t, tc.expectOK, gotOK)
 
 			assert.Equal(t, tc.wantExpr, gotExpr)
+		})
+	}
+}
+
+func Test_SelectBuilder(t *testing.T) {
+	testcases := []struct {
+		name      string
+		selectSQL SelectBuilder
+		expected  string
+		wantOk    bool
+	}{
+		{
+			name: "Simple SELECT",
+			selectSQL: Select(F("table.column1")).
+				From("table", TABLE),
+			expected: "SELECT table.column1 FROM table;",
+			wantOk:   true,
+		},
+		{
+			name: "SELECT with alias",
+			selectSQL: Select(F("table.column1").As("alias1")).
+				From("table", TABLE),
+			expected: "SELECT table.column1 AS alias1 FROM table;",
+			wantOk:   true,
+		},
+		{
+			name: "SELECT with WHERE clause",
+			selectSQL: Select(F("table.column1")).
+				From("table", TABLE).
+				Where(F("table.column1").Equal(1)),
+			expected: "SELECT table.column1 FROM table WHERE table.column1 = 1;",
+			wantOk:   true,
+		},
+		{
+			name: "SELECT with EMIT CHANGES on stream",
+			selectSQL: Select(F("stream.column1")).
+				From("stream", STREAM).
+				EmitChanges(),
+			expected: "SELECT stream.column1 FROM stream EMIT CHANGES;",
+			wantOk:   true,
+		},
+		{
+			name: "SELECT with EMIT CHANGES on table (invalid)",
+			selectSQL: Select(F("table.column1")).
+				From("table", TABLE).
+				EmitChanges(),
+			expected: "",
+			wantOk:   false,
+		},
+		{
+			name: "SELECT with GROUP BY on stream without WINDOW (invalid)",
+			selectSQL: Select(F("stream.column1")).
+				From("stream", STREAM).
+				GroupBy(F("stream.column1")),
+			expected: "",
+			wantOk:   false,
+		},
+		{
+			name: "SELECT with GROUP BY and WINDOW on stream",
+			selectSQL: Select(F("stream.column1")).
+				From("stream", STREAM).
+				GroupBy(F("stream.column1")).
+				Windowed(NewTumblingWindow(TimeUnit{Val: 10, Unit: Seconds})),
+			expected: "SELECT stream.column1 FROM stream GROUP BY stream.column1 WINDOW TUMBLING (SIZE 10 SECONDS);",
+			wantOk:   true,
+		},
+		{
+			name: "SELECT with HAVING without GROUP BY (invalid)",
+			selectSQL: Select(F("table.column1")).
+				From("table", TABLE).
+				Having(F("table.column1").Greater(1)),
+			expected: "",
+			wantOk:   false,
+		},
+	}
+
+	for _, tc := range testcases {
+		t.Run(tc.name, func(t *testing.T) {
+			expr, ok := tc.selectSQL.Expression()
+			assert.Equal(t, tc.wantOk, ok)
+			assert.Equal(t, tc.expected, expr)
 		})
 	}
 }

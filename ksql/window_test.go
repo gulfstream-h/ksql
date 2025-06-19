@@ -17,7 +17,7 @@ func Test_WindowExpression(t *testing.T) {
 		{
 			name:   "Valid Tumbling Window",
 			w:      NewTumblingWindow(TimeUnit{Val: 10, Unit: Seconds}),
-			want:   "TUMBLING (SIZE 10 SECONDS)",
+			want:   "WINDOW TUMBLING (SIZE 10 SECONDS)",
 			wantOk: true,
 		},
 		{
@@ -29,7 +29,7 @@ func Test_WindowExpression(t *testing.T) {
 		{
 			name:   "Valid Hopping Window",
 			w:      NewHoppingWindow(TimeUnit{Val: 10, Unit: Seconds}, TimeUnit{Val: 5, Unit: Seconds}),
-			want:   "HOPPING (SIZE 10 SECONDS, ADVANCE BY 5 SECONDS)",
+			want:   "WINDOW HOPPING (SIZE 10 SECONDS, ADVANCE BY 5 SECONDS)",
 			wantOk: true,
 		},
 		{
@@ -41,7 +41,7 @@ func Test_WindowExpression(t *testing.T) {
 		{
 			name:   "Valid Session Window",
 			w:      NewSessionWindow(TimeUnit{Val: 10, Unit: Seconds}),
-			want:   "SESSION (10 SECONDS)",
+			want:   "WINDOW SESSION (10 SECONDS)",
 			wantOk: true,
 		},
 		{
