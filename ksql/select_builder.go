@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"ksql/schema"
 	"ksql/static"
+	"maps"
 	"reflect"
 	"strings"
 )
@@ -22,7 +23,7 @@ type (
 		WithCTE(inner SelectBuilder) SelectBuilder
 		WithMeta(with Metadata) SelectBuilder
 		Select(fields ...Field) SelectBuilder
-		SelectStruct(name string, val reflect.Type) SelectBuilder
+		SelectStruct(name string, val any) SelectBuilder
 		From(schema string, reference Reference) SelectBuilder
 		Where(expressions ...Expression) SelectBuilder
 		Windowed(window WindowExpression) SelectBuilder
@@ -63,6 +64,8 @@ type (
 		ref         Reference
 		emitChanges bool
 		emitFinal   bool
+
+		relationStorage map[string]schema.Relation
 
 		alias     string
 		meta      Metadata
@@ -234,12 +237,14 @@ func (s *selectBuilder) SchemaFields() []schema.SearchField {
 	return s.ctx.Fields()
 }
 
-func (s *selectBuilder) SelectStruct(name string, val reflect.Type) SelectBuilder {
-	structFields := schema.ParseReflectStructToFields(val.Name(), val)
-
-	if s.ctx != nil {
-		s.ctx.AddFields(structFields...)
+func (s *selectBuilder) SelectStruct(name string, val any) SelectBuilder {
+	structFields, err := schema.ParseRelation(val)
+	if err != nil {
+		return s
 	}
+
+	// todo: reflection feature toggle
+	s.addRelation(name, structFields)
 
 	fields := make([]Field, 0, len(structFields))
 
@@ -267,17 +272,22 @@ func (s *selectBuilder) Alias() string {
 func (s *selectBuilder) Select(fields ...Field) SelectBuilder {
 	s.fields = append(s.fields, fields...)
 
-	structFields := make([]schema.SearchField, 0, len(fields))
+	// todo: reflection feature toggle
 	for idx := range fields {
+		schemaName := fields[idx].Alias()
+		if len(schemaName) == 0 {
+			schemaName = fields[idx].Schema()
+			if schemaName == "" {
+				schemaName = "from"
+			}
+		}
+
 		f := schema.SearchField{
 			Name:     fields[idx].Column(),
-			Relation: fields[idx].Schema(),
+			Relation: schemaName,
 		}
-		structFields = append(structFields, f)
-	}
 
-	if s.ctx != nil {
-		s.ctx.AddFields(structFields...)
+		s.addSearchField(schemaName, f)
 	}
 
 	return s
@@ -317,14 +327,6 @@ func (s *selectBuilder) OuterJoin(
 
 func (s *selectBuilder) From(schema string, reference Reference) SelectBuilder {
 	s.ref = reference
-	//if s.ctx != nil {
-	//	t := schema.SerializeProvidedStruct(sch)
-	//	fieldMap := schema.ParseStructToFieldsDictionary(sch, t)
-	//	for _, field := range fieldMap {
-	//		s.ctx.AddFields(field)
-	//	}
-	//}
-
 	s.fromEx = s.fromEx.From(schema)
 	return s
 }
@@ -392,6 +394,14 @@ func (s *selectBuilder) Expression() (string, error) {
 		cteIsFirst   = true
 		fieldIsFirst = true
 	)
+
+	// todo: reflection feature toggle
+	{
+		err := s.reflectionCheck()
+		if err != nil {
+			return "", fmt.Errorf("reflection check: %w", err)
+		}
+	}
 
 	// validate reference
 	switch s.ref {
@@ -539,4 +549,66 @@ func (s *selectBuilder) Expression() (string, error) {
 	builder.WriteString(";")
 
 	return builder.String(), nil
+}
+
+func (s *selectBuilder) reflectionCheck() error {
+	rootSchemaName := s.fromEx.Alias()
+	if len(rootSchemaName) == 0 {
+		rootSchemaName = s.fromEx.Schema()
+		if len(rootSchemaName) == 0 {
+			return errors.New("no schema specified for select builder, use From() method to set schema")
+		}
+	}
+	rootSchema, ok := s.relationStorage[rootSchemaName]
+	if !ok {
+		rootSchema = make(schema.Relation)
+	}
+
+	unnamedSchema, ok := s.relationStorage["from"]
+	if !ok {
+		unnamedSchema = make(schema.Relation)
+	}
+
+	maps.Copy(rootSchema, unnamedSchema)
+
+	for relName, rel := range s.relationStorage {
+		if relName == s.fromEx.Schema() || relName == "from" {
+			continue
+		}
+		remoteRelation, err := schema.GetRemoteSchemaRelation(relName)
+		if err != nil {
+			return fmt.Errorf("cannot get remote schema relation: %w", err)
+		}
+
+		if !schema.CompareRelations(rel, remoteRelation) {
+			return fmt.Errorf("relation is not compatible with remote schema: %s", relName)
+		}
+	}
+	return nil
+}
+
+func (s *selectBuilder) addRelation(
+	relationName string,
+	relation schema.Relation,
+) {
+	if relation == nil {
+		return
+	}
+
+	if _, exists := s.relationStorage[relationName]; exists {
+		maps.Copy(s.relationStorage[relationName], relation)
+		return
+	}
+
+	s.relationStorage[relationName] = relation
+}
+
+func (s *selectBuilder) addSearchField(
+	schemaName string,
+	field schema.SearchField,
+) {
+	if s.relationStorage[schemaName] == nil {
+		s.relationStorage[schemaName] = make(schema.Relation)
+	}
+	s.relationStorage[schemaName][field.Name] = field
 }
