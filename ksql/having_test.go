@@ -10,13 +10,13 @@ func Test_HavingExpression(t *testing.T) {
 		name         string
 		conditionals []Expression
 		wantExpr     string
-		expectOK     bool
+		expectErr    bool
 	}{
 		{
 			name:         "Single Expression",
 			conditionals: []Expression{NewBooleanExp(F("aggregated"), 5, more)},
 			wantExpr:     "HAVING aggregated > 5",
-			expectOK:     true,
+			expectErr:    false,
 		},
 		{
 			name: "Two Expressions",
@@ -24,22 +24,22 @@ func Test_HavingExpression(t *testing.T) {
 				NewBooleanExp(F("aggregated1"), 6, less),
 				NewBooleanExp(F("aggregated2"), 7, equal),
 			},
-			expectOK: true,
-			wantExpr: "HAVING aggregated1 < 6 AND aggregated2 = 7",
+			expectErr: false,
+			wantExpr:  "HAVING aggregated1 < 6 AND aggregated2 = 7",
 		},
 		{
 			name:         "No Expressions",
 			conditionals: []Expression{},
 			wantExpr:     "",
-			expectOK:     false,
+			expectErr:    true,
 		},
 		{
 			name: "Invalid Expression",
 			conditionals: []Expression{
 				NewBooleanExp(F("aggregated2"), struct{}{}, less),
 			},
-			wantExpr: "",
-			expectOK: false,
+			wantExpr:  "",
+			expectErr: true,
 		},
 		{
 			name: "Mixed Valid and Invalid Expressions",
@@ -47,8 +47,8 @@ func Test_HavingExpression(t *testing.T) {
 				NewBooleanExp(F("aggregated1"), 10, more),
 				NewBooleanExp(F("aggregated2"), struct{}{}, less),
 			},
-			wantExpr: "",
-			expectOK: false,
+			wantExpr:  "",
+			expectErr: true,
 		},
 		{
 			name: "Three Valid Expressions",
@@ -57,16 +57,16 @@ func Test_HavingExpression(t *testing.T) {
 				NewBooleanExp(F("aggregated2"), 2, less),
 				NewBooleanExp(F("aggregated3"), 3, equal),
 			},
-			wantExpr: "HAVING aggregated1 > 1 AND aggregated2 < 2 AND aggregated3 = 3",
-			expectOK: true,
+			wantExpr:  "HAVING aggregated1 > 1 AND aggregated2 < 2 AND aggregated3 = 3",
+			expectErr: false,
 		},
 		{
 			name: "Empty Field Name",
 			conditionals: []Expression{
 				NewBooleanExp(F(""), 5, more),
 			},
-			wantExpr: "",
-			expectOK: false,
+			wantExpr:  "",
+			expectErr: true,
 		},
 		{
 			name: "Duplicate Expressions",
@@ -74,35 +74,35 @@ func Test_HavingExpression(t *testing.T) {
 				NewBooleanExp(F("aggregated"), 5, more),
 				NewBooleanExp(F("aggregated"), 5, more),
 			},
-			wantExpr: "HAVING aggregated > 5 AND aggregated > 5",
-			expectOK: true,
+			wantExpr:  "HAVING aggregated > 5 AND aggregated > 5",
+			expectErr: false,
 		},
 		{
 			name: "Expression With Negative Value",
 			conditionals: []Expression{
 				NewBooleanExp(F("aggregated"), -10, less),
 			},
-			wantExpr: "HAVING aggregated < -10",
-			expectOK: true,
+			wantExpr:  "HAVING aggregated < -10",
+			expectErr: false,
 		},
 		{
 			name: "Expression With Zero Value",
 			conditionals: []Expression{
 				NewBooleanExp(F("aggregated"), 0, equal),
 			},
-			wantExpr: "HAVING aggregated = 0",
-			expectOK: true,
+			wantExpr:  "HAVING aggregated = 0",
+			expectErr: false,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			expression, ok := NewHavingExpression().
+			expression, err := NewHavingExpression().
 				Having(tt.conditionals...).
 				Expression()
 
-			assert.Equal(t, tt.expectOK, ok)
-			if ok {
+			assert.Equal(t, tt.expectErr, err != nil)
+			if !tt.expectErr {
 				assert.Equal(t, tt.wantExpr, expression)
 			}
 		})

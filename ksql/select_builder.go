@@ -1,9 +1,10 @@
 package ksql
 
 import (
+	"errors"
+	"fmt"
 	"ksql/schema"
 	"ksql/static"
-	"log/slog"
 	"reflect"
 	"strings"
 )
@@ -30,7 +31,7 @@ type (
 		OrderBy(expressions ...OrderedExpression) SelectBuilder
 		EmitChanges() SelectBuilder
 		EmitFinal() SelectBuilder
-		Expression() (string, bool)
+		Expression() (string, error)
 	}
 
 	Joiner interface {
@@ -80,7 +81,10 @@ type (
 		schemaRel []schema.SearchField
 	}
 
-	selectBuilderRule func(builder *selectBuilder) (valid bool)
+	selectBuilderRule struct {
+		ruleFn      func(builder *selectBuilder) (valid bool)
+		description string
+	}
 )
 
 // BUILDER RULES
@@ -88,38 +92,59 @@ type (
 // They ensure that the generated SQL is valid according to KSQL syntax and semantics.
 var (
 	// 1. GROUP BY requires WINDOW clause on streams
-	groupByWindowed = func(builder *selectBuilder) (valid bool) {
-		return !(builder.ref == STREAM && builder.windowEx == nil && !builder.emitChanges)
+	groupByWindowed = selectBuilderRule{
+		ruleFn: func(builder *selectBuilder) (valid bool) {
+			return !(builder.ref == STREAM && builder.windowEx == nil && !builder.emitChanges)
+		},
+		description: `GROUP BY requires WINDOW clause on streams`,
 	}
 
 	// 2. No HAVING without GROUP BY
-	havingWithGroupBy = func(builder *selectBuilder) (valid bool) {
-		return !(!builder.havingEx.IsEmpty() && builder.groupByEx.IsEmpty())
+	havingWithGroupBy = selectBuilderRule{
+		ruleFn: func(builder *selectBuilder) (valid bool) {
+			return !(!builder.havingEx.IsEmpty() && builder.groupByEx.IsEmpty())
+		},
+		description: `HAVING clause requires GROUP BY clause`,
 	}
 
 	// 3. aggregated functions should be used with GROUP BY clause
-	aggregatedWithGroupBy = func(builder *selectBuilder) (valid bool) {
-		return !(builder.withAggregatedFields() && builder.groupByEx.IsEmpty() && builder.onlyAggregated())
+	aggregatedWithGroupBy = selectBuilderRule{
+		ruleFn: func(builder *selectBuilder) (valid bool) {
+			return !(builder.withAggregatedFields() && builder.groupByEx.IsEmpty() && builder.onlyAggregated())
+		},
+		description: `Aggregated functions require GROUP BY clause`,
 	}
 
 	// 4. EMIT CHANGES can be used only with streams
-	emitChangesWithStream = func(builder *selectBuilder) (valid bool) {
-		return !(builder.ref != STREAM && builder.emitChanges)
+	emitChangesWithStream = selectBuilderRule{
+		ruleFn: func(builder *selectBuilder) (valid bool) {
+			return !(builder.ref != STREAM && builder.emitChanges)
+		},
+		description: `EMIT CHANGES can be used only with streams`,
 	}
 
 	// 5. Windowed expressions are not allowed in TABLE references
-	windowInTable = func(builder *selectBuilder) (valid bool) {
-		return !(builder.ref == TABLE && builder.windowEx != nil)
+	windowInTable = selectBuilderRule{
+		ruleFn: func(builder *selectBuilder) (valid bool) {
+			return !(builder.ref == TABLE && builder.windowEx != nil)
+		},
+		description: `Windowed expressions are not allowed in TABLE references`,
 	}
 
 	// 6. EMIT FINAL can be used only with tables
-	emitFinalWithTable = func(builder *selectBuilder) (valid bool) {
-		return !(builder.ref != TABLE && builder.emitFinal)
+	emitFinalWithTable = selectBuilderRule{
+		ruleFn: func(builder *selectBuilder) (valid bool) {
+			return !(builder.ref != TABLE && builder.emitFinal)
+		},
+		description: `EMIT FINAL can be used only with tables`,
 	}
 
 	// 7. EMIT FINAL and EMIT CHANGES cannot be used together
-	emitFinalAndChanges = func(builder *selectBuilder) (valid bool) {
-		return !(builder.emitFinal && builder.emitChanges)
+	emitFinalAndChanges = selectBuilderRule{
+		ruleFn: func(builder *selectBuilder) (valid bool) {
+			return !(builder.emitFinal && builder.emitChanges)
+		},
+		description: `EMIT FINAL and EMIT CHANGES cannot be used together`,
 	}
 
 	selectRuleSet = []selectBuilderRule{
@@ -361,7 +386,7 @@ func (s *selectBuilder) withAggregatedOperators() bool {
 	return s.groupByEx != nil || s.havingEx != nil
 }
 
-func (s *selectBuilder) Expression() (string, bool) {
+func (s *selectBuilder) Expression() (string, error) {
 	var (
 		builder      = new(strings.Builder)
 		cteIsFirst   = true
@@ -372,15 +397,13 @@ func (s *selectBuilder) Expression() (string, bool) {
 	switch s.ref {
 	case TABLE, STREAM, TOPIC:
 	default:
-		return "", false
+		return "", errors.New("invalid reference type for select builder, must be TABLE, STREAM or TOPIC")
 	}
 
 	// validate build rules
 	for idx := range selectRuleSet {
-		// todo: add error description
-		if !selectRuleSet[idx](s) {
-			slog.Info("Invalid select builder", "s", s.ref, "rules", idx)
-			return "", false
+		if !selectRuleSet[idx].ruleFn(s) {
+			return "", fmt.Errorf("invalid select builder: %s", selectRuleSet[idx].description)
 		}
 	}
 
@@ -389,12 +412,12 @@ func (s *selectBuilder) Expression() (string, bool) {
 		for i := range s.with {
 			alias := s.with[i].Alias()
 			if len(alias) == 0 {
-				return "", false
+				return "", fmt.Errorf("invalid CTE alias: %s", alias)
 			}
 
-			expression, ok := s.with[i].Expression()
-			if !ok {
-				return "", false
+			expression, err := s.with[i].Expression()
+			if err != nil {
+				return "", fmt.Errorf("CTE expression: %s", expression)
 			}
 
 			if i != len(s.with)-1 && !cteIsFirst {
@@ -413,14 +436,14 @@ func (s *selectBuilder) Expression() (string, bool) {
 
 	// SELECT ...fields section
 	if len(s.fields) == 0 {
-		return "", false
+		return "", errors.New("no fields selected, use Select() method to add fields")
 	}
 
 	builder.WriteString("SELECT ")
 	for idx := range s.fields {
-		expression, ok := s.fields[idx].Expression()
-		if !ok {
-			return "", false
+		expression, err := s.fields[idx].Expression()
+		if err != nil {
+			return "", fmt.Errorf("field expression: %w", err)
 		}
 
 		if idx != len(s.fields) && !fieldIsFirst {
@@ -437,18 +460,18 @@ func (s *selectBuilder) Expression() (string, bool) {
 
 	}
 
-	fromString, ok := s.fromEx.Expression()
-	if !ok {
-		return "", false
+	fromString, err := s.fromEx.Expression()
+	if err != nil {
+		return "", fmt.Errorf("FROM expression: %w", err)
 	}
 
 	builder.WriteString(" ")
 	builder.WriteString(fromString)
 
 	for idx := range s.joinExs {
-		expression, ok := s.joinExs[idx].Expression()
-		if !ok {
-			return "", false
+		expression, err := s.joinExs[idx].Expression()
+		if err != nil {
+			return "", fmt.Errorf("JOIN expression: %s", expression)
 		}
 
 		builder.WriteString(" ")
@@ -456,9 +479,9 @@ func (s *selectBuilder) Expression() (string, bool) {
 	}
 
 	if !s.whereEx.IsEmpty() {
-		whereString, ok := s.whereEx.Expression()
-		if !ok {
-			return "", false
+		whereString, err := s.whereEx.Expression()
+		if err != nil {
+			return "", fmt.Errorf("WHERE expression: %w", err)
 		}
 
 		builder.WriteString(" ")
@@ -466,9 +489,9 @@ func (s *selectBuilder) Expression() (string, bool) {
 	}
 
 	if !s.groupByEx.IsEmpty() {
-		groupByString, ok := s.groupByEx.Expression()
-		if !ok {
-			return "", false
+		groupByString, err := s.groupByEx.Expression()
+		if err != nil {
+			return "", fmt.Errorf("GROUP BY expression: %w", err)
 		}
 
 		builder.WriteString(" ")
@@ -476,9 +499,9 @@ func (s *selectBuilder) Expression() (string, bool) {
 	}
 
 	if s.windowEx != nil {
-		windowString, ok := s.windowEx.Expression()
-		if !ok {
-			return "", false
+		windowString, err := s.windowEx.Expression()
+		if err != nil {
+			return "", fmt.Errorf("WINDOW expression: %w", err)
 		}
 
 		builder.WriteString(" ")
@@ -486,18 +509,18 @@ func (s *selectBuilder) Expression() (string, bool) {
 	}
 
 	if !s.havingEx.IsEmpty() {
-		havingString, ok := s.havingEx.Expression()
-		if !ok {
-			return "", false
+		havingString, err := s.havingEx.Expression()
+		if err != nil {
+			return "", fmt.Errorf("HAVING expression: %w", err)
 		}
 		builder.WriteString(" ")
 		builder.WriteString(havingString)
 	}
 
 	if !s.orderByEx.IsEmpty() {
-		orderByString, ok := s.orderByEx.Expression()
-		if !ok {
-			return "", false
+		orderByString, err := s.orderByEx.Expression()
+		if err != nil {
+			return "", fmt.Errorf("ORDER BY expression: %w", err)
 		}
 
 		builder.WriteString(" ")
@@ -515,5 +538,5 @@ func (s *selectBuilder) Expression() (string, bool) {
 	builder.WriteString(s.meta.Expression())
 	builder.WriteString(";")
 
-	return builder.String(), true
+	return builder.String(), nil
 }

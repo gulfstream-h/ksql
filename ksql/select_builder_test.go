@@ -19,21 +19,21 @@ func Test_SelectExpression(t *testing.T) {
 		orderbyExpressions []OrderedExpression
 		structScan         reflect.Type
 		wantExpr           string
-		expectOK           bool
+		expectErr          bool
 	}{
 		{
 			name:       "Simple SELECT with one field",
 			fields:     []Field{F("table.column1")},
 			schemaFrom: "table",
 			wantExpr:   "SELECT table.column1 FROM table;",
-			expectOK:   true,
+			expectErr:  false,
 		},
 		{
 			name:       "SELECT with alias",
 			fields:     []Field{F("table.column1").As("alias1")},
 			schemaFrom: "table",
 			wantExpr:   "SELECT table.column1 AS alias1 FROM table;",
-			expectOK:   true,
+			expectErr:  false,
 		},
 		{
 			name:             "SELECT with WHERE clause",
@@ -41,7 +41,7 @@ func Test_SelectExpression(t *testing.T) {
 			schemaFrom:       "table",
 			whereExpressions: []Expression{F("table.column1").Equal(1)},
 			wantExpr:         "SELECT table.column1 FROM table WHERE table.column1 = 1;",
-			expectOK:         true,
+			expectErr:        false,
 		},
 		{
 			name:       "SELECT with JOIN",
@@ -49,7 +49,7 @@ func Test_SelectExpression(t *testing.T) {
 			schemaFrom: "table1",
 			join:       []JoinExpression{Join("table2", F("table1.id").Equal(F("table2.id")), Inner)},
 			wantExpr:   "SELECT table1.column1, table2.column2 FROM table1 JOIN table2 ON table1.id = table2.id;",
-			expectOK:   true,
+			expectErr:  false,
 		},
 		{
 			name:       "SELECT with LEFT JOIN",
@@ -57,7 +57,7 @@ func Test_SelectExpression(t *testing.T) {
 			schemaFrom: "table1",
 			join:       []JoinExpression{Join("table2", F("table1.id").Equal(F("table2.id")), Left)},
 			wantExpr:   "SELECT table1.column1, table2.column2 FROM table1 LEFT JOIN table2 ON table1.id = table2.id;",
-			expectOK:   true,
+			expectErr:  false,
 		},
 		{
 			name:          "SELECT with GROUP BY",
@@ -65,7 +65,7 @@ func Test_SelectExpression(t *testing.T) {
 			schemaFrom:    "table",
 			groupByFields: []Field{F("table.column1")},
 			wantExpr:      "SELECT table.column1, table.column2 FROM table GROUP BY table.column1;",
-			expectOK:      true,
+			expectErr:     false,
 		},
 		{
 			name:              "SELECT with HAVING",
@@ -74,7 +74,7 @@ func Test_SelectExpression(t *testing.T) {
 			groupByFields:     []Field{F("table.column1")},
 			havingExpressions: []Expression{Count(F("table.column2")).Greater(1)},
 			wantExpr:          "SELECT table.column1, table.column2 FROM table GROUP BY table.column1 HAVING COUNT(table.column2) > 1;",
-			expectOK:          true,
+			expectErr:         false,
 		},
 		{
 			name:       "SELECT with multiple JOINs",
@@ -84,8 +84,8 @@ func Test_SelectExpression(t *testing.T) {
 				Join("table2", F("table1.id").Equal(F("table2.id")), Inner),
 				Join("table3", F("table2.id").Equal(F("table3.id")), Left),
 			},
-			wantExpr: "SELECT table1.column1, table2.column2, table3.column3 FROM table1 JOIN table2 ON table1.id = table2.id LEFT JOIN table3 ON table2.id = table3.id;",
-			expectOK: true,
+			wantExpr:  "SELECT table1.column1, table2.column2, table3.column3 FROM table1 JOIN table2 ON table1.id = table2.id LEFT JOIN table3 ON table2.id = table3.id;",
+			expectErr: false,
 		},
 		{
 			name: "SELECT with struct scan",
@@ -98,7 +98,7 @@ func Test_SelectExpression(t *testing.T) {
 			}),
 			schemaFrom: "users",
 			wantExpr:   "SELECT users.id, users.name FROM users;",
-			expectOK:   true,
+			expectErr:  false,
 		},
 		{
 			name:             "SELECT with multiple WHERE clauses",
@@ -106,7 +106,7 @@ func Test_SelectExpression(t *testing.T) {
 			schemaFrom:       "table",
 			whereExpressions: []Expression{F("table.column1").Equal(1), F("table.column2").Greater(5)},
 			wantExpr:         "SELECT table.column1 FROM table WHERE table.column1 = 1 AND table.column2 > 5;",
-			expectOK:         true,
+			expectErr:        false,
 		},
 		{
 			name:             "SELECT with multiple WHERE and JOIN clauses",
@@ -115,7 +115,7 @@ func Test_SelectExpression(t *testing.T) {
 			join:             []JoinExpression{Join("table2", F("table1.id").Equal(F("table2.id")), Inner)},
 			whereExpressions: []Expression{F("table1.column1").Equal(1), F("table2.column2").Less(10)},
 			wantExpr:         "SELECT table1.column1, table2.column2 FROM table1 JOIN table2 ON table1.id = table2.id WHERE table1.column1 = 1 AND table2.column2 < 10;",
-			expectOK:         true,
+			expectErr:        false,
 		},
 		{
 			name:             "SELECT with multiple WHERE, JOIN, and GROUP BY",
@@ -125,7 +125,7 @@ func Test_SelectExpression(t *testing.T) {
 			whereExpressions: []Expression{F("table1.column1").Greater(5), F("table2.column2").NotEqual(3)},
 			groupByFields:    []Field{F("table1.column1")},
 			wantExpr:         "SELECT table1.column1, table2.column2 FROM table1 LEFT JOIN table2 ON table1.id = table2.id WHERE table1.column1 > 5 AND table2.column2 != 3 GROUP BY table1.column1;",
-			expectOK:         true,
+			expectErr:        false,
 		},
 		{
 			name:             "SELECT with WHERE, JOIN, GROUP BY, and HAVING",
@@ -137,8 +137,8 @@ func Test_SelectExpression(t *testing.T) {
 			havingExpressions: []Expression{
 				F("COUNT(table2.column2)").Greater(1),
 			},
-			wantExpr: "SELECT table1.column1, table2.column2 FROM table1 JOIN table2 ON table1.id = table2.id WHERE table1.column1 = 2 GROUP BY table1.column1 HAVING COUNT(table2.column2) > 1;",
-			expectOK: true,
+			wantExpr:  "SELECT table1.column1, table2.column2 FROM table1 JOIN table2 ON table1.id = table2.id WHERE table1.column1 = 2 GROUP BY table1.column1 HAVING COUNT(table2.column2) > 1;",
+			expectErr: false,
 		},
 		{
 			name:       "SELECT with multiple JOINs and ORDER BY",
@@ -148,8 +148,8 @@ func Test_SelectExpression(t *testing.T) {
 				Join("table2", F("table1.id").Equal(F("table2.id")), Inner),
 				Join("table3", F("table2.id").Equal(F("table3.id")), Left),
 			},
-			wantExpr: "SELECT table1.column1, table2.column2, table3.column3 FROM table1 JOIN table2 ON table1.id = table2.id LEFT JOIN table3 ON table2.id = table3.id;",
-			expectOK: true,
+			wantExpr:  "SELECT table1.column1, table2.column2, table3.column3 FROM table1 JOIN table2 ON table1.id = table2.id LEFT JOIN table3 ON table2.id = table3.id;",
+			expectErr: false,
 		},
 		{
 			name:          "SELECT with HAVING clause",
@@ -159,8 +159,8 @@ func Test_SelectExpression(t *testing.T) {
 			havingExpressions: []Expression{
 				Count(F("table.column2")).Greater(1),
 			},
-			wantExpr: "SELECT table.column1, table.column2 FROM table GROUP BY table.column1 HAVING COUNT(table.column2) > 1;",
-			expectOK: true,
+			wantExpr:  "SELECT table.column1, table.column2 FROM table GROUP BY table.column1 HAVING COUNT(table.column2) > 1;",
+			expectErr: false,
 		},
 		{
 			name:               "SELECT with ORDER BY",
@@ -169,7 +169,7 @@ func Test_SelectExpression(t *testing.T) {
 
 			schemaFrom: "table",
 			wantExpr:   "SELECT table.column1, table.column2 FROM table ORDER BY table.column1 ASC, table.column2 DESC;",
-			expectOK:   true,
+			expectErr:  false,
 		},
 		{
 			name: "Complex SELECT with multiple JOINs, WHERE, GROUP BY, HAVING, ORDER BY, and aggregate functions",
@@ -197,8 +197,8 @@ func Test_SelectExpression(t *testing.T) {
 				F("count_column1").Desc(),
 				F("sum_column2").Asc(),
 			},
-			wantExpr: "SELECT COUNT(table1.column1) AS count_column1, SUM(table2.column2) AS sum_column2, AVG(table3.column3) AS avg_column3 FROM table1 JOIN table2 ON table1.id = table2.id LEFT JOIN table3 ON table2.id = table3.id WHERE table1.column1 > 10 AND table2.column2 < 50 AND table3.column3 != 0 GROUP BY table1.column1 HAVING COUNT(table2.column2) > 5 AND SUM(table3.column3) < 100 ORDER BY count_column1 DESC, sum_column2 ASC;",
-			expectOK: true,
+			wantExpr:  "SELECT COUNT(table1.column1) AS count_column1, SUM(table2.column2) AS sum_column2, AVG(table3.column3) AS avg_column3 FROM table1 JOIN table2 ON table1.id = table2.id LEFT JOIN table3 ON table2.id = table3.id WHERE table1.column1 > 10 AND table2.column2 < 50 AND table3.column3 != 0 GROUP BY table1.column1 HAVING COUNT(table2.column2) > 5 AND SUM(table3.column3) < 100 ORDER BY count_column1 DESC, sum_column2 ASC;",
+			expectErr: false,
 		},
 		{
 			name: "Simple SELECT with multiple fields",
@@ -208,7 +208,7 @@ func Test_SelectExpression(t *testing.T) {
 			},
 			schemaFrom: "table",
 			wantExpr:   "SELECT table.column1, table.column2 FROM table;",
-			expectOK:   true,
+			expectErr:  false,
 		},
 		{
 			name: "SELECT with alias and aggregate function",
@@ -218,7 +218,7 @@ func Test_SelectExpression(t *testing.T) {
 			groupByFields: []Field{F("count_column1")},
 			schemaFrom:    "table",
 			wantExpr:      "SELECT COUNT(table.column1) AS count_column1 FROM table GROUP BY count_column1;",
-			expectOK:      true,
+			expectErr:     false,
 		},
 		{
 			name: "SELECT with INNER JOIN and WHERE clause",
@@ -233,8 +233,8 @@ func Test_SelectExpression(t *testing.T) {
 			whereExpressions: []Expression{
 				F("table1.column1").Greater(5),
 			},
-			wantExpr: "SELECT table1.column1, table2.column2 FROM table1 JOIN table2 ON table1.id = table2.id WHERE table1.column1 > 5;",
-			expectOK: true,
+			wantExpr:  "SELECT table1.column1, table2.column2 FROM table1 JOIN table2 ON table1.id = table2.id WHERE table1.column1 > 5;",
+			expectErr: false,
 		},
 		{
 			name: "SELECT with RIGHT JOIN and multiple WHERE clauses",
@@ -250,8 +250,8 @@ func Test_SelectExpression(t *testing.T) {
 				F("table1.column1").NotEqual(0),
 				F("table2.column2").Less(100),
 			},
-			wantExpr: "SELECT table1.column1, table2.column2 FROM table1 RIGHT JOIN table2 ON table1.id = table2.id WHERE table1.column1 != 0 AND table2.column2 < 100;",
-			expectOK: true,
+			wantExpr:  "SELECT table1.column1, table2.column2 FROM table1 RIGHT JOIN table2 ON table1.id = table2.id WHERE table1.column1 != 0 AND table2.column2 < 100;",
+			expectErr: false,
 		},
 		{
 			name: "SELECT with GROUP BY and aggregate function",
@@ -263,8 +263,8 @@ func Test_SelectExpression(t *testing.T) {
 			groupByFields: []Field{
 				F("table.column1"),
 			},
-			wantExpr: "SELECT table.column1, COUNT(table.column2) AS count_column2 FROM table GROUP BY table.column1;",
-			expectOK: true,
+			wantExpr:  "SELECT table.column1, COUNT(table.column2) AS count_column2 FROM table GROUP BY table.column1;",
+			expectErr: false,
 		},
 		{
 			name: "SELECT with HAVING clause and aggregate function",
@@ -279,8 +279,8 @@ func Test_SelectExpression(t *testing.T) {
 			havingExpressions: []Expression{
 				Sum(F("table.column2")).Greater(50),
 			},
-			wantExpr: "SELECT table.column1, SUM(table.column2) AS sum_column2 FROM table GROUP BY table.column1 HAVING SUM(table.column2) > 50;",
-			expectOK: true,
+			wantExpr:  "SELECT table.column1, SUM(table.column2) AS sum_column2 FROM table GROUP BY table.column1 HAVING SUM(table.column2) > 50;",
+			expectErr: false,
 		},
 		{
 			name: "SELECT with ORDER BY clause",
@@ -293,8 +293,8 @@ func Test_SelectExpression(t *testing.T) {
 				F("table.column1").Asc(),
 				F("table.column2").Desc(),
 			},
-			wantExpr: "SELECT table.column1, table.column2 FROM table ORDER BY table.column1 ASC, table.column2 DESC;",
-			expectOK: true,
+			wantExpr:  "SELECT table.column1, table.column2 FROM table ORDER BY table.column1 ASC, table.column2 DESC;",
+			expectErr: false,
 		},
 		{
 			name: "SELECT with multiple JOINs and WHERE clause",
@@ -312,8 +312,8 @@ func Test_SelectExpression(t *testing.T) {
 				F("table1.column1").Greater(10),
 				F("table3.column3").NotEqual(0),
 			},
-			wantExpr: "SELECT table1.column1, table2.column2, table3.column3 FROM table1 JOIN table2 ON table1.id = table2.id LEFT JOIN table3 ON table2.id = table3.id WHERE table1.column1 > 10 AND table3.column3 != 0;",
-			expectOK: true,
+			wantExpr:  "SELECT table1.column1, table2.column2, table3.column3 FROM table1 JOIN table2 ON table1.id = table2.id LEFT JOIN table3 ON table2.id = table3.id WHERE table1.column1 > 10 AND table3.column3 != 0;",
+			expectErr: false,
 		},
 		{
 			name: "SELECT with multiple GROUP BY fields",
@@ -327,8 +327,8 @@ func Test_SelectExpression(t *testing.T) {
 				F("table.column1"),
 				F("table.column2"),
 			},
-			wantExpr: "SELECT table.column1, table.column2, COUNT(table.column3) AS count_column3 FROM table GROUP BY table.column1, table.column2;",
-			expectOK: true,
+			wantExpr:  "SELECT table.column1, table.column2, COUNT(table.column3) AS count_column3 FROM table GROUP BY table.column1, table.column2;",
+			expectErr: false,
 		},
 		{
 			name: "SELECT with HAVING and ORDER BY",
@@ -346,8 +346,8 @@ func Test_SelectExpression(t *testing.T) {
 			orderbyExpressions: []OrderedExpression{
 				F("sum_column2").Desc(),
 			},
-			wantExpr: "SELECT table.column1, SUM(table.column2) AS sum_column2 FROM table GROUP BY table.column1 HAVING SUM(table.column2) > 100 ORDER BY sum_column2 DESC;",
-			expectOK: true,
+			wantExpr:  "SELECT table.column1, SUM(table.column2) AS sum_column2 FROM table GROUP BY table.column1 HAVING SUM(table.column2) > 100 ORDER BY sum_column2 DESC;",
+			expectErr: false,
 		},
 		{
 			name: "SELECT",
@@ -356,7 +356,7 @@ func Test_SelectExpression(t *testing.T) {
 			},
 			schemaFrom: "table",
 			wantExpr:   "SELECT table.column1 FROM table;",
-			expectOK:   true,
+			expectErr:  false,
 		},
 		{
 			name: "SELECT with aggregate function and alias",
@@ -366,7 +366,7 @@ func Test_SelectExpression(t *testing.T) {
 			groupByFields: []Field{F("avg_column1")},
 			schemaFrom:    "table",
 			wantExpr:      "SELECT AVG(table.column1) AS avg_column1 FROM table GROUP BY avg_column1;",
-			expectOK:      true,
+			expectErr:     false,
 		},
 		{
 			name: "SELECT with multiple WHERE and GROUP BY",
@@ -382,8 +382,8 @@ func Test_SelectExpression(t *testing.T) {
 			groupByFields: []Field{
 				F("table.column1"),
 			},
-			wantExpr: "SELECT table.column1, COUNT(table.column2) AS count_column2 FROM table WHERE table.column1 > 5 AND table.column2 < 50 GROUP BY table.column1;",
-			expectOK: true,
+			wantExpr:  "SELECT table.column1, COUNT(table.column2) AS count_column2 FROM table WHERE table.column1 > 5 AND table.column2 < 50 GROUP BY table.column1;",
+			expectErr: false,
 		},
 		{
 			name: "SELECT with multiple HAVING conditions",
@@ -399,8 +399,8 @@ func Test_SelectExpression(t *testing.T) {
 				Sum(F("table.column2")).Greater(50),
 				Count(F("table.column1")).Less(10),
 			},
-			wantExpr: "SELECT table.column1, SUM(table.column2) AS sum_column2 FROM table GROUP BY table.column1 HAVING SUM(table.column2) > 50 AND COUNT(table.column1) < 10;",
-			expectOK: true,
+			wantExpr:  "SELECT table.column1, SUM(table.column2) AS sum_column2 FROM table GROUP BY table.column1 HAVING SUM(table.column2) > 50 AND COUNT(table.column1) < 10;",
+			expectErr: false,
 		},
 		{
 			name: "SELECT with multiple ORDER BY fields",
@@ -413,8 +413,8 @@ func Test_SelectExpression(t *testing.T) {
 				F("table.column1").Asc(),
 				F("table.column2").Desc(),
 			},
-			wantExpr: "SELECT table.column1, table.column2 FROM table ORDER BY table.column1 ASC, table.column2 DESC;",
-			expectOK: true,
+			wantExpr:  "SELECT table.column1, table.column2 FROM table ORDER BY table.column1 ASC, table.column2 DESC;",
+			expectErr: false,
 		},
 		{
 			name: "SELECT with aggregate function in HAVING",
@@ -428,8 +428,8 @@ func Test_SelectExpression(t *testing.T) {
 			havingExpressions: []Expression{
 				Count(F("table.column1")).Greater(5),
 			},
-			wantExpr: "SELECT table.column1 FROM table GROUP BY table.column1 HAVING COUNT(table.column1) > 5;",
-			expectOK: true,
+			wantExpr:  "SELECT table.column1 FROM table GROUP BY table.column1 HAVING COUNT(table.column1) > 5;",
+			expectErr: false,
 		},
 		{
 			name: "SELECT with LEFT JOIN and ORDER BY",
@@ -444,8 +444,8 @@ func Test_SelectExpression(t *testing.T) {
 			orderbyExpressions: []OrderedExpression{
 				F("table1.column1").Asc(),
 			},
-			wantExpr: "SELECT table1.column1, table2.column2 FROM table1 LEFT JOIN table2 ON table1.id = table2.id ORDER BY table1.column1 ASC;",
-			expectOK: true,
+			wantExpr:  "SELECT table1.column1, table2.column2 FROM table1 LEFT JOIN table2 ON table1.id = table2.id ORDER BY table1.column1 ASC;",
+			expectErr: false,
 		},
 		{
 			name: "SELECT with RIGHT JOIN and GROUP BY",
@@ -460,8 +460,8 @@ func Test_SelectExpression(t *testing.T) {
 			groupByFields: []Field{
 				F("table1.column1"),
 			},
-			wantExpr: "SELECT table1.column1, COUNT(table2.column2) AS count_column2 FROM table1 RIGHT JOIN table2 ON table1.id = table2.id GROUP BY table1.column1;",
-			expectOK: true,
+			wantExpr:  "SELECT table1.column1, COUNT(table2.column2) AS count_column2 FROM table1 RIGHT JOIN table2 ON table1.id = table2.id GROUP BY table1.column1;",
+			expectErr: false,
 		},
 		{
 			name: "SELECT with FULL OUTER JOIN",
@@ -473,8 +473,8 @@ func Test_SelectExpression(t *testing.T) {
 			join: []JoinExpression{
 				Join("table2", F("table1.id").Equal(F("table2.id")), Outer),
 			},
-			wantExpr: "SELECT table1.column1, table2.column2 FROM table1 OUTER JOIN table2 ON table1.id = table2.id;",
-			expectOK: true,
+			wantExpr:  "SELECT table1.column1, table2.column2 FROM table1 OUTER JOIN table2 ON table1.id = table2.id;",
+			expectErr: false,
 		},
 		{
 			name: "SELECT with multiple JOINs, WHERE, and ORDER BY",
@@ -495,8 +495,8 @@ func Test_SelectExpression(t *testing.T) {
 			orderbyExpressions: []OrderedExpression{
 				F("table1.column1").Asc(),
 			},
-			wantExpr: "SELECT table1.column1, table2.column2, table3.column3 FROM table1 JOIN table2 ON table1.id = table2.id LEFT JOIN table3 ON table2.id = table3.id WHERE table1.column1 > 10 AND table3.column3 != 0 ORDER BY table1.column1 ASC;",
-			expectOK: true,
+			wantExpr:  "SELECT table1.column1, table2.column2, table3.column3 FROM table1 JOIN table2 ON table1.id = table2.id LEFT JOIN table3 ON table2.id = table3.id WHERE table1.column1 > 10 AND table3.column3 != 0 ORDER BY table1.column1 ASC;",
+			expectErr: false,
 		},
 		{
 			name:       "SELECT with invalid Window (negative size)",
@@ -504,7 +504,7 @@ func Test_SelectExpression(t *testing.T) {
 			schemaFrom: "table",
 			windowEx:   NewTumblingWindow(TimeUnit{Val: -10, Unit: Seconds}),
 			wantExpr:   "",
-			expectOK:   false,
+			expectErr:  true,
 		},
 	}
 	for _, tc := range testcases {
@@ -530,16 +530,17 @@ func Test_SelectExpression(t *testing.T) {
 				sb = sb.SelectStruct("users", tc.structScan)
 			}
 
-			gotExpr, gotOK := sb.Where(tc.whereExpressions...).
+			gotExpr, err := sb.Where(tc.whereExpressions...).
 				Windowed(tc.windowEx).
 				GroupBy(tc.groupByFields...).
 				Having(tc.havingExpressions...).
 				OrderBy(tc.orderbyExpressions...).
 				Expression()
 
-			assert.Equal(t, tc.expectOK, gotOK)
-
-			assert.Equal(t, tc.wantExpr, gotExpr)
+			assert.Equal(t, tc.expectErr, err != nil)
+			if !tc.expectErr {
+				assert.Equal(t, tc.wantExpr, gotExpr)
+			}
 		})
 	}
 }
@@ -549,53 +550,53 @@ func Test_SelectBuilder(t *testing.T) {
 		name      string
 		selectSQL SelectBuilder
 		expected  string
-		wantOk    bool
+		expectErr bool
 	}{
 		{
 			name: "Simple SELECT",
 			selectSQL: Select(F("table.column1")).
 				From("table", TABLE),
-			expected: "SELECT table.column1 FROM table;",
-			wantOk:   true,
+			expected:  "SELECT table.column1 FROM table;",
+			expectErr: false,
 		},
 		{
 			name: "SELECT with alias",
 			selectSQL: Select(F("table.column1").As("alias1")).
 				From("table", TABLE),
-			expected: "SELECT table.column1 AS alias1 FROM table;",
-			wantOk:   true,
+			expected:  "SELECT table.column1 AS alias1 FROM table;",
+			expectErr: false,
 		},
 		{
 			name: "SELECT with WHERE clause",
 			selectSQL: Select(F("table.column1")).
 				From("table", TABLE).
 				Where(F("table.column1").Equal(1)),
-			expected: "SELECT table.column1 FROM table WHERE table.column1 = 1;",
-			wantOk:   true,
+			expected:  "SELECT table.column1 FROM table WHERE table.column1 = 1;",
+			expectErr: false,
 		},
 		{
 			name: "SELECT with EMIT CHANGES on stream",
 			selectSQL: Select(F("stream.column1")).
 				From("stream", STREAM).
 				EmitChanges(),
-			expected: "SELECT stream.column1 FROM stream EMIT CHANGES;",
-			wantOk:   true,
+			expected:  "SELECT stream.column1 FROM stream EMIT CHANGES;",
+			expectErr: false,
 		},
 		{
 			name: "SELECT with EMIT CHANGES on table (invalid)",
 			selectSQL: Select(F("table.column1")).
 				From("table", TABLE).
 				EmitChanges(),
-			expected: "",
-			wantOk:   false,
+			expected:  "",
+			expectErr: true,
 		},
 		{
 			name: "SELECT with GROUP BY on stream without WINDOW (invalid)",
 			selectSQL: Select(F("stream.column1")).
 				From("stream", STREAM).
 				GroupBy(F("stream.column1")),
-			expected: "",
-			wantOk:   false,
+			expected:  "",
+			expectErr: true,
 		},
 		{
 			name: "SELECT with GROUP BY and WINDOW on stream",
@@ -603,24 +604,26 @@ func Test_SelectBuilder(t *testing.T) {
 				From("stream", STREAM).
 				GroupBy(F("stream.column1")).
 				Windowed(NewTumblingWindow(TimeUnit{Val: 10, Unit: Seconds})),
-			expected: "SELECT stream.column1 FROM stream GROUP BY stream.column1 WINDOW TUMBLING (SIZE 10 SECONDS);",
-			wantOk:   true,
+			expected:  "SELECT stream.column1 FROM stream GROUP BY stream.column1 WINDOW TUMBLING (SIZE 10 SECONDS);",
+			expectErr: false,
 		},
 		{
 			name: "SELECT with HAVING without GROUP BY (invalid)",
 			selectSQL: Select(F("table.column1")).
 				From("table", TABLE).
 				Having(F("table.column1").Greater(1)),
-			expected: "",
-			wantOk:   false,
+			expected:  "",
+			expectErr: true,
 		},
 	}
 
 	for _, tc := range testcases {
 		t.Run(tc.name, func(t *testing.T) {
-			expr, ok := tc.selectSQL.Expression()
-			assert.Equal(t, tc.wantOk, ok)
-			assert.Equal(t, tc.expected, expr)
+			expr, err := tc.selectSQL.Expression()
+			assert.Equal(t, tc.expectErr, err != nil)
+			if !tc.expectErr {
+				assert.Equal(t, tc.expected, expr)
+			}
 		})
 	}
 }

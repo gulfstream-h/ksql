@@ -1,8 +1,12 @@
 package ksql
 
+import (
+	"errors"
+)
+
 type (
 	DescribeBuilder interface {
-		Expression() (string, bool)
+		Expression() (string, error)
 		Type() Reference
 		Schema() string
 	}
@@ -28,7 +32,7 @@ func (d *describe) Schema() string {
 	return d.schema
 }
 
-func (d *describe) Expression() (string, bool) {
+func (d *describe) Expression() (string, error) {
 	var operation string
 
 	switch d.typ {
@@ -39,8 +43,8 @@ func (d *describe) Expression() (string, bool) {
 	case TOPIC:
 		operation = "DESCRIBE "
 	default:
-		return "", false
+		return "", errors.New("unsupported reference type for describe operation")
 	}
 
-	return operation + d.Schema() + ";", true
+	return operation + d.Schema() + ";", nil
 }

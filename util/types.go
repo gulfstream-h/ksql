@@ -6,10 +6,10 @@ import (
 	"strings"
 )
 
-func FormatSlice(slice any) (string, bool) {
+func FormatSlice(slice any) (string, error) {
 	val := reflect.ValueOf(slice)
 	if val.Kind() != reflect.Slice && val.Kind() != reflect.Array {
-		return "", false
+		return "", fmt.Errorf("expected a slice or array, got %T", slice)
 	}
 
 	var parts []string
@@ -31,10 +31,10 @@ func FormatSlice(slice any) (string, bool) {
 				parts = append(parts, "NULL")
 				continue
 			}
-			return "", false
+			return "", fmt.Errorf("unsupported type %T in slice", x)
 		}
 	}
-	return "(" + strings.Join(parts, ", ") + ")", true
+	return "(" + strings.Join(parts, ", ") + ")", nil
 }
 
 func Serialize(val any) string {

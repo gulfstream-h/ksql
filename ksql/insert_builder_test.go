@@ -56,7 +56,7 @@ func Test_InsertExpression(t *testing.T) {
 		fields    Row
 		structRow []any
 		expected  string
-		wantOk    bool
+		expectErr bool
 	}{
 		{
 			name: "Insert with fields",
@@ -65,14 +65,14 @@ func Test_InsertExpression(t *testing.T) {
 				"name": "John",
 				"age":  "30",
 			},
-			expected: "INSERT INTO table_name (id, name, age) VALUES (123, 'John', '30');",
-			wantOk:   true,
+			expected:  "INSERT INTO table_name (id, name, age) VALUES (123, 'John', '30');",
+			expectErr: false,
 		},
 		{
-			name:     "Insert with empty fields",
-			fields:   Row{},
-			expected: "",
-			wantOk:   false,
+			name:      "Insert with empty fields",
+			fields:    Row{},
+			expected:  "",
+			expectErr: true,
 		},
 		{
 			name: "Insert with struct",
@@ -83,8 +83,8 @@ func Test_InsertExpression(t *testing.T) {
 					Age:  "32",
 				},
 			},
-			expected: "INSERT INTO table_name (id, name, age) VALUES (35, 'JJJ', '32');",
-			wantOk:   true,
+			expected:  "INSERT INTO table_name (id, name, age) VALUES (35, 'JJJ', '32');",
+			expectErr: false,
 		},
 		{
 			name: "Insert with nil value",
@@ -92,8 +92,8 @@ func Test_InsertExpression(t *testing.T) {
 				"id":   1,
 				"name": nil,
 			},
-			expected: "INSERT INTO table_name (id, name) VALUES (1, NULL);",
-			wantOk:   true,
+			expected:  "INSERT INTO table_name (id, name) VALUES (1, NULL);",
+			expectErr: false,
 		},
 		{
 			name: "Insert with numeric and string mix",
@@ -101,8 +101,8 @@ func Test_InsertExpression(t *testing.T) {
 				"id":   42,
 				"name": "Alice",
 			},
-			expected: "INSERT INTO table_name (id, name) VALUES (42, 'Alice');",
-			wantOk:   true,
+			expected:  "INSERT INTO table_name (id, name) VALUES (42, 'Alice');",
+			expectErr: false,
 		},
 	}
 
@@ -113,9 +113,9 @@ func Test_InsertExpression(t *testing.T) {
 				builder = builder.InsertStruct("", str)
 			}
 
-			expr, ok := builder.Expression()
-			assert.Equal(t, tc.wantOk, ok)
-			if ok {
+			expr, err := builder.Expression()
+			assert.Equal(t, tc.expectErr, err != nil)
+			if !tc.expectErr {
 				assert.Equal(t, normalizeSQL(tc.expected), normalizeSQL(expr))
 			}
 		})
@@ -127,23 +127,23 @@ func Test_InsertAsSelectExpression(t *testing.T) {
 		name      string
 		selectSQL SelectBuilder
 		expected  string
-		wantOk    bool
+		expectErr bool
 	}{
 		{
 			name: "Insert with simple SELECT",
 			selectSQL: Select(F("table1.column1"), F("table1.column2")).
 				From("table1", TABLE).
 				Where(F("table1.column1").Greater(10)),
-			expected: "INSERT INTO table_name SELECT table1.column1, table1.column2 FROM table1 WHERE table1.column1 > 10;",
-			wantOk:   true,
+			expected:  "INSERT INTO table_name SELECT table1.column1, table1.column2 FROM table1 WHERE table1.column1 > 10;",
+			expectErr: false,
 		},
 		{
 			name: "Insert with SELECT and JOIN",
 			selectSQL: Select(F("table1.column1"), F("table2.column2")).
 				From("table1", TABLE).
 				Join("table2", F("table1.id").Equal(F("table2.id"))),
-			expected: "INSERT INTO table_name SELECT table1.column1, table2.column2 FROM table1 JOIN table2 ON table1.id = table2.id;",
-			wantOk:   true,
+			expected:  "INSERT INTO table_name SELECT table1.column1, table2.column2 FROM table1 JOIN table2 ON table1.id = table2.id;",
+			expectErr: false,
 		},
 		{
 			name: "Insert with SELECT, WHERE, and ORDER BY",
@@ -151,8 +151,8 @@ func Test_InsertAsSelectExpression(t *testing.T) {
 				From("table1", TABLE).
 				Where(F("table1.column1").Greater(5)).
 				OrderBy(F("table1.column1").Asc()),
-			expected: "INSERT INTO table_name SELECT table1.column1, table1.column2 FROM table1 WHERE table1.column1 > 5 ORDER BY table1.column1 ASC;",
-			wantOk:   true,
+			expected:  "INSERT INTO table_name SELECT table1.column1, table1.column2 FROM table1 WHERE table1.column1 > 5 ORDER BY table1.column1 ASC;",
+			expectErr: false,
 		},
 		{
 			name: "Insert with SELECT, GROUP BY, and HAVING",
@@ -160,8 +160,8 @@ func Test_InsertAsSelectExpression(t *testing.T) {
 				From("table1", TABLE).
 				GroupBy(F("table1.column1")).
 				Having(Count(F("table1.column2")).Greater(1)),
-			expected: "INSERT INTO table_name SELECT table1.column1, COUNT(table1.column2) AS count_column2 FROM table1 GROUP BY table1.column1 HAVING COUNT(table1.column2) > 1;",
-			wantOk:   true,
+			expected:  "INSERT INTO table_name SELECT table1.column1, COUNT(table1.column2) AS count_column2 FROM table1 GROUP BY table1.column1 HAVING COUNT(table1.column2) > 1;",
+			expectErr: false,
 		},
 		{
 			name: "Insert with complex SELECT",
@@ -173,8 +173,8 @@ func Test_InsertAsSelectExpression(t *testing.T) {
 				GroupBy(F("table1.column1")).
 				Having(Avg(F("table3.column3")).Greater(50)).
 				OrderBy(F("avg_column3").Desc()),
-			expected: "INSERT INTO table_name SELECT table1.column1, table2.column2, AVG(table3.column3) AS avg_column3 FROM table1 JOIN table2 ON table1.id = table2.id LEFT JOIN table3 ON table2.id = table3.id WHERE table1.column1 > 10 GROUP BY table1.column1 HAVING AVG(table3.column3) > 50 ORDER BY avg_column3 DESC;",
-			wantOk:   true,
+			expected:  "INSERT INTO table_name SELECT table1.column1, table2.column2, AVG(table3.column3) AS avg_column3 FROM table1 JOIN table2 ON table1.id = table2.id LEFT JOIN table3 ON table2.id = table3.id WHERE table1.column1 > 10 GROUP BY table1.column1 HAVING AVG(table3.column3) > 50 ORDER BY avg_column3 DESC;",
+			expectErr: false,
 		},
 	}
 
@@ -182,9 +182,9 @@ func Test_InsertAsSelectExpression(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			builder := Insert(TABLE, "table_name").AsSelect(tc.selectSQL)
 
-			expr, ok := builder.Expression()
-			assert.Equal(t, tc.wantOk, ok)
-			if ok {
+			expr, err := builder.Expression()
+			assert.Equal(t, tc.expectErr, err != nil)
+			if !tc.expectErr {
 				assert.Equal(t, tc.expected, expr)
 			}
 		})

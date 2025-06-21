@@ -1,10 +1,14 @@
 package ksql
 
-import "strings"
+import (
+	"errors"
+	"fmt"
+	"strings"
+)
 
 type WhereExpression interface {
 	IsEmpty() bool
-	Expression() (string, bool)
+	Expression() (string, error)
 	Conditionals() []Expression
 	Where(exps ...Expression) WhereExpression
 }
@@ -21,9 +25,9 @@ func (w *where) IsEmpty() bool {
 	return len(w.conditionals) == 0
 }
 
-func (w *where) Expression() (string, bool) {
+func (w *where) Expression() (string, error) {
 	if len(w.conditionals) == 0 {
-		return "", false
+		return "", errors.New("where expression cannot be empty")
 	}
 
 	var (
@@ -34,9 +38,9 @@ func (w *where) Expression() (string, bool) {
 	builder.WriteString("WHERE ")
 
 	for i := range w.conditionals {
-		ex, ok := w.conditionals[i].Expression()
-		if !ok {
-			return "", false
+		ex, err := w.conditionals[i].Expression()
+		if err != nil {
+			return "", fmt.Errorf("conditional expression: %w", err)
 		}
 
 		if !isFirst {
@@ -47,7 +51,7 @@ func (w *where) Expression() (string, bool) {
 		isFirst = false
 	}
 
-	return builder.String(), true
+	return builder.String(), nil
 }
 
 func (w *where) Conditionals() []Expression {

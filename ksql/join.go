@@ -1,6 +1,7 @@
 package ksql
 
 import (
+	"errors"
 	"fmt"
 )
 
@@ -9,7 +10,7 @@ type (
 		Schema() string
 		On() Expression
 		Type() JoinType
-		Expression() (string, bool)
+		Expression() (string, error)
 	}
 
 	join struct {
@@ -49,18 +50,18 @@ func (j *join) Type() JoinType {
 	return j.operation
 }
 
-func (j *join) Expression() (string, bool) {
+func (j *join) Expression() (string, error) {
 	var (
 		operationString string
 	)
 
 	if len(j.schema) == 0 || j.on == nil {
-		return "", false
+		return "", errors.New("join schema and expression cannot be empty")
 	}
 
-	expression, ok := j.on.Expression()
-	if !ok {
-		return "", false
+	expression, err := j.on.Expression()
+	if err != nil {
+		return "", fmt.Errorf("join expression: %w", err)
 	}
 
 	switch j.operation {
@@ -75,11 +76,11 @@ func (j *join) Expression() (string, bool) {
 	case Cross:
 		operationString = "CROSS JOIN"
 	default:
-		return "", false
+		return "", errors.New("invalid join type")
 	}
 	return fmt.Sprintf(
 		"%s %s ON %s",
 		operationString, j.schema, expression,
-	), true
+	), nil
 
 }

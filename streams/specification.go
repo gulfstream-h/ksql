@@ -35,7 +35,7 @@ type Stream[S any] struct {
 // map of available projections
 func ListStreams(ctx context.Context) (dto.ShowStreams, error) {
 
-	query := util.MustTrue(ksql.List(ksql.STREAM).Expression)
+	query := util.MustNoError(ksql.List(ksql.STREAM).Expression)
 
 	pipeline, err := network.Net.Perform(
 		ctx,
@@ -77,7 +77,7 @@ func ListStreams(ctx context.Context) (dto.ShowStreams, error) {
 // Can be used for table schema and query by which
 // it was created
 func Describe(ctx context.Context, stream string) (dto.RelationDescription, error) {
-	query := util.MustTrue(ksql.Describe(ksql.STREAM, stream).Expression)
+	query := util.MustNoError(ksql.Describe(ksql.STREAM, stream).Expression)
 
 	pipeline, err := network.Net.Perform(
 		ctx,
@@ -119,7 +119,7 @@ func Describe(ctx context.Context, stream string) (dto.RelationDescription, erro
 // with parent topic. Also deletes projection from list
 func Drop(ctx context.Context, stream string) error {
 
-	query := util.MustTrue(ksql.Drop(ksql.STREAM, stream).Expression)
+	query := util.MustNoError(ksql.Drop(ksql.STREAM, stream).Expression)
 
 	pipeline, err := network.Net.Perform(
 		ctx,
@@ -301,7 +301,7 @@ func CreateStreamAsSelect[S any](
 		return nil, errors.New("schemes doesnt match")
 	}
 
-	query, ok := ksql.Create(ksql.STREAM, streamName).
+	query, err := ksql.Create(ksql.STREAM, streamName).
 		AsSelect(selectBuilder).
 		With(ksql.Metadata{
 			Topic:       *settings.SourceTopic,
@@ -309,8 +309,8 @@ func CreateStreamAsSelect[S any](
 		}).
 		Expression()
 
-	if !ok {
-		return nil, errors.New("cannot build create query")
+	if err != nil {
+		return nil, fmt.Errorf("build create query: %w", err)
 	}
 
 	pipeline, err := network.Net.Perform(
@@ -394,9 +394,9 @@ func (s *Stream[S]) Insert(
 		searchFields = append(searchFields, field)
 	}
 
-	query, ok := ksql.Insert(ksql.STREAM, s.Name).Rows(fields).Expression()
-	if !ok {
-		return errors.New("cannot build insert query")
+	query, err := ksql.Insert(ksql.STREAM, s.Name).Rows(fields).Expression()
+	if err != nil {
+		return fmt.Errorf("build insert query: %w", err)
 	}
 
 	pipeline, err := network.Net.Perform(
@@ -452,9 +452,9 @@ func (s *Stream[S]) InsertAs(
 		return errors.New("schemes doesnt match")
 	}
 
-	query, ok := ksql.Insert(ksql.STREAM, s.Name).AsSelect(selectQuery).Expression()
-	if !ok {
-		return errors.New("cannot build insert query")
+	query, err := ksql.Insert(ksql.STREAM, s.Name).AsSelect(selectQuery).Expression()
+	if err != nil {
+		return fmt.Errorf("build insert query: %w", err)
 	}
 
 	pipeline, err := network.Net.Perform(
@@ -497,13 +497,13 @@ func (s *Stream[S]) SelectOnce(
 		value S
 	)
 
-	query, ok := ksql.
+	query, err := ksql.
 		SelectAsStruct(s.Name, *s.remoteSchema).
 		From(s.Name, ksql.STREAM).
 		Expression()
 
-	if !ok {
-		return value, errors.New("cannot build select query")
+	if err != nil {
+		return value, fmt.Errorf("build select query: %w", err)
 	}
 
 	pipeline, err := network.Net.PerformSelect(
@@ -544,13 +544,13 @@ func (s *Stream[S]) SelectWithEmit(
 		valuesC = make(chan S)
 	)
 
-	query, ok := ksql.SelectAsStruct(s.Name, *s.remoteSchema).
+	query, err := ksql.SelectAsStruct(s.Name, *s.remoteSchema).
 		From(s.Name, ksql.STREAM).
 		WithMeta(ksql.Metadata{ValueFormat: kinds.JSON.String()}).
 		Expression()
 
-	if !ok {
-		return nil, errors.New("cannot build select query")
+	if err != nil {
+		return nil, fmt.Errorf("build select query: %w", err)
 	}
 
 	query = "SELECT AMOUNT, CLIENT_HASH FROM NEW_STREAM;"

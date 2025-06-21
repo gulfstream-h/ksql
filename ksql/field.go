@@ -17,7 +17,7 @@ type (
 		Alias() string
 		As(alias string) Field
 		Copy() Field
-		Expression() (string, bool)
+		Expression() (string, error)
 	}
 
 	field struct {
@@ -57,16 +57,16 @@ func (f *field) As(alias string) Field {
 func (f *field) Alias() string {
 	return f.alias
 }
-func (f *field) Expression() (string, bool) {
+func (f *field) Expression() (string, error) {
 	if len(f.col) == 0 && len(f.schema) == 0 {
-		return "", false
+		return "", fmt.Errorf("field is not defined")
 	}
 
 	if len(f.schema) != 0 {
-		return fmt.Sprintf("%s.%s", f.schema, f.col), true
+		return fmt.Sprintf("%s.%s", f.schema, f.col), nil
 	}
 
-	return f.col, true
+	return f.col, nil
 }
 
 func (f *field) Equal(val any) Expression {
@@ -228,9 +228,9 @@ func (af *aggregatedField) Alias() string {
 	return af.fn.Alias()
 }
 
-func (af *aggregatedField) Expression() (string, bool) {
+func (af *aggregatedField) Expression() (string, error) {
 	if af.fn == nil {
-		return "", false
+		return "", fmt.Errorf("aggregate function is not defined")
 	}
 
 	return af.fn.Expression()

@@ -1,6 +1,8 @@
 package ksql
 
 import (
+	"errors"
+	"fmt"
 	"ksql/schema"
 	"ksql/util"
 	"strings"
@@ -13,7 +15,7 @@ type (
 		Rows(rows ...Row) InsertBuilder
 		Schema() string
 		Reference() Reference
-		Expression() (string, bool)
+		Expression() (string, error)
 	}
 
 	// Row represents a map of column names to their values for an insert operation.
@@ -92,13 +94,13 @@ func (i *insertBuilder) Schema() string {
 	return i.schema
 }
 
-func (i *insertBuilder) Expression() (string, bool) {
+func (i *insertBuilder) Expression() (string, error) {
 	if len(i.columns) == 0 && i.selectBuilder == nil {
-		return "", false
+		return "", errors.New("cannot create INSERT expression with no columns or select statement")
 	}
 
 	if len(i.columns) != 0 && i.selectBuilder != nil {
-		return "", false
+		return "", errors.New("cannot create INSERT expression with both columns and select statement")
 	}
 
 	builder := new(strings.Builder)
@@ -116,7 +118,7 @@ func (i *insertBuilder) Expression() (string, bool) {
 		for idx, v := range i.vals {
 			for _, col := range i.columnsNameSequence {
 				if _, ok := v[col]; !ok {
-					return "", false
+					return "", errors.New("missing value for column: " + col)
 				}
 				vals = append(vals, v[col])
 			}
@@ -130,15 +132,15 @@ func (i *insertBuilder) Expression() (string, bool) {
 	}
 
 	if i.selectBuilder != nil {
-		expr, ok := i.selectBuilder.Expression()
-		if !ok {
-			return "", false
+		expr, err := i.selectBuilder.Expression()
+		if err != nil {
+			return "", fmt.Errorf("select expression: %w", err)
 		}
 		builder.WriteString(" " + expr)
-		return builder.String(), true
+		return builder.String(), nil
 	}
 
 	builder.WriteString(";")
 
-	return builder.String(), true
+	return builder.String(), nil
 }

@@ -1,10 +1,13 @@
 package ksql
 
-import "strings"
+import (
+	"fmt"
+	"strings"
+)
 
 type (
 	ExpressionList interface {
-		Expression() (string, bool)
+		Expression() (string, error)
 		ExpressionList() []Expression
 	}
 
@@ -41,7 +44,7 @@ func (el *expressionList) ExpressionList() []Expression {
 	return exps
 }
 
-func (el *expressionList) Expression() (string, bool) {
+func (el *expressionList) Expression() (string, error) {
 	var (
 		operation string
 
@@ -50,7 +53,7 @@ func (el *expressionList) Expression() (string, bool) {
 	)
 
 	if len(el.expressions) == 0 {
-		return "", false
+		return "", fmt.Errorf("cannot create expression list with no expressions")
 	}
 
 	switch el.opType {
@@ -58,14 +61,16 @@ func (el *expressionList) Expression() (string, bool) {
 		operation = " OR "
 	case AndType:
 		operation = " AND "
+	default:
+		return "", fmt.Errorf("unsupported boolean operation type: %d", el.opType)
 	}
 
 	builder.WriteString("( ")
 
 	for idx := range el.expressions {
-		exp, ok := el.expressions[idx].Expression()
-		if !ok {
-			return "", false
+		exp, err := el.expressions[idx].Expression()
+		if err != nil {
+			return "", fmt.Errorf("create expression: %w", err)
 		}
 
 		if !isFirst {
@@ -79,5 +84,5 @@ func (el *expressionList) Expression() (string, bool) {
 
 	builder.WriteString(" )")
 
-	return builder.String(), true
+	return builder.String(), nil
 }

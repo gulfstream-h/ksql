@@ -9,7 +9,7 @@ import (
 
 type (
 	Expression interface {
-		Expression() (string, bool)
+		Expression() (string, error)
 	}
 
 	Comparable interface {
@@ -64,7 +64,7 @@ func NewBooleanExp(left Field, right any, op Op) Expression {
 	return &booleanExp{left: left, right: right, operation: op}
 }
 
-func (b *booleanExp) Expression() (string, bool) {
+func (b *booleanExp) Expression() (string, error) {
 	var (
 		operation   string
 		ordered     bool
@@ -72,20 +72,20 @@ func (b *booleanExp) Expression() (string, bool) {
 		rightString string
 	)
 
-	expression, ok := b.left.Expression()
-	if !ok {
-		return "", false
+	expression, err := b.left.Expression()
+	if err != nil {
+		return "", fmt.Errorf("left field expression: %w", err)
 	}
 
 	switch b.operation {
 	case isNull:
-		return fmt.Sprintf("%s IS NULL", expression), true
+		return fmt.Sprintf("%s IS NULL", expression), nil
 	case isNotNull:
-		return fmt.Sprintf("%s IS NOT NULL", expression), true
+		return fmt.Sprintf("%s IS NOT NULL", expression), nil
 	case isTrue:
-		return fmt.Sprintf("%s IS TRUE", expression), true
+		return fmt.Sprintf("%s IS TRUE", expression), nil
 	case isFalse:
-		return fmt.Sprintf("%s IS FALSE", expression), true
+		return fmt.Sprintf("%s IS FALSE", expression), nil
 
 	case equal:
 		operation = "="
@@ -110,22 +110,22 @@ func (b *booleanExp) Expression() (string, bool) {
 		operation = "NOT IN"
 		iterable = true
 	default:
-		return "", false
+		return "", fmt.Errorf("unsupported operation: %d", b.operation)
 	}
 
 	if ordered && !util.IsOrdered(b.right) {
-		return "", false
+		return "", fmt.Errorf("operation requeres right expression to be ordered: %v", b.right)
 	}
 
 	if iterable {
 		if !util.IsIterable(b.right) {
-			return "", false
+			return "", fmt.Errorf("operation requires right expression to be iterable: %v", b.right)
 		}
-		rightString, ok = util.FormatSlice(b.right)
-		if !ok {
-			return "", false
+		rightString, err = util.FormatSlice(b.right)
+		if err != nil {
+			return "", fmt.Errorf("right expression: %w", err)
 		}
-		return fmt.Sprintf("%s %s %s", expression, operation, rightString), true
+		return fmt.Sprintf("%s %s %s", expression, operation, rightString), nil
 	}
 
 	switch v := b.right.(type) {
@@ -142,28 +142,28 @@ func (b *booleanExp) Expression() (string, bool) {
 	case bool:
 		rightString = strings.ToUpper(strconv.FormatBool(v))
 	case Field:
-		rightString, ok = v.Expression()
-		if !ok {
-			return "", false
+		rightString, err = v.Expression()
+		if err != nil {
+			return "", fmt.Errorf("invalid right field expression: %w", err)
 		}
 	default:
 		if util.IsNil(v) {
 			switch b.operation {
 			case equal:
-				return fmt.Sprintf("%s IS NULL", expression), true
+				return fmt.Sprintf("%s IS NULL", expression), nil
 			case notEqual:
-				return fmt.Sprintf("%s IS NOT NULL", expression), true
+				return fmt.Sprintf("%s IS NOT NULL", expression), nil
 			default:
-				return "", false
+				return "", fmt.Errorf("unsupported operation with nil value: %d", b.operation)
 			}
 		}
 		rightString = util.Serialize(b.right)
 		if len(rightString) == 0 {
-			return "", false
+			return "", fmt.Errorf("unsupported type in right expression: %T", b.right)
 		}
 	}
 
-	return fmt.Sprintf("%s %s %s", expression, operation, rightString), true
+	return fmt.Sprintf("%s %s %s", expression, operation, rightString), nil
 }
 
 func (b *booleanExp) Left() Field {

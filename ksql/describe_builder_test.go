@@ -11,45 +11,45 @@ func TestDescribeExpression(t *testing.T) {
 		reference Reference
 		schema    string
 		wantExpr  string
-		expectOK  bool
+		expectErr bool
 	}{
 		{
 			name:      "Describe Stream",
 			reference: STREAM,
 			schema:    "my_stream",
 			wantExpr:  "DESCRIBE my_stream;",
-			expectOK:  true,
+			expectErr: false,
 		},
 		{
 			name:      "Describe Table",
 			reference: TABLE,
 			schema:    "my_table",
 			wantExpr:  "DESCRIBE my_table;",
-			expectOK:  true,
+			expectErr: false,
 		},
 		{
 			name:      "Describe Topic",
 			reference: TOPIC,
 			schema:    "my_topic",
 			wantExpr:  "DESCRIBE my_topic;",
-			expectOK:  true,
+			expectErr: false,
 		},
 		{
 			name:      "Invalid Reference",
 			reference: Reference(999), // Assuming 999 is an invalid reference
 			schema:    "invalid_schema",
 			wantExpr:  "",
-			expectOK:  false,
+			expectErr: true,
 		},
 	}
 
 	for _, tt := range testcases {
 		t.Run(tt.name, func(t *testing.T) {
 			describeBuilder := Describe(tt.reference, tt.schema)
-			expr, ok := describeBuilder.Expression()
+			expr, err := describeBuilder.Expression()
 
-			assert.Equal(t, tt.expectOK, ok)
-			if ok {
+			assert.Equal(t, tt.expectErr, err != nil)
+			if !tt.expectErr {
 				assert.Equal(t, tt.wantExpr, expr)
 			}
 		})

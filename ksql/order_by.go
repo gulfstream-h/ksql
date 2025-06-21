@@ -1,6 +1,10 @@
 package ksql
 
-import "strings"
+import (
+	"errors"
+	"fmt"
+	"strings"
+)
 
 const (
 	Ascending = OrderDirection(iota)
@@ -12,13 +16,13 @@ type (
 		OrderBy(expressions ...OrderedExpression) OrderByExpression
 		OrderedExpressions() []OrderedExpression
 		IsEmpty() bool
-		Expression() (string, bool)
+		Expression() (string, error)
 	}
 
 	OrderedExpression interface {
 		Field() Field
 		Direction() OrderDirection
-		Expression() (string, bool)
+		Expression() (string, error)
 	}
 
 	OrderDirection int
@@ -56,24 +60,24 @@ func (o *orderedExpression) Direction() OrderDirection {
 	return o.direction
 }
 
-func (o *orderedExpression) Expression() (string, bool) {
+func (o *orderedExpression) Expression() (string, error) {
 	if o.field == nil {
-		return "", false
+		return "", errors.New("field cannot be nil")
 	}
 
-	expression, ok := o.field.Expression()
-	if !ok {
-		return "", false
+	expression, err := o.field.Expression()
+	if err != nil {
+		return "", fmt.Errorf("field expression: %w", err)
 	}
 
 	switch o.direction {
 	case Ascending:
-		return expression + " ASC", true
+		return expression + " ASC", nil
 	case Descending:
-		return expression + " DESC", true
+		return expression + " DESC", nil
+	default:
+		return "", errors.New("invalid order direction, must be Ascending or Descending")
 	}
-
-	return "", false
 }
 
 func NewOrderByExpression() OrderByExpression {
@@ -89,9 +93,9 @@ func (o *orderby) OrderedExpressions() []OrderedExpression {
 	return o.expressions
 }
 
-func (o *orderby) Expression() (string, bool) {
+func (o *orderby) Expression() (string, error) {
 	if len(o.expressions) == 0 {
-		return "", false
+		return "", errors.New("cannot create ORDER BY expression with no expressions")
 	}
 
 	var builder strings.Builder
@@ -101,14 +105,14 @@ func (o *orderby) Expression() (string, bool) {
 		if i > 0 {
 			builder.WriteString(", ")
 		}
-		expression, ok := expr.Expression()
-		if !ok {
-			return "", false
+		expression, err := expr.Expression()
+		if err != nil {
+			return "", fmt.Errorf("ordered expression: %w", err)
 		}
 		builder.WriteString(expression)
 	}
 
-	return builder.String(), true
+	return builder.String(), nil
 }
 
 func (o *orderby) IsEmpty() bool {

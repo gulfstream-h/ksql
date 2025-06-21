@@ -5,7 +5,7 @@ import "fmt"
 type FromExpression interface {
 	Schema() string
 	From(string) FromExpression
-	Expression() (string, bool)
+	Expression() (string, error)
 }
 
 type from struct {
@@ -25,10 +25,10 @@ func (f *from) From(schema string) FromExpression {
 	return f
 }
 
-func (f *from) Expression() (string, bool) {
+func (f *from) Expression() (string, error) {
 	if len(f.schema) == 0 {
-		return "", false
+		return "", fmt.Errorf("schema cannot be empty")
 	}
 
-	return fmt.Sprintf("FROM %s", f.schema), true
+	return fmt.Sprintf("FROM %s", f.schema), nil
 }
