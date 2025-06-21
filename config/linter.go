@@ -13,15 +13,15 @@ import (
 )
 
 type (
-	_ReflectionMode   struct{}
 	_NoReflectionMode struct{}
+	_ReflectionMode   struct{}
 )
 
-func (mode _ReflectionMode) InitLinter(context.Context) error {
+func (mode _NoReflectionMode) InitLinter(context.Context) error {
 	return nil
 }
 
-func (mode _NoReflectionMode) InitLinter(ctx context.Context) error {
+func (mode _ReflectionMode) InitLinter(ctx context.Context) error {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
@@ -92,6 +92,6 @@ func (mode _NoReflectionMode) InitLinter(ctx context.Context) error {
 }
 
 var (
-	_ shared.Linter = new(_ReflectionMode)
 	_ shared.Linter = new(_NoReflectionMode)
+	_ shared.Linter = new(_ReflectionMode)
 )

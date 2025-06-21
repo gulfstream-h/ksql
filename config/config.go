@@ -28,9 +28,9 @@ func New(
 	}
 
 	if reflectionFlag {
-		cfg.Linter = _ReflectionMode{}
-	} else {
 		cfg.Linter = _NoReflectionMode{}
+	} else {
+		cfg.Linter = _ReflectionMode{}
 	}
 
 	return &cfg
