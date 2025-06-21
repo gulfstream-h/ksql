@@ -5,12 +5,9 @@ import (
 	"reflect"
 )
 
-func GetType[T any]() (reflect.Type, error) {
-	var (
-		runtime T
-	)
+func GetType(val any) (reflect.Type, error) {
 
-	t := reflect.TypeOf(runtime)
+	t := reflect.TypeOf(val)
 
 	if t == nil {
 		return nil, errors.New("type is nil")
@@ -29,7 +26,7 @@ func GetType[T any]() (reflect.Type, error) {
 	return t, nil
 }
 
-func GetValue[T any](runtime T) (reflect.Value, error) {
+func GetValue(runtime any) (reflect.Value, error) {
 	val := reflect.ValueOf(runtime)
 
 	if val.Kind() == reflect.Ptr || val.Kind() == reflect.Interface {
