@@ -1,8 +1,10 @@
 package ksql
 
+import "fmt"
+
 type (
 	DropBuilder interface {
-		Expression() (string, bool)
+		Expression() (string, error)
 		Schema() string
 	}
 
@@ -23,7 +25,7 @@ func (d *drop) Schema() string {
 	return d.schema
 }
 
-func (d *drop) Expression() (string, bool) {
+func (d *drop) Expression() (string, error) {
 	var operation string
 
 	switch d.typ {
@@ -34,9 +36,9 @@ func (d *drop) Expression() (string, bool) {
 	case TOPIC:
 		operation = "DROP TOPIC "
 	default:
-		return "", false
+		return "", fmt.Errorf("unsupported reference type")
 	}
 
-	return operation + d.Schema() + ";", true
+	return operation + d.Schema() + ";", nil
 
 }

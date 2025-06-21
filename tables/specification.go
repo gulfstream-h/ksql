@@ -38,7 +38,7 @@ func ListTables(ctx context.Context) (
 	dto.ShowTables, error,
 ) {
 
-	query := util.MustTrue(ksql.List(ksql.TABLE).Expression)
+	query := util.MustNoError(ksql.List(ksql.TABLE).Expression)
 
 	pipeline, err := network.Net.Perform(
 		ctx,
@@ -80,7 +80,7 @@ func ListTables(ctx context.Context) (
 // Can be used for table schema and query by which
 // it was created
 func Describe(ctx context.Context, stream string) (dto.RelationDescription, error) {
-	query := util.MustTrue(ksql.Describe(ksql.TABLE, stream).Expression)
+	query := util.MustNoError(ksql.Describe(ksql.TABLE, stream).Expression)
 
 	pipeline, err := network.Net.Perform(
 		ctx,
@@ -125,7 +125,7 @@ func Describe(ctx context.Context, stream string) (dto.RelationDescription, erro
 // Drop - drops table from ksqlDB instance
 // with parent topic. Also deletes projection from list
 func Drop(ctx context.Context, name string) error {
-	query := util.MustTrue(ksql.Drop(ksql.TABLE, name).Expression)
+	query := util.MustNoError(ksql.Drop(ksql.TABLE, name).Expression)
 
 	pipeline, err := network.Net.Perform(
 		ctx,
@@ -231,12 +231,12 @@ func CreateTable[S any](
 		ValueFormat: kinds.JSON.String(),
 	}
 
-	query, ok := ksql.Create(ksql.TABLE, tableName).
+	query, err := ksql.Create(ksql.TABLE, tableName).
 		SchemaFields(searchFields...).
 		With(metadata).
 		Expression()
-	if !ok {
-		return nil, errors.New("cannot build query for table creation")
+	if err != nil {
+		return nil, fmt.Errorf("build create query: %w", err)
 	}
 
 	pipeline, err := network.Net.Perform(
@@ -349,13 +349,13 @@ func CreateTableAsSelect[S any](
 		ValueFormat: kinds.JSON.String(),
 	}
 
-	query, ok := ksql.Create(ksql.TABLE, tableName).
+	query, err := ksql.Create(ksql.TABLE, tableName).
 		AsSelect(selectQuery).
 		With(meta).
 		Expression()
 
-	if !ok {
-		return nil, errors.New("cannot build query for table creation")
+	if err != nil {
+		return nil, fmt.Errorf("build create query: %w", err)
 	}
 
 	pipeline, err := network.Net.Perform(
@@ -416,13 +416,13 @@ func (s *Table[S]) SelectOnce(
 
 	meta := ksql.Metadata{ValueFormat: kinds.JSON.String()}
 
-	query, ok := ksql.Create(ksql.TABLE, s.Name).
+	query, err := ksql.Create(ksql.TABLE, s.Name).
 		SchemaFromRemoteStruct(s.Name, *s.remoteSchema).
 		With(meta).
 		Expression()
 
-	if !ok {
-		return value, errors.New("cannot build query for table creation")
+	if err != nil {
+		return value, fmt.Errorf("build select query: %w", err)
 	}
 
 	pipeline, err := network.Net.Perform(
@@ -464,12 +464,12 @@ func (s *Table[S]) SelectWithEmit(
 		valuesC = make(chan S)
 	)
 
-	query, ok := ksql.SelectAsStruct("QUERYABLE_"+s.Name, *s.remoteSchema).
+	query, err := ksql.SelectAsStruct("QUERYABLE_"+s.Name, *s.remoteSchema).
 		From(s.Name, 0).
 		WithMeta(ksql.Metadata{ValueFormat: kinds.JSON.String()}).
 		Expression()
-	if !ok {
-		return nil, errors.New("cannot build query for table creation")
+	if err != nil {
+		return nil, fmt.Errorf("build select query: %w", err)
 	}
 
 	query = "SELECT VERSION, UPDATED_AT FROM QUERYABLE_seeker_table;"

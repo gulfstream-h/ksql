@@ -1,29 +1,32 @@
 package ksql
 
-import "testing"
+import (
+	"github.com/stretchr/testify/assert"
+	"testing"
+)
 
 func Test_OrderByExpression(t *testing.T) {
 	testcases := []struct {
 		name        string
 		expressions []OrderedExpression
 		wantExpr    string
-		expectOK    bool
+		expectErr   bool
 	}{
 		{
 			name: "Single ascending order",
 			expressions: []OrderedExpression{
 				F("column1").Asc(),
 			},
-			wantExpr: "ORDER BY column1 ASC",
-			expectOK: true,
+			wantExpr:  "ORDER BY column1 ASC",
+			expectErr: false,
 		},
 		{
 			name: "Single descending order",
 			expressions: []OrderedExpression{
 				newOrderedExpression(F("column1"), Descending),
 			},
-			wantExpr: "ORDER BY column1 DESC",
-			expectOK: true,
+			wantExpr:  "ORDER BY column1 DESC",
+			expectErr: false,
 		},
 		{
 			name: "Multiple orders",
@@ -31,23 +34,20 @@ func Test_OrderByExpression(t *testing.T) {
 				newOrderedExpression(F("column1"), Ascending),
 				newOrderedExpression(F("column2"), Descending),
 			},
-			wantExpr: "ORDER BY column1 ASC, column2 DESC",
-			expectOK: true,
+			wantExpr:  "ORDER BY column1 ASC, column2 DESC",
+			expectErr: false,
 		},
 	}
 
 	for _, tt := range testcases {
 		t.Run(tt.name, func(t *testing.T) {
 			orderBy := &orderby{expressions: tt.expressions}
-			expr, ok := orderBy.Expression()
+			expr, err := orderBy.Expression()
 
-			if ok != tt.expectOK {
-				t.Errorf("expected ok=%v, got %v", tt.expectOK, ok)
-				return
-			}
+			assert.Equal(t, tt.expectErr, err != nil)
 
-			if expr != tt.wantExpr {
-				t.Errorf("expected expression %q, got %q", tt.wantExpr, expr)
+			if !tt.expectErr {
+				assert.Equal(t, tt.wantExpr, expr)
 			}
 		})
 	}

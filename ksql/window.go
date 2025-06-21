@@ -1,10 +1,13 @@
 package ksql
 
-import "strconv"
+import (
+	"errors"
+	"strconv"
+)
 
 type (
 	WindowExpression interface {
-		Expression() (string, bool)
+		Expression() (string, error)
 		Type() WindowType
 	}
 
@@ -91,48 +94,52 @@ func (w *window) serializeTimeUnit(unit WindowDurationUnit) string {
 	}
 }
 
-func (sw *tumblingWindow) Expression() (string, bool) {
+func (sw *tumblingWindow) Expression() (string, error) {
 	if sw.unit.Val <= 0 {
-		return "", false
+		return "", errors.New("tumbling window size must be greater than 0")
 	}
 
 	timeUnitStr := sw.serializeTimeUnit(sw.unit.Unit)
 	if len(timeUnitStr) == 0 {
-		return "", false
+		return "", errors.New("invalid time unit for tumbling window")
 	}
 
-	return "WINDOW TUMBLING (SIZE " + strconv.FormatInt(sw.unit.Val, 10) + " " + timeUnitStr + ")", true
+	return "WINDOW TUMBLING (SIZE " + strconv.FormatInt(sw.unit.Val, 10) + " " + timeUnitStr + ")", nil
 
 }
 
-func (hw *hoppingWindow) Expression() (string, bool) {
-	if hw.size.Val <= 0 || hw.advance.Val <= 0 {
-		return "", false
+func (hw *hoppingWindow) Expression() (string, error) {
+	if hw.size.Val <= 0 {
+		return "", errors.New("hopping window size must be greater than 0")
+	}
+
+	if hw.advance.Val <= 0 {
+		return "", errors.New("hopping window advance must be greater than 0")
 	}
 
 	sizeTimeUnit := hw.serializeTimeUnit(hw.size.Unit)
 	if len(sizeTimeUnit) == 0 {
-		return "", false
+		return "", errors.New("invalid time unit for hopping window size")
 	}
 
 	advanceTimeUnit := hw.serializeTimeUnit(hw.advance.Unit)
 	if len(advanceTimeUnit) == 0 {
-		return "", false
+		return "", errors.New("invalid time unit for hopping window advance")
 	}
 
 	return "WINDOW HOPPING (SIZE " + strconv.FormatInt(hw.size.Val, 10) + " " + sizeTimeUnit +
-		", ADVANCE BY " + strconv.FormatInt(hw.advance.Val, 10) + " " + advanceTimeUnit + ")", true
+		", ADVANCE BY " + strconv.FormatInt(hw.advance.Val, 10) + " " + advanceTimeUnit + ")", nil
 }
 
-func (sw *sessionWindow) Expression() (string, bool) {
+func (sw *sessionWindow) Expression() (string, error) {
 	if sw.gap.Val <= 0 {
-		return "", false
+		return "", errors.New("session window gap must be greater than 0")
 	}
 
 	timeUnitStr := sw.serializeTimeUnit(sw.gap.Unit)
 	if len(timeUnitStr) == 0 {
-		return "", false
+		return "", errors.New("invalid time unit for session window gap")
 	}
 
-	return "WINDOW SESSION (" + strconv.FormatInt(sw.gap.Val, 10) + " " + timeUnitStr + ")", true
+	return "WINDOW SESSION (" + strconv.FormatInt(sw.gap.Val, 10) + " " + timeUnitStr + ")", nil
 }

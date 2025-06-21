@@ -7,39 +7,39 @@ import (
 
 func Test_ExpressionList(t *testing.T) {
 	tests := []struct {
-		name     string
-		exprs    []Expression
-		typ      BooleanOperationType
-		wantExpr string
-		expectOK bool
+		name      string
+		exprs     []Expression
+		typ       BooleanOperationType
+		wantExpr  string
+		expectErr bool
 	}{
 		{
-			name:     "Single Expression",
-			exprs:    []Expression{F("col1")},
-			typ:      AndType,
-			wantExpr: "( col1 )",
-			expectOK: true,
+			name:      "Single Expression",
+			exprs:     []Expression{F("col1")},
+			typ:       AndType,
+			wantExpr:  "( col1 )",
+			expectErr: false,
 		},
 		{
-			name:     "Multiple Expressions with AND",
-			exprs:    []Expression{F("col1"), F("col2")},
-			typ:      AndType,
-			wantExpr: "( col1 AND col2 )",
-			expectOK: true,
+			name:      "Multiple Expressions with AND",
+			exprs:     []Expression{F("col1"), F("col2")},
+			typ:       AndType,
+			wantExpr:  "( col1 AND col2 )",
+			expectErr: false,
 		},
 		{
-			name:     "Multiple Expressions with OR",
-			exprs:    []Expression{F("col1"), F("col2")},
-			typ:      OrType,
-			wantExpr: "( col1 OR col2 )",
-			expectOK: true,
+			name:      "Multiple Expressions with OR",
+			exprs:     []Expression{F("col1"), F("col2")},
+			typ:       OrType,
+			wantExpr:  "( col1 OR col2 )",
+			expectErr: false,
 		},
 		{
-			name:     "Empty Expression List",
-			exprs:    []Expression{},
-			typ:      AndType,
-			wantExpr: "",
-			expectOK: false,
+			name:      "Empty Expression List",
+			exprs:     []Expression{},
+			typ:       AndType,
+			wantExpr:  "",
+			expectErr: true,
 		},
 	}
 
@@ -52,9 +52,9 @@ func Test_ExpressionList(t *testing.T) {
 				exprList = Or(tt.exprs...)
 			}
 
-			expr, ok := exprList.Expression()
-			assert.Equal(t, tt.expectOK, ok)
-			if ok {
+			expr, err := exprList.Expression()
+			assert.Equal(t, tt.expectErr, err != nil)
+			if !tt.expectErr {
 				assert.Equal(t, tt.wantExpr, expr)
 			}
 		})

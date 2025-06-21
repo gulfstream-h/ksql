@@ -1,8 +1,10 @@
 package ksql
 
+import "errors"
+
 type (
 	ListBuilder interface {
-		Expression() (string, bool)
+		Expression() (string, error)
 		Type() Reference
 	}
 
@@ -17,7 +19,7 @@ func List(typ Reference) ListBuilder {
 	}
 }
 
-func (l *list) Expression() (string, bool) {
+func (l *list) Expression() (string, error) {
 	var operation string
 
 	switch l.typ {
@@ -28,10 +30,10 @@ func (l *list) Expression() (string, bool) {
 	case TOPIC:
 		operation = "LIST TOPICS;"
 	default:
-		return "", false
+		return "", errors.New("invalid list type, must be STREAM, TABLE, or TOPIC")
 	}
 
-	return operation, true
+	return operation, nil
 }
 
 func (l *list) Type() Reference {

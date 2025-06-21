@@ -1,6 +1,8 @@
 package ksql
 
 import (
+	"errors"
+	"fmt"
 	"ksql/schema"
 	"reflect"
 	"strings"
@@ -8,7 +10,7 @@ import (
 
 type (
 	CreateBuilder interface {
-		Expression() (string, bool)
+		Expression() (string, error)
 		AsSelect(builder SelectBuilder) CreateBuilder
 		SchemaFields(fields ...schema.SearchField) CreateBuilder
 		SchemaFromStruct(schemaName string, schemaStruct any) CreateBuilder
@@ -29,32 +31,44 @@ type (
 		meta      Metadata
 	}
 
-	createBuilderRule = func(builder *createBuilder) bool
+	createBuilderRule struct {
+		ruleFn      func(builder *createBuilder) bool
+		description string
+	}
 )
 
 var (
 	// 1. Cannot create a stream from a table.
-	tableFromNotAggregatedStream = func(builder *createBuilder) bool {
-		if builder.asSelect == nil {
-			return true
-		}
-		return !(builder.reference == TABLE && builder.asSelect.Ref() == STREAM && !builder.asSelect.aggregated())
+	tableFromNotAggregatedStream = createBuilderRule{
+		ruleFn: func(builder *createBuilder) bool {
+			if builder.asSelect == nil {
+				return true
+			}
+			return !(builder.reference == TABLE && builder.asSelect.Ref() == STREAM && !builder.asSelect.aggregated())
+		},
+		description: "Cannot create a table from a non-aggregated stream",
 	}
 
 	// 2. Cannot create a stream from a table.
-	streamFromTable = func(builder *createBuilder) bool {
-		if builder.asSelect == nil {
-			return true
-		}
-		return !(builder.reference == STREAM && builder.asSelect.Ref() == TABLE)
+	streamFromTable = createBuilderRule{
+		ruleFn: func(builder *createBuilder) bool {
+			if builder.asSelect == nil {
+				return true
+			}
+			return !(builder.reference == STREAM && builder.asSelect.Ref() == TABLE)
+		},
+		description: "Cannot create a stream from a table",
 	}
 
 	// 3. Cannot create a table with a windowed select statement.
-	tableFromWindowedStream = func(builder *createBuilder) bool {
-		if builder.asSelect == nil {
-			return true
-		}
-		return !(builder.reference == TABLE && builder.asSelect.windowed())
+	tableFromWindowedStream = createBuilderRule{
+		ruleFn: func(builder *createBuilder) bool {
+			if builder.asSelect == nil {
+				return true
+			}
+			return !(builder.reference == TABLE && builder.asSelect.windowed())
+		},
+		description: "Cannot create a table from a windowed stream",
 	}
 
 	createRuleSet = []createBuilderRule{
@@ -116,18 +130,18 @@ func (c *createBuilder) SchemaFromRemoteStruct(
 	return c
 }
 
-func (c *createBuilder) Expression() (string, bool) {
+func (c *createBuilder) Expression() (string, error) {
 	builder := new(strings.Builder)
 
 	// If there are no fields and no AS SELECT, we cannot build a valid CREATE statement.
 	if len(c.fields) == 0 && c.asSelect == nil {
-		return "", false
+		return "", fmt.Errorf("invalid create statement: no fields or AS SELECT provided")
 	}
 
 	// Queries can only be built using AS SELECT or Field Enumeration.
 	// They cannot be combined.
 	if len(c.fields) > 0 && c.asSelect != nil {
-		return "", false
+		return "", fmt.Errorf("invalid create statement: cannot use both fields and AS SELECT")
 	}
 
 	switch c.reference {
@@ -136,16 +150,16 @@ func (c *createBuilder) Expression() (string, bool) {
 	case TABLE:
 		builder.WriteString("CREATE TABLE ")
 	default:
-		return "", false
+		return "", errors.New("invalid create statement: unsupported reference type")
 	}
 
 	if len(c.Schema()) == 0 {
-		return "", false
+		return "", fmt.Errorf("invalid create statement: schema name cannot be empty")
 	}
 
 	for idx := range createRuleSet {
-		if !createRuleSet[idx](c) {
-			return "", false
+		if !createRuleSet[idx].ruleFn(c) {
+			return "", fmt.Errorf("invalid create statement: %s", createRuleSet[idx].description)
 		}
 	}
 
@@ -183,16 +197,16 @@ func (c *createBuilder) Expression() (string, bool) {
 	}
 
 	if c.asSelect != nil {
-		expr, ok := c.asSelect.Expression()
-		if !ok {
-			return "", false
+		expr, err := c.asSelect.Expression()
+		if err != nil {
+			return "", fmt.Errorf("AS SELECT expression: %w", err)
 		}
 		builder.WriteString(" AS ")
 		builder.WriteString(expr)
-		return builder.String(), true
+		return builder.String(), nil
 	}
 
 	builder.WriteString(";")
 
-	return builder.String(), true
+	return builder.String(), nil
 }

@@ -1,6 +1,10 @@
 package ksql
 
-import "strconv"
+import (
+	"errors"
+	"fmt"
+	"strconv"
+)
 
 const (
 	COUNT              = `COUNT`
@@ -21,7 +25,7 @@ const (
 )
 
 type AggregateFunction interface {
-	Expression() (string, bool)
+	Expression() (string, error)
 	Field
 	Name() string
 }
@@ -31,21 +35,21 @@ type aggregateFunction struct {
 	Field
 }
 
-func (a *aggregateFunction) Expression() (string, bool) {
+func (a *aggregateFunction) Expression() (string, error) {
 	if a.Field == nil {
-		return "", false
+		return "", fmt.Errorf("aggregate function %s requires a field", a.name)
 	}
 
-	expr, ok := a.Field.Expression()
-	if !ok {
-		return "", false
+	expr, err := a.Field.Expression()
+	if err != nil {
+		return "", fmt.Errorf("field expression: %w", err)
 	}
 
 	if len(a.name) == 0 {
-		return expr, true
+		return expr, errors.New("aggregate function name cannot be empty")
 	}
 
-	return a.name + "(" + expr + ")", true
+	return a.name + "(" + expr + ")", nil
 }
 
 func (a *aggregateFunction) Name() string {
@@ -119,21 +123,21 @@ type topKFunction struct {
 	k int
 }
 
-func (t *topKFunction) Expression() (string, bool) {
+func (t *topKFunction) Expression() (string, error) {
 	if t.aggregateFunction.Field == nil {
-		return "", false
+		return "", fmt.Errorf("topK function requires a field")
 	}
 
-	expr, ok := t.aggregateFunction.Field.Expression()
-	if !ok {
-		return "", false
+	expr, err := t.aggregateFunction.Field.Expression()
+	if err != nil {
+		return "", fmt.Errorf("field expression: %w", err)
 	}
 
 	if t.k <= 0 {
-		return "", false
+		return "", fmt.Errorf("topK function requires k to be greater than 0")
 	}
 
-	return t.name + "(" + expr + ", " + strconv.Itoa(t.k) + ")", true
+	return t.name + "(" + expr + ", " + strconv.Itoa(t.k) + ")", nil
 }
 
 func TopK(f Field, k int) Field {
@@ -151,20 +155,20 @@ type topKDistinct struct {
 	k int
 }
 
-func (t *topKDistinct) Expression() (string, bool) {
+func (t *topKDistinct) Expression() (string, error) {
 	if t.aggregateFunction.Field == nil {
-		return "", false
+		return "", fmt.Errorf("topKDistinct function requires a field")
 	}
-	expr, ok := t.aggregateFunction.Field.Expression()
-	if !ok {
-		return "", false
+	expr, err := t.aggregateFunction.Field.Expression()
+	if err != nil {
+		return "", fmt.Errorf("field expression: %w", err)
 	}
 
 	if t.k <= 0 {
-		return "", false
+		return "", fmt.Errorf("topKDistinct function requires k to be greater than 0")
 	}
 
-	return t.name + "(" + expr + ", " + strconv.Itoa(t.k) + ")", true
+	return t.name + "(" + expr + ", " + strconv.Itoa(t.k) + ")", nil
 }
 
 func TopKDistinct(f Field, k int) Field {
@@ -182,21 +186,21 @@ type histogramFunction struct {
 	buckets int
 }
 
-func (h *histogramFunction) Expression() (string, bool) {
+func (h *histogramFunction) Expression() (string, error) {
 	if h.aggregateFunction.Field == nil {
-		return "", false
+		return "", fmt.Errorf("histogram function requires a field")
 	}
 
-	expr, ok := h.aggregateFunction.Field.Expression()
-	if !ok {
-		return "", false
+	expr, err := h.aggregateFunction.Field.Expression()
+	if err != nil {
+		return "", fmt.Errorf("field expression: %w", err)
 	}
 
 	if h.buckets <= 0 {
-		return "", false
+		return "", fmt.Errorf("histogram function requires buckets to be greater than 0")
 	}
 
-	return h.name + "(" + expr + ", " + strconv.Itoa(h.buckets) + ")", true
+	return h.name + "(" + expr + ", " + strconv.Itoa(h.buckets) + ")", nil
 }
 
 func Histogram(f Field, buckets int) Field {

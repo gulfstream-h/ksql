@@ -8,7 +8,7 @@ func MustTrue[T any](fn func() (T, bool)) T {
 	return value
 }
 
-func MustError[T any](fn func() (T, error)) T {
+func MustNoError[T any](fn func() (T, error)) T {
 	value, err := fn()
 	if err != nil {
 		panic(err)

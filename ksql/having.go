@@ -1,9 +1,13 @@
 package ksql
 
-import "strings"
+import (
+	"errors"
+	"fmt"
+	"strings"
+)
 
 type HavingExpression interface {
-	Expression() (string, bool)
+	Expression() (string, error)
 	Conditionals() []Expression
 	IsEmpty() bool
 	Having(exps ...Expression) HavingExpression
@@ -32,9 +36,9 @@ func (h *having) Conditionals() []Expression {
 	return conditionals
 }
 
-func (h *having) Expression() (string, bool) {
+func (h *having) Expression() (string, error) {
 	if len(h.conditionals) == 0 {
-		return "", false
+		return "", errors.New("cannot create HAVING expression with no conditionals")
 	}
 
 	var (
@@ -46,9 +50,9 @@ func (h *having) Expression() (string, bool) {
 
 	for i := range h.conditionals {
 
-		ex, ok := h.conditionals[i].Expression()
-		if !ok {
-			return "", false
+		ex, err := h.conditionals[i].Expression()
+		if err != nil {
+			return "", fmt.Errorf("conditional expression: %w", err)
 		}
 
 		if !isFirst {
@@ -59,5 +63,5 @@ func (h *having) Expression() (string, bool) {
 		isFirst = false
 	}
 
-	return builder.String(), true
+	return builder.String(), nil
 }
