@@ -14,6 +14,7 @@ import (
 	"ksql/shared"
 	"ksql/static"
 	"log/slog"
+	"strings"
 
 	"ksql/util"
 	"net/http"
@@ -171,7 +172,7 @@ func GetStream[S any](
 		s S
 	)
 
-	scheme := schema.SerializeProvidedStruct(&s)
+	scheme := schema.SerializeProvidedStruct(s)
 
 	streamInstance := &Stream[S]{
 		Name:         stream,
@@ -184,6 +185,8 @@ func GetStream[S any](
 		}
 		return nil, fmt.Errorf("cannot get stream description: %w", err)
 	}
+
+	fmt.Println(desc.Fields)
 
 	var (
 		responseSchema = make(map[string]string)
@@ -389,7 +392,8 @@ func (s *Stream[S]) Insert(
 			continue
 		}
 
-		*field.Value = util.Serialize(value)
+		val := util.Serialize(value)
+		field.Value = &val
 
 		searchFields = append(searchFields, field)
 	}
@@ -421,7 +425,7 @@ func (s *Stream[S]) Insert(
 			insert []dao.CreateRelationResponse
 		)
 
-		if err := jsoniter.Unmarshal(val, &insert); err != nil {
+		if err = jsoniter.Unmarshal(val, &insert); err != nil {
 			return fmt.Errorf("cannot unmarshal insert response: %w", err)
 		}
 
@@ -479,7 +483,7 @@ func (s *Stream[S]) InsertAs(
 			insert dao.CreateRelationResponse
 		)
 
-		if err := jsoniter.Unmarshal(val, &insert); err != nil {
+		if err = jsoniter.Unmarshal(val, &insert); err != nil {
 			return fmt.Errorf("cannot unmarshal insert response: %w", err)
 		}
 
@@ -516,19 +520,80 @@ func (s *Stream[S]) SelectOnce(
 		return value, fmt.Errorf("cannot perform request: %w", err)
 	}
 
-	select {
-	case <-ctx.Done():
-		return value, ctx.Err()
-	case val, ok := <-pipeline:
-		if !ok {
-			return value, static.ErrMalformedResponse
-		}
+	var (
+		iter    = 0
+		headers dao.Header
+	)
 
-		if err := jsoniter.Unmarshal(val, &value); err != nil {
-			return value, fmt.Errorf("cannot unmarshal select response: %w", err)
-		}
+	for {
+		select {
+		case <-ctx.Done():
+			return value, ctx.Err()
+		case val, ok := <-pipeline:
+			if !ok {
+				return value, static.ErrMalformedResponse
+			}
 
-		return value, nil
+			fmt.Println("Received value:", string(val))
+
+			if strings.Contains(string(val), "Query Completed") {
+				return value, nil
+			}
+
+			if iter == 0 {
+				str := val[1 : len(val)-1]
+
+				if err = jsoniter.Unmarshal(str, &headers); err != nil {
+					return value, fmt.Errorf("cannot unmarshal headers: %w", err)
+				}
+
+				fmt.Println("Headers:", headers)
+
+				iter++
+				continue
+			}
+
+			var (
+				row dao.Row
+			)
+
+			if err = jsoniter.Unmarshal(val[:len(val)-1], &row); err != nil {
+				return value, fmt.Errorf("cannot unmarshal row: %w", err)
+			}
+
+			mappa, err := schema.ParseHeadersAndValues(headers.Header.Schema, row.Row.Columns)
+			if err != nil {
+				return value, fmt.Errorf("cannot parse headers and values: %w", err)
+			}
+
+			fmt.Println(mappa)
+
+			t := reflect.ValueOf(&value)
+			if t.Kind() != reflect.Ptr || t.Elem().Kind() != reflect.Struct {
+				panic("value must be a pointer to a struct")
+			}
+			t = t.Elem()
+			tt := t.Type()
+
+			for k, v := range mappa {
+				for i := 0; i < t.NumField(); i++ {
+					fmt.Println(k, ":", v)
+					fmt.Println(t.Kind().String(), tt.Kind().String())
+					structField := tt.Field(i)
+					fieldVal := t.Field(i)
+
+					if strings.EqualFold(structField.Tag.Get("ksql"), k) {
+						if fieldVal.CanSet() && v != nil {
+							val, ok := schema.NormalizeValue(v, fieldVal.Type())
+							if ok {
+								fieldVal.Set(val)
+							}
+						}
+						break
+					}
+				}
+			}
+		}
 	}
 }
 
@@ -552,8 +617,6 @@ func (s *Stream[S]) SelectWithEmit(
 	if err != nil {
 		return nil, fmt.Errorf("build select query: %w", err)
 	}
-
-	query = "SELECT AMOUNT, CLIENT_HASH FROM NEW_STREAM;"
 
 	pipeline, err := network.Net.PerformSelect(
 		ctx,

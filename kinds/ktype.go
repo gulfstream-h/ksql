@@ -104,7 +104,9 @@ func ToKsql(typ reflect.Type) (Ktype, error) {
 		case BigInt:
 			return ArrBigInt, nil
 		case Bytes:
-			return ArrBytes, nil
+			return Bytes, nil
+		case ArrBytes:
+			return Bytes, nil
 		default:
 			slog.Debug("unsupported slice type", "type", elemTyp)
 		}
