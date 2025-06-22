@@ -2,7 +2,6 @@ package schema
 
 import (
 	"fmt"
-	"github.com/fatih/structs"
 	"ksql/kinds"
 	"ksql/static"
 	"ksql/util"
@@ -54,7 +53,7 @@ func ParseStructToFieldsDictionary(
 	for i := 0; i < runtimeStruct.NumField(); i++ {
 		field := runtimeStruct.Field(i)
 
-		ksqlKind, err := kinds.ToKsql(field.Type.Kind())
+		ksqlKind, err := kinds.ToKsql(field.Type)
 		if err != nil {
 			continue
 		}
@@ -100,7 +99,7 @@ func ParseStructToFields(name string, runtimeStruct any) []SearchField {
 		fieldType := structType.Field(i)
 		fieldVal := val.Field(i)
 
-		ksqlKind, err := kinds.ToKsql(fieldType.Type.Kind())
+		ksqlKind, err := kinds.ToKsql(fieldType.Type)
 		if err != nil {
 			continue
 		}
@@ -141,7 +140,7 @@ func ParseReflectStructToFields(
 	for i := 0; i < runtimeStruct.NumField(); i++ {
 		field := runtimeStruct.Field(i)
 
-		ksqlKind, err := kinds.ToKsql(field.Type.Kind())
+		ksqlKind, err := kinds.ToKsql(field.Type)
 		if err != nil {
 			continue
 		}
@@ -172,30 +171,31 @@ func SerializeProvidedStruct(
 		values = make(map[string]Ident)
 	)
 
-	fields := structs.Fields(schema)
+	typ := reflect.TypeOf(schema)
 
-	for _, field := range fields {
+	for i := 0; i < typ.NumField(); i++ {
+		field := typ.Field(i)
 		ident := Ident{}
-		tag := strings.Split(field.Tag(static.KSQL), ",")
 
-		if len(tag) == 0 {
-			continue
-		}
-
-		if len(tag) == 2 {
-			ident.RelationLabel = tag[1]
-		}
-
-		kind := field.Kind()
-
-		ksqlKind, err := kinds.ToKsql(kind)
+		ksqlKind, err := kinds.ToKsql(field.Type)
 		if err != nil {
 			continue
 		}
 
+		tags := strings.Split(field.Tag.Get(static.KSQL), ",")
+
+		if len(tags) == 0 {
+			continue
+		}
+
+		if len(tags) == 2 {
+			ident.RelationLabel = tags[1]
+		}
+
 		ident.KType = ksqlKind
 
-		values[strings.ToUpper(tag[0])] = ident
+		values[strings.ToUpper(tags[0])] = ident
+
 	}
 
 	return createProjection(values)
@@ -216,12 +216,43 @@ func SerializeRemoteSchema(
 		switch v {
 		case "INT", "INTEGER":
 			schemaFields[k] = Ident{KType: kinds.Int}
-		case "FLOAT":
-			schemaFields[k] = Ident{KType: kinds.Float}
+		case "DOUBLE":
+			schemaFields[k] = Ident{KType: kinds.Double}
 		case "VARCHAR", "STRING":
 			schemaFields[k] = Ident{KType: kinds.String}
 		case "BOOL":
 			schemaFields[k] = Ident{KType: kinds.Bool}
+		case "BYTES":
+			schemaFields[k] = Ident{KType: kinds.Bytes}
+		case "BIGINT":
+			schemaFields[k] = Ident{KType: kinds.BigInt}
+		case "ARRAY<INT>":
+			schemaFields[k] = Ident{KType: kinds.ArrInt}
+		case "ARRAY<DOUBLE>":
+			schemaFields[k] = Ident{KType: kinds.ArrDouble}
+		case "ARRAY<VARCHAR>", "ARRAY<STRING>":
+			schemaFields[k] = Ident{KType: kinds.ArrString}
+		case "ARRAY<BOOL>":
+			schemaFields[k] = Ident{KType: kinds.ArrBool}
+		case "ARRAY<BYTES>":
+			schemaFields[k] = Ident{KType: kinds.ArrBytes}
+		case "ARRAY<BIGINT>":
+			schemaFields[k] = Ident{KType: kinds.ArrBigInt}
+		case "MAP<VARCHAR, INT>":
+			schemaFields[k] = Ident{KType: kinds.MapInt}
+		case "MAP<VARCHAR, DOUBLE>":
+			schemaFields[k] = Ident{KType: kinds.MapDouble}
+		case "MAP<VARCHAR, VARCHAR>", "MAP<VARCHAR, STRING>":
+			schemaFields[k] = Ident{KType: kinds.MapString}
+		case "MAP<VARCHAR, BOOL>":
+			schemaFields[k] = Ident{KType: kinds.MapBool}
+		case "MAP<VARCHAR, BYTES>":
+			schemaFields[k] = Ident{KType: kinds.MapBytes}
+		case "MAP<VARCHAR, BIGINT>":
+			schemaFields[k] = Ident{KType: kinds.MapBigInt}
+		default:
+			slog.Warn("Unsupported type in schema", "field", k, "type", v)
+			return nil
 		}
 	}
 

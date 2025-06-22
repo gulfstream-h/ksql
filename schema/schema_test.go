@@ -55,7 +55,7 @@ func TestParseStructToFieldsDictionary(t *testing.T) {
 func TestParseStructToFields(t *testing.T) {
 	fields := []SearchField{
 		{Name: "ID", Kind: kinds.Int},
-		{Name: "Score", Kind: kinds.Float},
+		{Name: "Score", Kind: kinds.Double},
 	}
 
 	typ := SerializeFieldsToStruct(fields)
