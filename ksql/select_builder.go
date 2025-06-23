@@ -5,9 +5,11 @@ import (
 	"fmt"
 	"ksql/schema"
 	"ksql/static"
+	"log/slog"
 	"maps"
 	"reflect"
 	"strings"
+	"sync"
 )
 
 type (
@@ -15,6 +17,7 @@ type (
 		Joiner
 		aggregated() bool
 		windowed() bool
+		RelationStorage() map[string]schema.Relation
 
 		SchemaFields() []schema.SearchField
 		As(alias string) SelectBuilder
@@ -25,9 +28,9 @@ type (
 		Select(fields ...Field) SelectBuilder
 		SelectStruct(name string, val any) SelectBuilder
 		From(schema string, reference Reference) SelectBuilder
-		Where(expressions ...Expression) SelectBuilder
+		Where(expressions ...Conditional) SelectBuilder
 		Windowed(window WindowExpression) SelectBuilder
-		Having(expressions ...Expression) SelectBuilder
+		Having(expressions ...Conditional) SelectBuilder
 		GroupBy(fields ...Field) SelectBuilder
 		OrderBy(expressions ...OrderedExpression) SelectBuilder
 		EmitChanges() SelectBuilder
@@ -38,19 +41,19 @@ type (
 	Joiner interface {
 		LeftJoin(
 			schema string,
-			on Expression,
+			on Conditional,
 		) SelectBuilder
 		Join(
 			schema string,
-			on Expression,
+			on Conditional,
 		) SelectBuilder
 		RightJoin(
 			schema string,
-			on Expression,
+			on Conditional,
 		) SelectBuilder
 		OuterJoin(
 			schema string,
-			on Expression,
+			on Conditional,
 		) SelectBuilder
 	}
 
@@ -65,7 +68,17 @@ type (
 		emitChanges bool
 		emitFinal   bool
 
+		// relationStorage contains all relations that were added to the select builder
+		// it is used to validate reflection when static.ReflectionFlag is enabled
 		relationStorage map[string]schema.Relation
+
+		// aliasMapper contains pairs of alias and schema name
+		// used to resolve schema names in the select builder
+		// it used for returning relation with real schema names
+		aliasMapper map[string]string
+		// aliasRefresher update defaultSchemaName to the real schema name
+		// received from From() method immediately when RelationStorage() call
+		aliasRefresher sync.Once
 
 		alias     string
 		meta      Metadata
@@ -90,10 +103,22 @@ type (
 	}
 )
 
-// BUILDER RULES
-// These rules are used to validate the select builder before generating the SQL expression.
-// They ensure that the generated SQL is valid according to KSQL syntax and semantics.
+const (
+	// defaultSchemaName is used for fields that were added
+	// before the From() method call without any schema or schema alias provided
+	// once RelationStorage() is called, the schema name will be replaced with the actual schema name
+	defaultSchemaName = "from.ksql"
+
+	// aliasedSchemaName is used for fields that represent aliased fields
+	// it is used to prevent conflicts with other schemas
+	aliasedSchemaName = "aliased.ksql"
+)
+
 var (
+	// BUILDER RULES
+	// These rules are used to validate the select builder before generating the SQL expression.
+	// They ensure that the generated SQL is valid according to KSQL syntax and semantics.
+
 	// 1. GROUP BY requires WINDOW clause on streams
 	groupByWindowed = selectBuilderRule{
 		ruleFn: func(builder *selectBuilder) (valid bool) {
@@ -181,14 +206,16 @@ func newSelectBuilder() SelectBuilder {
 	}
 
 	return &selectBuilder{
-		ctx:       ctx,
-		fields:    nil,
-		joinExs:   nil,
-		fromEx:    NewFromExpression(),
-		whereEx:   NewWhereExpression(),
-		havingEx:  NewHavingExpression(),
-		groupByEx: NewGroupByExpression(),
-		orderByEx: NewOrderByExpression(),
+		ctx:             ctx,
+		fields:          nil,
+		joinExs:         nil,
+		fromEx:          NewFromExpression(),
+		whereEx:         NewWhereExpression(),
+		havingEx:        NewHavingExpression(),
+		groupByEx:       NewGroupByExpression(),
+		orderByEx:       NewOrderByExpression(),
+		relationStorage: make(map[string]schema.Relation),
+		aliasMapper:     make(map[string]string),
 	}
 }
 
@@ -237,14 +264,18 @@ func (s *selectBuilder) SchemaFields() []schema.SearchField {
 	return s.ctx.Fields()
 }
 
+// todo:
+//  maybe parse struct relation name from provided struct ?
+
 func (s *selectBuilder) SelectStruct(name string, val any) SelectBuilder {
 	structFields, err := schema.ParseRelation(val)
 	if err != nil {
 		return s
 	}
 
-	// todo: reflection feature toggle
-	s.addRelation(name, structFields)
+	if static.ReflectionFlag {
+		s.addRelation(name, structFields)
+	}
 
 	fields := make([]Field, 0, len(structFields))
 
@@ -272,22 +303,33 @@ func (s *selectBuilder) Alias() string {
 func (s *selectBuilder) Select(fields ...Field) SelectBuilder {
 	s.fields = append(s.fields, fields...)
 
-	// todo: reflection feature toggle
-	for idx := range fields {
-		schemaName := fields[idx].Alias()
-		if len(schemaName) == 0 {
-			schemaName = fields[idx].Schema()
-			if schemaName == "" {
-				schemaName = "from"
+	if static.ReflectionFlag {
+		for idx := range fields {
+			alias := fields[idx].Alias()
+			schemaName := fields[idx].Schema()
+
+			// alias defaultSchemaName is used for fields that were added
+			// before the From() method call to
+			if len(schemaName) == 0 {
+				schemaName = defaultSchemaName
 			}
+
+			relationName := schemaName
+
+			// if alias is not empty, we should add it to the alias mapper
+			if len(alias) != 0 {
+				s.aliasMapper[alias] = schemaName
+				relationName = alias
+			}
+
+			f := schema.SearchField{
+				Name:     fields[idx].Column(),
+				Relation: relationName,
+			}
+
+			s.addSearchField(f)
 		}
 
-		f := schema.SearchField{
-			Name:     fields[idx].Column(),
-			Relation: schemaName,
-		}
-
-		s.addSearchField(schemaName, f)
 	}
 
 	return s
@@ -295,53 +337,109 @@ func (s *selectBuilder) Select(fields ...Field) SelectBuilder {
 
 func (s *selectBuilder) Join(
 	schema string,
-	on Expression,
+	on Conditional,
 ) SelectBuilder {
-	s.joinExs = append(s.joinExs, Join(schema, on, Inner))
-	return s
+	return s.join(schema, on, Inner)
 }
 
 func (s *selectBuilder) LeftJoin(
 	schema string,
-	on Expression,
+	on Conditional,
 ) SelectBuilder {
-	s.joinExs = append(s.joinExs, Join(schema, on, Left))
-	return s
+	return s.join(schema, on, Left)
 }
 
 func (s *selectBuilder) RightJoin(
 	schema string,
-	on Expression,
+	on Conditional,
 ) SelectBuilder {
-	s.joinExs = append(s.joinExs, Join(schema, on, Right))
-	return s
+	return s.join(schema, on, Right)
 }
 
 func (s *selectBuilder) OuterJoin(
 	schema string,
-	on Expression,
+	on Conditional,
 ) SelectBuilder {
-	s.joinExs = append(s.joinExs, Join(schema, on, Outer))
+	return s.join(schema, on, Outer)
+}
+
+// todo:
+//  make join conditional ?
+
+func (s *selectBuilder) join(
+	schemaName string,
+	on Conditional,
+	joinType JoinType,
+) SelectBuilder {
+
+	if static.ReflectionFlag {
+		fields := s.parseSearchFieldsFromCond(on)
+		for idx := range fields {
+			s.addSearchField(fields[idx])
+		}
+	}
+
+	// append join expression to the select builder
+	s.joinExs = append(s.joinExs, Join(schemaName, on, joinType))
 	return s
 }
 
 func (s *selectBuilder) From(schema string, reference Reference) SelectBuilder {
 	s.ref = reference
 	s.fromEx = s.fromEx.From(schema)
+
+	// fields that was added to the select builder
+	// before the From() method call has alias defaultSchemaName
+	// to prevent conflicts with other schemas
+	// we should add the defaultSchemaName schema to the alias mapper
+	s.aliasMapper[defaultSchemaName] = schema
 	return s
 }
 
-func (s *selectBuilder) Having(expressions ...Expression) SelectBuilder {
+func (s *selectBuilder) Having(expressions ...Conditional) SelectBuilder {
+	if static.ReflectionFlag {
+		// for every expression try parse Field
+		// and add them to the relation storage
+		for idx := range expressions {
+			fields := s.parseSearchFieldsFromCond(expressions[idx])
+			for idx := range fields {
+				s.addSearchField(fields[idx])
+			}
+		}
+	}
 	s.havingEx = s.havingEx.Having(expressions...)
 	return s
 }
 
 func (s *selectBuilder) GroupBy(fields ...Field) SelectBuilder {
+	if static.ReflectionFlag {
+		for idx := range fields {
+			// parse relation name from the field
+			relationName := s.parseRelationName(fields[idx])
+			if len(relationName) == 0 {
+				continue
+			}
+			s.addSearchField(schema.SearchField{
+				Name:     fields[idx].Column(),
+				Relation: relationName,
+			})
+		}
+	}
 	s.groupByEx = s.groupByEx.GroupBy(fields...)
 	return s
 }
 
-func (s *selectBuilder) Where(expressions ...Expression) SelectBuilder {
+func (s *selectBuilder) Where(expressions ...Conditional) SelectBuilder {
+	if static.ReflectionFlag {
+		// for every expression try parse Field
+		// and add them to the relation storage
+		for idx := range expressions {
+			fields := s.parseSearchFieldsFromCond(expressions[idx])
+			for idx := range fields {
+				s.addSearchField(fields[idx])
+			}
+		}
+	}
 	s.whereEx = s.whereEx.Where(expressions...)
 	return s
 }
@@ -361,31 +459,22 @@ func (s *selectBuilder) WithMeta(
 }
 
 func (s *selectBuilder) OrderBy(expressions ...OrderedExpression) SelectBuilder {
+	if static.ReflectionFlag {
+		for idx := range expressions {
+			field := expressions[idx].Field()
+			if field == nil {
+				continue
+			}
+
+			relationName := s.parseRelationName(field)
+			s.addSearchField(schema.SearchField{
+				Name:     field.Column(),
+				Relation: relationName,
+			})
+		}
+	}
 	s.orderByEx.OrderBy(expressions...)
 	return s
-}
-
-func (s *selectBuilder) withAggregatedFields() bool {
-	for idx := range s.fields {
-		_, ok := s.fields[idx].(*aggregatedField)
-		if ok {
-			return true
-		}
-	}
-	return false
-}
-
-func (s *selectBuilder) onlyAggregated() bool {
-	for idx := range s.fields {
-		if _, ok := s.fields[idx].(*aggregatedField); !ok {
-			return false
-		}
-	}
-	return len(s.fields) > 0
-}
-
-func (s *selectBuilder) withAggregatedOperators() bool {
-	return s.groupByEx != nil || s.havingEx != nil
 }
 
 func (s *selectBuilder) Expression() (string, error) {
@@ -394,14 +483,6 @@ func (s *selectBuilder) Expression() (string, error) {
 		cteIsFirst   = true
 		fieldIsFirst = true
 	)
-
-	// todo: reflection feature toggle
-	{
-		err := s.reflectionCheck()
-		if err != nil {
-			return "", fmt.Errorf("reflection check: %w", err)
-		}
-	}
 
 	// validate reference
 	switch s.ref {
@@ -551,6 +632,50 @@ func (s *selectBuilder) Expression() (string, error) {
 	return builder.String(), nil
 }
 
+func (s *selectBuilder) RelationStorage() map[string]schema.Relation {
+	if static.ReflectionFlag {
+		s.aliasRefresher.Do(func() {
+			// update defaultSchemaName to the real schema name
+			// received from From() method
+			if len(s.fromEx.Schema()) > 0 {
+				s.aliasMapper[defaultSchemaName] = s.fromEx.Schema()
+			}
+			// refresh relation storage with real schema names
+			for alias, schemaName := range s.aliasMapper {
+				if _, exists := s.relationStorage[alias]; exists {
+					s.relationStorage[schemaName] = s.relationStorage[alias]
+					delete(s.relationStorage, alias)
+				}
+			}
+		})
+		return s.relationStorage
+	}
+	return nil
+}
+
+func (s *selectBuilder) withAggregatedFields() bool {
+	for idx := range s.fields {
+		_, ok := s.fields[idx].(*aggregatedField)
+		if ok {
+			return true
+		}
+	}
+	return false
+}
+
+func (s *selectBuilder) onlyAggregated() bool {
+	for idx := range s.fields {
+		if _, ok := s.fields[idx].(*aggregatedField); !ok {
+			return false
+		}
+	}
+	return len(s.fields) > 0
+}
+
+func (s *selectBuilder) withAggregatedOperators() bool {
+	return s.groupByEx != nil || s.havingEx != nil
+}
+
 func (s *selectBuilder) reflectionCheck() error {
 	rootSchemaName := s.fromEx.Alias()
 	if len(rootSchemaName) == 0 {
@@ -564,15 +689,24 @@ func (s *selectBuilder) reflectionCheck() error {
 		rootSchema = make(schema.Relation)
 	}
 
-	unnamedSchema, ok := s.relationStorage["from"]
+	unnamedSchema, ok := s.relationStorage[defaultSchemaName]
 	if !ok {
 		unnamedSchema = make(schema.Relation)
 	}
 
 	maps.Copy(rootSchema, unnamedSchema)
 
+	remoteRelation, err := schema.GetRemoteSchemaRelation(rootSchemaName)
+	if err != nil {
+		return fmt.Errorf("cannot get remote schema relation: %w", err)
+	}
+
+	if !schema.CompareRelations(rootSchema, remoteRelation) {
+		return fmt.Errorf("relation is not compatible with remote schema: %s", rootSchemaName)
+	}
+
 	for relName, rel := range s.relationStorage {
-		if relName == s.fromEx.Schema() || relName == "from" {
+		if relName == s.fromEx.Schema() || relName == defaultSchemaName {
 			continue
 		}
 		remoteRelation, err := schema.GetRemoteSchemaRelation(relName)
@@ -604,11 +738,72 @@ func (s *selectBuilder) addRelation(
 }
 
 func (s *selectBuilder) addSearchField(
-	schemaName string,
 	field schema.SearchField,
 ) {
-	if s.relationStorage[schemaName] == nil {
-		s.relationStorage[schemaName] = make(schema.Relation)
+	if s.relationStorage[field.Relation] == nil {
+		s.relationStorage[field.Relation] = make(schema.Relation)
 	}
-	s.relationStorage[schemaName][field.Name] = field
+	s.relationStorage[field.Relation][field.Name] = field
+}
+
+func (s *selectBuilder) parseRelationName(f Field) string {
+	if len(f.Alias()) > 0 {
+		s.aliasMapper[f.Alias()] = f.Schema()
+		return f.Alias()
+	} else {
+		//if len(f.Schema()) == 0 {
+		// if schema is not set, we should use defaultSchemaName
+		// to prevent conflicts with other schemas
+		//s.aliasMapper[aliasedSchemaName] = defaultSchemaName
+		//return aliasedSchemaName
+		//}
+		return f.Schema()
+	}
+}
+
+func (s *selectBuilder) parseSearchFieldsFromCond(
+	cond Conditional,
+) []schema.SearchField {
+	result := make([]schema.SearchField, 0, 2)
+
+	// parse relation name from the left side of the join condition
+	for _, f := range cond.Left() {
+		slog.Info("left", slog.Any("left", f))
+		if f == nil {
+			slog.Info("skipped left from condition")
+			continue
+		}
+
+		relationName := s.parseRelationName(f)
+		slog.Info("added with relationName",
+			slog.String("relation", relationName),
+			slog.String("name", f.Column()),
+		)
+
+		result = append(result, schema.SearchField{
+			Name:     f.Column(),
+			Relation: relationName,
+		})
+	}
+
+	for _, right := range cond.Right() {
+		if right == nil {
+			continue
+		}
+
+		// if the right side of the join condition is a field,
+		// we should parse the relation name from it
+		if rightField, ok := right.(Field); ok {
+			relationName := s.parseRelationName(rightField)
+			if len(relationName) == 0 {
+				continue
+			}
+			result = append(result, schema.SearchField{
+				Name:     rightField.Column(),
+				Relation: relationName,
+			})
+		}
+	}
+
+	return result
 }

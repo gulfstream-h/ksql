@@ -69,47 +69,47 @@ func (f *field) Expression() (string, error) {
 	return f.col, nil
 }
 
-func (f *field) Equal(val any) Expression {
+func (f *field) Equal(val any) Conditional {
 	return NewBooleanExp(f.Copy(), val, equal)
 }
 
-func (f *field) NotEqual(val any) Expression {
+func (f *field) NotEqual(val any) Conditional {
 	return NewBooleanExp(f.Copy(), val, notEqual)
 }
 
-func (f *field) Greater(val any) Expression {
+func (f *field) Greater(val any) Conditional {
 	return NewBooleanExp(f.Copy(), val, more)
 
 }
 
-func (f *field) Less(val any) Expression {
+func (f *field) Less(val any) Conditional {
 	return NewBooleanExp(f.Copy(), val, less)
 
 }
 
-func (f *field) GreaterEq(val any) Expression {
+func (f *field) GreaterEq(val any) Conditional {
 	return NewBooleanExp(f.Copy(), val, moreEqual)
 
 }
 
-func (f *field) LessEq(val any) Expression {
+func (f *field) LessEq(val any) Conditional {
 	return NewBooleanExp(f.Copy(), val, lessEqual)
 
 }
 
-func (f *field) IsNotNull() Expression {
+func (f *field) IsNotNull() Conditional {
 	return NewBooleanExp(f.Copy(), nil, isNotNull)
 }
 
-func (f *field) In(val ...any) Expression {
+func (f *field) In(val ...any) Conditional {
 	return NewBooleanExp(f.Copy(), val, in)
 }
 
-func (f *field) NotIn(val ...any) Expression {
+func (f *field) NotIn(val ...any) Conditional {
 	return NewBooleanExp(f.Copy(), val, notIn)
 }
 
-func (f *field) IsNull() Expression {
+func (f *field) IsNull() Conditional {
 	return NewBooleanExp(f.Copy(), nil, isNull)
 }
 
@@ -163,35 +163,35 @@ func NewAggregatedField(fn AggregateFunction) Field {
 	}
 }
 
-func (af *aggregatedField) Greater(val any) Expression {
+func (af *aggregatedField) Greater(val any) Conditional {
 	return NewBooleanExp(af, val, more)
 }
 
-func (af *aggregatedField) Less(val any) Expression {
+func (af *aggregatedField) Less(val any) Conditional {
 	return NewBooleanExp(af, val, less)
 }
 
-func (af *aggregatedField) GreaterEq(val any) Expression {
+func (af *aggregatedField) GreaterEq(val any) Conditional {
 	return NewBooleanExp(af, val, moreEqual)
 }
 
-func (af *aggregatedField) LessEq(val any) Expression {
+func (af *aggregatedField) LessEq(val any) Conditional {
 	return NewBooleanExp(af, val, lessEqual)
 }
 
-func (af *aggregatedField) IsNotNull() Expression {
+func (af *aggregatedField) IsNotNull() Conditional {
 	return NewBooleanExp(af, nil, isNotNull)
 }
 
-func (af *aggregatedField) In(val ...any) Expression {
+func (af *aggregatedField) In(val ...any) Conditional {
 	return NewBooleanExp(af, val, in)
 }
 
-func (af *aggregatedField) NotIn(val ...any) Expression {
+func (af *aggregatedField) NotIn(val ...any) Conditional {
 	return NewBooleanExp(af, val, notIn)
 }
 
-func (af *aggregatedField) IsNull() Expression {
+func (af *aggregatedField) IsNull() Conditional {
 	return NewBooleanExp(af, nil, isNull)
 }
 

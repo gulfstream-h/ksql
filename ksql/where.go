@@ -9,12 +9,12 @@ import (
 type WhereExpression interface {
 	IsEmpty() bool
 	Expression() (string, error)
-	Conditionals() []Expression
-	Where(exps ...Expression) WhereExpression
+	Conditionals() []Conditional
+	Where(exps ...Conditional) WhereExpression
 }
 
 type where struct {
-	conditionals []Expression
+	conditionals []Conditional
 }
 
 func NewWhereExpression() WhereExpression {
@@ -54,13 +54,13 @@ func (w *where) Expression() (string, error) {
 	return builder.String(), nil
 }
 
-func (w *where) Conditionals() []Expression {
-	conditionals := make([]Expression, len(w.conditionals))
+func (w *where) Conditionals() []Conditional {
+	conditionals := make([]Conditional, len(w.conditionals))
 	copy(conditionals, w.conditionals)
 	return conditionals
 }
 
-func (w *where) Where(exps ...Expression) WhereExpression {
+func (w *where) Where(exps ...Conditional) WhereExpression {
 	w.conditionals = append(w.conditionals, exps...)
 	return w
 

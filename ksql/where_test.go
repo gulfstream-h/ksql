@@ -8,19 +8,19 @@ import (
 func Test_Where(t *testing.T) {
 	tests := []struct {
 		name         string
-		conditionals []Expression
+		conditionals []Conditional
 		wantExpr     string
 		expectErr    bool
 	}{
 		{
 			name:         "Single Expression",
-			conditionals: []Expression{NewBooleanExp(F("col1"), 5, more)},
+			conditionals: []Conditional{NewBooleanExp(F("col1"), 5, more)},
 			wantExpr:     "WHERE col1 > 5",
 			expectErr:    false,
 		},
 		{
 			name: "Two Expressions",
-			conditionals: []Expression{
+			conditionals: []Conditional{
 				NewBooleanExp(F("col1"), 6, less),
 				NewBooleanExp(F("col2"), 7, equal),
 			},
@@ -29,13 +29,13 @@ func Test_Where(t *testing.T) {
 		},
 		{
 			name:         "No Expressions",
-			conditionals: []Expression{},
+			conditionals: []Conditional{},
 			wantExpr:     "",
 			expectErr:    true,
 		},
 		{
 			name: "Invalid Expression",
-			conditionals: []Expression{
+			conditionals: []Conditional{
 				NewBooleanExp(F("col1"), struct{}{}, less),
 			},
 			wantExpr:  "",
@@ -43,7 +43,7 @@ func Test_Where(t *testing.T) {
 		},
 		{
 			name: "OR Condition",
-			conditionals: []Expression{
+			conditionals: []Conditional{
 				Or(
 					NewBooleanExp(F("col1"), 10, more),
 					NewBooleanExp(F("col2"), 20, less),
@@ -54,7 +54,7 @@ func Test_Where(t *testing.T) {
 		},
 		{
 			name: "AND Condition",
-			conditionals: []Expression{
+			conditionals: []Conditional{
 				And(
 					NewBooleanExp(F("col1"), 15, equal),
 					NewBooleanExp(F("col2"), 25, notEqual),
@@ -65,7 +65,7 @@ func Test_Where(t *testing.T) {
 		},
 		{
 			name: "Complex AND/OR Condition",
-			conditionals: []Expression{
+			conditionals: []Conditional{
 				And(
 					NewBooleanExp(F("col1"), 5, more),
 					Or(
@@ -79,7 +79,7 @@ func Test_Where(t *testing.T) {
 		},
 		{
 			name: "Nested OR",
-			conditionals: []Expression{
+			conditionals: []Conditional{
 				Or(
 					NewBooleanExp(F("col1"), 30, less),
 					Or(
@@ -93,7 +93,7 @@ func Test_Where(t *testing.T) {
 		},
 		{
 			name: "Multiple AND Conditions",
-			conditionals: []Expression{
+			conditionals: []Conditional{
 				And(
 					NewBooleanExp(F("col1"), 1, more),
 					NewBooleanExp(F("col2"), 2, more),
@@ -105,7 +105,7 @@ func Test_Where(t *testing.T) {
 		},
 		{
 			name: "Empty OR Condition",
-			conditionals: []Expression{
+			conditionals: []Conditional{
 				Or(),
 			},
 			wantExpr:  "",
@@ -113,7 +113,7 @@ func Test_Where(t *testing.T) {
 		},
 		{
 			name: "Empty AND Condition",
-			conditionals: []Expression{
+			conditionals: []Conditional{
 				And(),
 			},
 			wantExpr:  "",
@@ -121,7 +121,7 @@ func Test_Where(t *testing.T) {
 		},
 		{
 			name: "Single OR Condition",
-			conditionals: []Expression{
+			conditionals: []Conditional{
 				Or(NewBooleanExp(F("col1"), 100, less)),
 			},
 			wantExpr:  "WHERE ( col1 < 100 )",
@@ -129,7 +129,7 @@ func Test_Where(t *testing.T) {
 		},
 		{
 			name: "Single AND Condition",
-			conditionals: []Expression{
+			conditionals: []Conditional{
 				And(NewBooleanExp(F("col1"), 200, equal)),
 			},
 			wantExpr:  "WHERE ( col1 = 200 )",
@@ -137,7 +137,7 @@ func Test_Where(t *testing.T) {
 		},
 		{
 			name: "Invalid Nested Condition",
-			conditionals: []Expression{
+			conditionals: []Conditional{
 				And(
 					NewBooleanExp(F("col1"), struct{}{}, less),
 					Or(NewBooleanExp(F("col2"), 300, more)),

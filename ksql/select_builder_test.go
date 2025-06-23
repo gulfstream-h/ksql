@@ -2,6 +2,8 @@ package ksql
 
 import (
 	"github.com/stretchr/testify/assert"
+	"ksql/schema"
+	"ksql/static"
 	"reflect"
 	"testing"
 )
@@ -11,9 +13,9 @@ func Test_SelectExpression(t *testing.T) {
 		name               string
 		fields             []Field
 		schemaFrom         string
-		whereExpressions   []Expression
+		whereExpressions   []Conditional
 		join               []JoinExpression
-		havingExpressions  []Expression
+		havingExpressions  []Conditional
 		groupByFields      []Field
 		windowEx           WindowExpression
 		orderbyExpressions []OrderedExpression
@@ -39,7 +41,7 @@ func Test_SelectExpression(t *testing.T) {
 			name:             "SELECT with WHERE clause",
 			fields:           []Field{F("table.column1")},
 			schemaFrom:       "table",
-			whereExpressions: []Expression{F("table.column1").Equal(1)},
+			whereExpressions: []Conditional{F("table.column1").Equal(1)},
 			wantExpr:         "SELECT table.column1 FROM table WHERE table.column1 = 1;",
 			expectErr:        false,
 		},
@@ -72,7 +74,7 @@ func Test_SelectExpression(t *testing.T) {
 			fields:            []Field{F("table.column1"), F("table.column2")},
 			schemaFrom:        "table",
 			groupByFields:     []Field{F("table.column1")},
-			havingExpressions: []Expression{Count(F("table.column2")).Greater(1)},
+			havingExpressions: []Conditional{Count(F("table.column2")).Greater(1)},
 			wantExpr:          "SELECT table.column1, table.column2 FROM table GROUP BY table.column1 HAVING COUNT(table.column2) > 1;",
 			expectErr:         false,
 		},
@@ -104,7 +106,7 @@ func Test_SelectExpression(t *testing.T) {
 			name:             "SELECT with multiple WHERE clauses",
 			fields:           []Field{F("table.column1")},
 			schemaFrom:       "table",
-			whereExpressions: []Expression{F("table.column1").Equal(1), F("table.column2").Greater(5)},
+			whereExpressions: []Conditional{F("table.column1").Equal(1), F("table.column2").Greater(5)},
 			wantExpr:         "SELECT table.column1 FROM table WHERE table.column1 = 1 AND table.column2 > 5;",
 			expectErr:        false,
 		},
@@ -113,7 +115,7 @@ func Test_SelectExpression(t *testing.T) {
 			fields:           []Field{F("table1.column1"), F("table2.column2")},
 			schemaFrom:       "table1",
 			join:             []JoinExpression{Join("table2", F("table1.id").Equal(F("table2.id")), Inner)},
-			whereExpressions: []Expression{F("table1.column1").Equal(1), F("table2.column2").Less(10)},
+			whereExpressions: []Conditional{F("table1.column1").Equal(1), F("table2.column2").Less(10)},
 			wantExpr:         "SELECT table1.column1, table2.column2 FROM table1 JOIN table2 ON table1.id = table2.id WHERE table1.column1 = 1 AND table2.column2 < 10;",
 			expectErr:        false,
 		},
@@ -122,7 +124,7 @@ func Test_SelectExpression(t *testing.T) {
 			fields:           []Field{F("table1.column1"), F("table2.column2")},
 			schemaFrom:       "table1",
 			join:             []JoinExpression{Join("table2", F("table1.id").Equal(F("table2.id")), Left)},
-			whereExpressions: []Expression{F("table1.column1").Greater(5), F("table2.column2").NotEqual(3)},
+			whereExpressions: []Conditional{F("table1.column1").Greater(5), F("table2.column2").NotEqual(3)},
 			groupByFields:    []Field{F("table1.column1")},
 			wantExpr:         "SELECT table1.column1, table2.column2 FROM table1 LEFT JOIN table2 ON table1.id = table2.id WHERE table1.column1 > 5 AND table2.column2 != 3 GROUP BY table1.column1;",
 			expectErr:        false,
@@ -132,9 +134,9 @@ func Test_SelectExpression(t *testing.T) {
 			fields:           []Field{F("table1.column1"), F("table2.column2")},
 			schemaFrom:       "table1",
 			join:             []JoinExpression{Join("table2", F("table1.id").Equal(F("table2.id")), Inner)},
-			whereExpressions: []Expression{F("table1.column1").Equal(2)},
+			whereExpressions: []Conditional{F("table1.column1").Equal(2)},
 			groupByFields:    []Field{F("table1.column1")},
-			havingExpressions: []Expression{
+			havingExpressions: []Conditional{
 				F("COUNT(table2.column2)").Greater(1),
 			},
 			wantExpr:  "SELECT table1.column1, table2.column2 FROM table1 JOIN table2 ON table1.id = table2.id WHERE table1.column1 = 2 GROUP BY table1.column1 HAVING COUNT(table2.column2) > 1;",
@@ -156,7 +158,7 @@ func Test_SelectExpression(t *testing.T) {
 			fields:        []Field{F("table.column1"), F("table.column2")},
 			schemaFrom:    "table",
 			groupByFields: []Field{F("table.column1")},
-			havingExpressions: []Expression{
+			havingExpressions: []Conditional{
 				Count(F("table.column2")).Greater(1),
 			},
 			wantExpr:  "SELECT table.column1, table.column2 FROM table GROUP BY table.column1 HAVING COUNT(table.column2) > 1;",
@@ -183,13 +185,13 @@ func Test_SelectExpression(t *testing.T) {
 				Join("table2", F("table1.id").Equal(F("table2.id")), Inner),
 				Join("table3", F("table2.id").Equal(F("table3.id")), Left),
 			},
-			whereExpressions: []Expression{
+			whereExpressions: []Conditional{
 				F("table1.column1").Greater(10),
 				F("table2.column2").Less(50),
 				F("table3.column3").NotEqual(0),
 			},
 			groupByFields: []Field{F("table1.column1")},
-			havingExpressions: []Expression{
+			havingExpressions: []Conditional{
 				Count(F("table2.column2")).Greater(5),
 				Sum(F("table3.column3")).Less(100),
 			},
@@ -230,7 +232,7 @@ func Test_SelectExpression(t *testing.T) {
 			join: []JoinExpression{
 				Join("table2", F("table1.id").Equal(F("table2.id")), Inner),
 			},
-			whereExpressions: []Expression{
+			whereExpressions: []Conditional{
 				F("table1.column1").Greater(5),
 			},
 			wantExpr:  "SELECT table1.column1, table2.column2 FROM table1 JOIN table2 ON table1.id = table2.id WHERE table1.column1 > 5;",
@@ -246,7 +248,7 @@ func Test_SelectExpression(t *testing.T) {
 			join: []JoinExpression{
 				Join("table2", F("table1.id").Equal(F("table2.id")), Right),
 			},
-			whereExpressions: []Expression{
+			whereExpressions: []Conditional{
 				F("table1.column1").NotEqual(0),
 				F("table2.column2").Less(100),
 			},
@@ -276,7 +278,7 @@ func Test_SelectExpression(t *testing.T) {
 			groupByFields: []Field{
 				F("table.column1"),
 			},
-			havingExpressions: []Expression{
+			havingExpressions: []Conditional{
 				Sum(F("table.column2")).Greater(50),
 			},
 			wantExpr:  "SELECT table.column1, SUM(table.column2) AS sum_column2 FROM table GROUP BY table.column1 HAVING SUM(table.column2) > 50;",
@@ -308,7 +310,7 @@ func Test_SelectExpression(t *testing.T) {
 				Join("table2", F("table1.id").Equal(F("table2.id")), Inner),
 				Join("table3", F("table2.id").Equal(F("table3.id")), Left),
 			},
-			whereExpressions: []Expression{
+			whereExpressions: []Conditional{
 				F("table1.column1").Greater(10),
 				F("table3.column3").NotEqual(0),
 			},
@@ -340,7 +342,7 @@ func Test_SelectExpression(t *testing.T) {
 			groupByFields: []Field{
 				F("table.column1"),
 			},
-			havingExpressions: []Expression{
+			havingExpressions: []Conditional{
 				Sum(F("table.column2")).Greater(100),
 			},
 			orderbyExpressions: []OrderedExpression{
@@ -375,7 +377,7 @@ func Test_SelectExpression(t *testing.T) {
 				Count(F("table.column2")).As("count_column2"),
 			},
 			schemaFrom: "table",
-			whereExpressions: []Expression{
+			whereExpressions: []Conditional{
 				F("table.column1").Greater(5),
 				F("table.column2").Less(50),
 			},
@@ -395,7 +397,7 @@ func Test_SelectExpression(t *testing.T) {
 			groupByFields: []Field{
 				F("table.column1"),
 			},
-			havingExpressions: []Expression{
+			havingExpressions: []Conditional{
 				Sum(F("table.column2")).Greater(50),
 				Count(F("table.column1")).Less(10),
 			},
@@ -425,7 +427,7 @@ func Test_SelectExpression(t *testing.T) {
 			groupByFields: []Field{
 				F("table.column1"),
 			},
-			havingExpressions: []Expression{
+			havingExpressions: []Conditional{
 				Count(F("table.column1")).Greater(5),
 			},
 			wantExpr:  "SELECT table.column1 FROM table GROUP BY table.column1 HAVING COUNT(table.column1) > 5;",
@@ -488,7 +490,7 @@ func Test_SelectExpression(t *testing.T) {
 				Join("table2", F("table1.id").Equal(F("table2.id")), Inner),
 				Join("table3", F("table2.id").Equal(F("table3.id")), Left),
 			},
-			whereExpressions: []Expression{
+			whereExpressions: []Conditional{
 				F("table1.column1").Greater(10),
 				F("table3.column3").NotEqual(0),
 			},
@@ -626,4 +628,175 @@ func Test_SelectBuilder(t *testing.T) {
 			}
 		})
 	}
+}
+
+func Test_SelectBuilderRelationStorage(t *testing.T) {
+	previous := static.ReflectionFlag
+	static.ReflectionFlag = true
+	defer func() {
+		static.ReflectionFlag = previous
+	}()
+
+	testcases := []struct {
+		name                    string
+		builder                 SelectBuilder
+		expectedRelationStorage map[string]schema.Relation
+	}{
+		{
+			name: "Simple SELECT with table storage",
+			builder: Select(F("table.column1")).
+				From("table", TABLE),
+			expectedRelationStorage: map[string]schema.Relation{
+				"table": {
+					"column1": schema.SearchField{
+						Name:     "column1",
+						Relation: "table",
+					},
+				},
+			},
+		},
+		{
+			name: "SELECT with multiple fields",
+			builder: Select(F("table.column1"), F("table.column2")).
+				From("table", TABLE),
+			expectedRelationStorage: map[string]schema.Relation{
+				"table": {
+					"column1": schema.SearchField{
+						Name:     "column1",
+						Relation: "table",
+					},
+					"column2": schema.SearchField{
+						Name:     "column2",
+						Relation: "table",
+					},
+				},
+			},
+		},
+		{
+			name: "SELECT with JOIN",
+			builder: Select(F("table1.column1"), F("table2.column2")).
+				From("table1", TABLE).
+				Join("table2", F("table1.id").Equal(F("table2.id"))),
+			expectedRelationStorage: map[string]schema.Relation{
+				"table1": {
+					"column1": schema.SearchField{
+						Name:     "column1",
+						Relation: "table1",
+					},
+					"id": schema.SearchField{
+						Name:     "id",
+						Relation: "table1",
+					},
+				},
+				"table2": {
+					"column2": schema.SearchField{
+						Name:     "column2",
+						Relation: "table2",
+					},
+					"id": schema.SearchField{
+						Name:     "id",
+						Relation: "table2",
+					},
+				},
+			},
+		},
+		{
+			name: "SELECT with GROUP BY",
+			builder: Select(F("table.column1"), F("table.column2")).
+				From("table", TABLE).
+				GroupBy(F("table.column1")),
+			expectedRelationStorage: map[string]schema.Relation{
+				"table": {
+					"column1": schema.SearchField{
+						Name:     "column1",
+						Relation: "table",
+					},
+					"column2": schema.SearchField{
+						Name:     "column2",
+						Relation: "table",
+					},
+				},
+			},
+		},
+		{
+			name: "SELECT with WHERE clause",
+			builder: Select(F("table.column1")).
+				From("table", TABLE).
+				Where(F("table.column1").Equal(1)),
+			expectedRelationStorage: map[string]schema.Relation{
+				"table": {
+					"column1": schema.SearchField{
+						Name:     "column1",
+						Relation: "table",
+					},
+				},
+			},
+		},
+		{
+			name: "SELECT with multiple JOINs, WHERE, GROUP BY, and HAVING",
+			builder: Select(F("table1.column1"), F("table2.column2"), Count(F("table3.column3")).As("count_column3")).
+				From("table1", TABLE).
+				Join("table2", F("table1.id").Equal(F("table2.id"))).
+				Join("table3", F("table2.id").Equal(F("table3.id"))).
+				Where(F("table1.column1").Greater(10), F("table2.column2").Less(50)).
+				GroupBy(F("table1.column1"), F("table2.column2")).
+				Having(F("count_column3").Greater(5)),
+			expectedRelationStorage: map[string]schema.Relation{
+				"table1": {
+					"column1": schema.SearchField{
+						Name:     "column1",
+						Relation: "table1",
+					},
+					"id": schema.SearchField{
+						Name:     "id",
+						Relation: "table1",
+					},
+				},
+				"table2": {
+					"column2": schema.SearchField{
+						Name:     "column2",
+						Relation: "table2",
+					},
+					"id": schema.SearchField{
+						Name:     "id",
+						Relation: "table2",
+					},
+				},
+				"table3": {
+					"column3": schema.SearchField{
+						Name:     "column3",
+						Relation: "table3",
+					},
+				},
+			},
+		},
+		{
+			name: "SELECT with WINDOW, GROUP BY, and ORDER BY",
+			builder: Select(F("stream.column1"), Count(F("stream.column2")).As("count_column2")).
+				From("stream", STREAM).
+				GroupBy(F("stream.column1")).
+				Windowed(NewTumblingWindow(TimeUnit{Val: 10, Unit: Seconds})).
+				OrderBy(F("count_column2").Desc()),
+			expectedRelationStorage: map[string]schema.Relation{
+				"stream": {
+					"column1": schema.SearchField{
+						Name:     "column1",
+						Relation: "stream",
+					},
+					"column2": schema.SearchField{
+						Name:     "column2",
+						Relation: "stream",
+					},
+				},
+			},
+		},
+	}
+
+	for _, tc := range testcases {
+		t.Run(tc.name, func(t *testing.T) {
+			relationStorage := tc.builder.RelationStorage()
+			assert.Equal(t, tc.expectedRelationStorage, relationStorage)
+		})
+	}
+
 }

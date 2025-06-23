@@ -9,7 +9,7 @@ func Test_Join(t *testing.T) {
 	tests := []struct {
 		name      string
 		schema    string
-		on        Expression
+		on        Conditional
 		joinType  JoinType
 		wantExpr  string
 		expectErr bool

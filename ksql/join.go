@@ -8,13 +8,13 @@ import (
 type (
 	JoinExpression interface {
 		Schema() string
-		On() Expression
+		On() Conditional
 		Type() JoinType
 		Expression() (string, error)
 	}
 
 	join struct {
-		on        Expression
+		on        Conditional
 		schema    string
 		operation JoinType
 	}
@@ -30,7 +30,7 @@ const (
 	Cross
 )
 
-func Join(schema string, on Expression, joinType JoinType) JoinExpression {
+func Join(schema string, on Conditional, joinType JoinType) JoinExpression {
 	return &join{
 		on:        on,
 		schema:    schema,
@@ -42,7 +42,7 @@ func (j *join) Schema() string {
 	return j.schema
 }
 
-func (j *join) On() Expression {
+func (j *join) On() Conditional {
 	return j.on
 }
 
