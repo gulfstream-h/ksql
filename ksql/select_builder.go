@@ -6,7 +6,6 @@ import (
 	"ksql/schema"
 	"ksql/static"
 	"maps"
-	"reflect"
 	"strings"
 	"sync"
 )
@@ -226,7 +225,7 @@ func Select(fields ...Field) SelectBuilder {
 	return sb.Select(fields...)
 }
 
-func SelectAsStruct(name string, val reflect.Type) SelectBuilder {
+func SelectAsStruct(name string, val any) SelectBuilder {
 	sb := newSelectBuilder()
 	return sb.SelectStruct(name, val)
 }
