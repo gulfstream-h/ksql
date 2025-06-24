@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"ksql/schema"
 	"ksql/static"
-	"log/slog"
 	"maps"
 	"reflect"
 	"strings"
@@ -72,10 +71,15 @@ type (
 		// it is used to validate reflection when static.ReflectionFlag is enabled
 		relationStorage map[string]schema.Relation
 
-		// aliasMapper contains pairs of alias and schema name
+		// virtualSchemas contains pairs of alias and schema name
 		// used to resolve schema names in the select builder
-		// it used for returning relation with real schema names
-		aliasMapper map[string]string
+		// and  returning relation with real schema names
+		virtualSchemas map[string]string
+
+		// virtualColumns contains pairs if alias and column name
+		// it is used to resolve virtual columns in the select builder
+		virtualColumns map[string]string
+
 		// aliasRefresher update defaultSchemaName to the real schema name
 		// received from From() method immediately when RelationStorage() call
 		aliasRefresher sync.Once
@@ -108,10 +112,6 @@ const (
 	// before the From() method call without any schema or schema alias provided
 	// once RelationStorage() is called, the schema name will be replaced with the actual schema name
 	defaultSchemaName = "from.ksql"
-
-	// aliasedSchemaName is used for fields that represent aliased fields
-	// it is used to prevent conflicts with other schemas
-	aliasedSchemaName = "aliased.ksql"
 )
 
 var (
@@ -215,7 +215,8 @@ func newSelectBuilder() SelectBuilder {
 		groupByEx:       NewGroupByExpression(),
 		orderByEx:       NewOrderByExpression(),
 		relationStorage: make(map[string]schema.Relation),
-		aliasMapper:     make(map[string]string),
+		virtualSchemas:  make(map[string]string),
+		virtualColumns:  make(map[string]string),
 	}
 }
 
@@ -305,26 +306,9 @@ func (s *selectBuilder) Select(fields ...Field) SelectBuilder {
 
 	if static.ReflectionFlag {
 		for idx := range fields {
-			alias := fields[idx].Alias()
-			schemaName := fields[idx].Schema()
-
-			// alias defaultSchemaName is used for fields that were added
-			// before the From() method call to
-			if len(schemaName) == 0 {
-				schemaName = defaultSchemaName
-			}
-
-			relationName := schemaName
-
-			// if alias is not empty, we should add it to the alias mapper
-			if len(alias) != 0 {
-				s.aliasMapper[alias] = schemaName
-				relationName = alias
-			}
-
 			f := schema.SearchField{
 				Name:     fields[idx].Column(),
-				Relation: relationName,
+				Relation: s.parseRelationName(fields[idx]),
 			}
 
 			s.addSearchField(f)
@@ -392,7 +376,7 @@ func (s *selectBuilder) From(schema string, reference Reference) SelectBuilder {
 	// before the From() method call has alias defaultSchemaName
 	// to prevent conflicts with other schemas
 	// we should add the defaultSchemaName schema to the alias mapper
-	s.aliasMapper[defaultSchemaName] = schema
+	s.virtualSchemas[defaultSchemaName] = schema
 	return s
 }
 
@@ -467,6 +451,9 @@ func (s *selectBuilder) OrderBy(expressions ...OrderedExpression) SelectBuilder 
 			}
 
 			relationName := s.parseRelationName(field)
+			if len(relationName) == 0 {
+				continue
+			}
 			s.addSearchField(schema.SearchField{
 				Name:     field.Column(),
 				Relation: relationName,
@@ -638,13 +625,17 @@ func (s *selectBuilder) RelationStorage() map[string]schema.Relation {
 			// update defaultSchemaName to the real schema name
 			// received from From() method
 			if len(s.fromEx.Schema()) > 0 {
-				s.aliasMapper[defaultSchemaName] = s.fromEx.Schema()
+				s.virtualSchemas[defaultSchemaName] = s.fromEx.Schema()
 			}
 			// refresh relation storage with real schema names
-			for alias, schemaName := range s.aliasMapper {
+			for alias, schemaName := range s.virtualSchemas {
+				// if we have a relation with the alias,
+				// we should replace it with the real schema name
+				// and remove the alias from the relation storage
 				if _, exists := s.relationStorage[alias]; exists {
 					s.relationStorage[schemaName] = s.relationStorage[alias]
 					delete(s.relationStorage, alias)
+					continue
 				}
 			}
 		})
@@ -676,51 +667,6 @@ func (s *selectBuilder) withAggregatedOperators() bool {
 	return s.groupByEx != nil || s.havingEx != nil
 }
 
-func (s *selectBuilder) reflectionCheck() error {
-	rootSchemaName := s.fromEx.Alias()
-	if len(rootSchemaName) == 0 {
-		rootSchemaName = s.fromEx.Schema()
-		if len(rootSchemaName) == 0 {
-			return errors.New("no schema specified for select builder, use From() method to set schema")
-		}
-	}
-	rootSchema, ok := s.relationStorage[rootSchemaName]
-	if !ok {
-		rootSchema = make(schema.Relation)
-	}
-
-	unnamedSchema, ok := s.relationStorage[defaultSchemaName]
-	if !ok {
-		unnamedSchema = make(schema.Relation)
-	}
-
-	maps.Copy(rootSchema, unnamedSchema)
-
-	remoteRelation, err := schema.GetRemoteSchemaRelation(rootSchemaName)
-	if err != nil {
-		return fmt.Errorf("cannot get remote schema relation: %w", err)
-	}
-
-	if !schema.CompareRelations(rootSchema, remoteRelation) {
-		return fmt.Errorf("relation is not compatible with remote schema: %s", rootSchemaName)
-	}
-
-	for relName, rel := range s.relationStorage {
-		if relName == s.fromEx.Schema() || relName == defaultSchemaName {
-			continue
-		}
-		remoteRelation, err := schema.GetRemoteSchemaRelation(relName)
-		if err != nil {
-			return fmt.Errorf("cannot get remote schema relation: %w", err)
-		}
-
-		if !schema.CompareRelations(rel, remoteRelation) {
-			return fmt.Errorf("relation is not compatible with remote schema: %s", relName)
-		}
-	}
-	return nil
-}
-
 func (s *selectBuilder) addRelation(
 	relationName string,
 	relation schema.Relation,
@@ -740,6 +686,13 @@ func (s *selectBuilder) addRelation(
 func (s *selectBuilder) addSearchField(
 	field schema.SearchField,
 ) {
+	if field.Relation == "" {
+		return
+	}
+
+	if _, ok := s.virtualSchemas[field.Relation]; ok {
+		return
+	}
 	if s.relationStorage[field.Relation] == nil {
 		s.relationStorage[field.Relation] = make(schema.Relation)
 	}
@@ -748,17 +701,23 @@ func (s *selectBuilder) addSearchField(
 
 func (s *selectBuilder) parseRelationName(f Field) string {
 	if len(f.Alias()) > 0 {
-		s.aliasMapper[f.Alias()] = f.Schema()
-		return f.Alias()
-	} else {
-		//if len(f.Schema()) == 0 {
-		// if schema is not set, we should use defaultSchemaName
-		// to prevent conflicts with other schemas
-		//s.aliasMapper[aliasedSchemaName] = defaultSchemaName
-		//return aliasedSchemaName
-		//}
+		s.virtualColumns[f.Alias()] = f.Schema()
 		return f.Schema()
 	}
+
+	if len(f.Schema()) == 0 {
+		// check column is already an alias
+		_, exist := s.virtualColumns[f.Column()]
+		if exist {
+			return ""
+		}
+
+		//if schema is not set, we should use defaultSchemaName
+		//to prevent conflicts with other schemas
+		s.virtualSchemas[f.Column()] = defaultSchemaName
+		return defaultSchemaName
+	}
+	return f.Schema()
 }
 
 func (s *selectBuilder) parseSearchFieldsFromCond(
@@ -768,17 +727,14 @@ func (s *selectBuilder) parseSearchFieldsFromCond(
 
 	// parse relation name from the left side of the join condition
 	for _, f := range cond.Left() {
-		slog.Info("left", slog.Any("left", f))
 		if f == nil {
-			slog.Info("skipped left from condition")
 			continue
 		}
 
 		relationName := s.parseRelationName(f)
-		slog.Info("added with relationName",
-			slog.String("relation", relationName),
-			slog.String("name", f.Column()),
-		)
+		if len(relationName) == 0 {
+			continue
+		}
 
 		result = append(result, schema.SearchField{
 			Name:     f.Column(),

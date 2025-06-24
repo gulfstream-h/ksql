@@ -159,7 +159,8 @@ func NewAggregatedField(fn AggregateFunction) Field {
 	}
 
 	return &aggregatedField{
-		fn: fn,
+		fn:    fn,
+		Field: fn,
 	}
 }
 
@@ -204,11 +205,11 @@ func (af *aggregatedField) Desc() OrderedExpression {
 }
 
 func (af *aggregatedField) Schema() string {
-	return ""
+	return af.Field.Schema()
 }
 
 func (af *aggregatedField) Column() string {
-	return ""
+	return af.Field.Column()
 }
 
 func (af *aggregatedField) As(a string) Field {

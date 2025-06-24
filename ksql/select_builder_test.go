@@ -763,6 +763,10 @@ func Test_SelectBuilderRelationStorage(t *testing.T) {
 					},
 				},
 				"table3": {
+					"id": schema.SearchField{
+						Name:     "id",
+						Relation: "table3",
+					},
 					"column3": schema.SearchField{
 						Name:     "column3",
 						Relation: "table3",
@@ -787,6 +791,59 @@ func Test_SelectBuilderRelationStorage(t *testing.T) {
 						Name:     "column2",
 						Relation: "stream",
 					},
+				},
+			},
+		},
+		{
+			name: "SELECT with many fields and multiple JOINs",
+			builder: Select(
+				F("t1.col1"), F("t1.col2"), F("t1.col3"), F("t1.col4"), F("t1.col5"),
+				F("t2.col6"), F("t2.col7"), F("t2.col8"),
+				F("t3.col9"), F("t3.col10")).
+				From("t1", TABLE).
+				Join("t2", F("t1.id").Equal(F("t2.t1_id"))).
+				Join("t3", F("t2.id").Equal(F("t3.t2_id"))),
+			expectedRelationStorage: map[string]schema.Relation{
+				"t1": {
+					"col1": {Name: "col1", Relation: "t1"},
+					"col2": {Name: "col2", Relation: "t1"},
+					"col3": {Name: "col3", Relation: "t1"},
+					"col4": {Name: "col4", Relation: "t1"},
+					"col5": {Name: "col5", Relation: "t1"},
+					"id":   {Name: "id", Relation: "t1"},
+				},
+				"t2": {
+					"col6":  {Name: "col6", Relation: "t2"},
+					"col7":  {Name: "col7", Relation: "t2"},
+					"col8":  {Name: "col8", Relation: "t2"},
+					"t1_id": {Name: "t1_id", Relation: "t2"},
+					"id":    {Name: "id", Relation: "t2"},
+				},
+				"t3": {
+					"col9":  {Name: "col9", Relation: "t3"},
+					"col10": {Name: "col10", Relation: "t3"},
+					"t2_id": {Name: "t2_id", Relation: "t3"},
+				},
+			},
+		},
+		{
+			name: "Complex SELECT with aliases, aggregates, WHERE, GROUP BY, HAVING",
+			builder: Select(
+				F("sales.region"),
+				Sum(F("sales.amount")).As("total_amount"),
+				Count(F("sales.transaction_id")).As("transaction_count"),
+				Avg(F("sales.discount")).As("avg_discount"),
+				Max(F("sales.amount")).As("max_amount")).
+				From("sales", TABLE).
+				Where(F("sales.amount").Greater(100)).
+				GroupBy(F("sales.region")).
+				Having(F("total_amount").Greater(10000)),
+			expectedRelationStorage: map[string]schema.Relation{
+				"sales": {
+					"region":         {Name: "region", Relation: "sales"},
+					"amount":         {Name: "amount", Relation: "sales"},
+					"transaction_id": {Name: "transaction_id", Relation: "sales"},
+					"discount":       {Name: "discount", Relation: "sales"},
 				},
 			},
 		},
