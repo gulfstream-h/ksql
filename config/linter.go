@@ -53,8 +53,11 @@ func (mode _ReflectionMode) InitLinter(ctx context.Context) error {
 		static.StreamsProjections.Store(stream.Name, shared.StreamSettings{
 			Name:        stream.Name,
 			SourceTopic: &stream.Topic,
-			Schema:      schema.SerializeRemoteSchema(responseSchema),
-			Format:      kinds.JSON,
+			Schema: schema.RemoteFieldsRepresentation(
+				stream.Name,
+				responseSchema,
+			),
+			Format: kinds.JSON,
 		})
 	}
 
@@ -83,8 +86,11 @@ func (mode _ReflectionMode) InitLinter(ctx context.Context) error {
 		static.StreamsProjections.Store(table.Name, shared.StreamSettings{
 			Name:        table.Name,
 			SourceTopic: &table.Topic,
-			Schema:      schema.SerializeRemoteSchema(responseSchema),
-			Format:      kinds.JSON,
+			Schema: schema.RemoteFieldsRepresentation(
+				table.Name,
+				responseSchema,
+			),
+			Format: kinds.JSON,
 		})
 	}
 

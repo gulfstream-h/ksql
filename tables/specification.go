@@ -14,7 +14,6 @@ import (
 	"ksql/shared"
 	"ksql/static"
 	"ksql/util"
-	"log/slog"
 	"net/http"
 	"reflect"
 	"strings"
@@ -27,7 +26,7 @@ type Table[S any] struct {
 	Name         string
 	sourceTopic  *string
 	partitions   *uint8
-	remoteSchema *reflect.Type
+	remoteSchema schema.LintedFields
 	format       kinds.ValueFormat
 }
 
@@ -177,11 +176,14 @@ func GetTable[S any](
 		s S
 	)
 
-	scheme := schema.SerializeProvidedStruct(s)
+	scheme, err := schema.NativeStructRepresentation(s)
+	if err != nil {
+		return nil, err
+	}
 
 	tableInstance := &Table[S]{
 		Name:         table,
-		remoteSchema: &scheme,
+		remoteSchema: scheme,
 	}
 	desc, err := Describe(ctx, table)
 	if err != nil {
@@ -199,13 +201,9 @@ func GetTable[S any](
 		responseSchema[field.Name] = field.Kind
 	}
 
-	remoteSchema := schema.SerializeRemoteSchema(responseSchema)
-	matchMap, diffMap := schema.CompareStructs(scheme, remoteSchema)
-
-	if len(diffMap) != 0 {
-		slog.Debug("match", "fields", matchMap)
-		slog.Debug("diff", "fields", diffMap)
-		return nil, errors.New("schemes doesnt match")
+	remoteSchema := schema.RemoteFieldsRepresentation(table, responseSchema)
+	if err = remoteSchema.CompareWithFields(scheme.Array()); err != nil {
+		return nil, fmt.Errorf("reflection error %w", err)
 	}
 
 	return tableInstance, nil
@@ -223,8 +221,10 @@ func CreateTable[S any](
 		s S
 	)
 
-	rmSchema := schema.SerializeProvidedStruct(s)
-	searchFields := schema.ParseReflectStructToFields(tableName, rmSchema)
+	rmSchema, err := schema.NativeStructRepresentation(s)
+	if err != nil {
+		return nil, err
+	}
 
 	metadata := ksql.Metadata{
 		Topic:       *settings.SourceTopic,
@@ -232,7 +232,7 @@ func CreateTable[S any](
 	}
 
 	query, err := ksql.Create(ksql.TABLE, tableName).
-		SchemaFields(searchFields...).
+		SchemaFields(rmSchema.Array()...).
 		With(metadata).
 		Expression()
 	if err != nil {
@@ -313,7 +313,7 @@ func CreateTable[S any](
 			Name:         tableName,
 			sourceTopic:  settings.SourceTopic,
 			partitions:   settings.Partitions,
-			remoteSchema: &rmSchema,
+			remoteSchema: rmSchema,
 			format:       settings.Format,
 		}, nil
 	}
@@ -334,16 +334,14 @@ func CreateTableAsSelect[S any](
 		s S
 	)
 
-	scheme := schema.SerializeProvidedStruct(s)
-	rmScheme := schema.SerializeFieldsToStruct(selectQuery.SchemaFields())
-
-	matchMap, diffMap := schema.CompareStructs(scheme, rmScheme)
-
-	if len(matchMap) == 0 {
-		slog.Debug("structs diff", "diff", diffMap)
-		return nil, errors.New("schemes doesnt match")
+	scheme, err := schema.NativeStructRepresentation(s)
+	if err != nil {
+		return nil, err
 	}
 
+	if err = scheme.CompareWithFields(selectQuery.SchemaFields()); err != nil {
+		return nil, fmt.Errorf("reflection check failed: %w", err)
+	}
 	meta := ksql.Metadata{
 		Topic:       *settings.SourceTopic,
 		ValueFormat: kinds.JSON.String(),
@@ -397,7 +395,7 @@ func CreateTableAsSelect[S any](
 		return &Table[S]{
 			sourceTopic:  settings.SourceTopic,
 			partitions:   settings.Partitions,
-			remoteSchema: &scheme,
+			remoteSchema: scheme,
 			format:       settings.Format,
 		}, nil
 	}
@@ -417,7 +415,7 @@ func (s *Table[S]) SelectOnce(
 	meta := ksql.Metadata{ValueFormat: kinds.JSON.String()}
 
 	query, err := ksql.Create(ksql.TABLE, s.Name).
-		SchemaFromRemoteStruct(s.Name, *s.remoteSchema).
+		SchemaFromRemoteStruct(s.remoteSchema).
 		With(meta).
 		Expression()
 
@@ -464,15 +462,13 @@ func (s *Table[S]) SelectWithEmit(
 		valuesC = make(chan S)
 	)
 
-	query, err := ksql.SelectAsStruct("QUERYABLE_"+s.Name, *s.remoteSchema).
+	query, err := ksql.SelectAsStruct("QUERYABLE_"+s.Name, s.remoteSchema).
 		From(s.Name, 0).
 		WithMeta(ksql.Metadata{ValueFormat: kinds.JSON.String()}).
 		Expression()
 	if err != nil {
 		return nil, fmt.Errorf("build select query: %w", err)
 	}
-
-	query = "SELECT VERSION, UPDATED_AT FROM QUERYABLE_seeker_table;"
 
 	pipeline, err := network.Net.PerformSelect(
 		ctx,

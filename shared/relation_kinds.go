@@ -3,7 +3,7 @@ package shared
 import (
 	"context"
 	"ksql/kinds"
-	"reflect"
+	"ksql/schema"
 )
 
 // StreamSettings - describes the settings of stream
@@ -13,7 +13,7 @@ type StreamSettings struct {
 	Name        string
 	SourceTopic *string
 	Partitions  *uint8
-	Schema      reflect.Type
+	Schema      schema.LintedFields
 	Format      kinds.ValueFormat
 	DeleteFunc  func(context.Context)
 }
@@ -25,7 +25,7 @@ type TableSettings struct {
 	Name        string
 	SourceTopic *string
 	Partitions  *uint8
-	Schema      reflect.Type
+	Schema      schema.LintedFields
 	Format      kinds.ValueFormat
 	DeleteFunc  func(context.Context)
 }

@@ -225,6 +225,50 @@ func (k Ktype) Example() any {
 	return nil
 }
 
+func CastResponseTypes(typification string) (Ktype, bool) {
+	switch typification {
+	case "INT", "INTEGER":
+		return Int, true
+	case "DOUBLE":
+		return Double, true
+	case "VARCHAR", "STRING":
+		return String, true
+	case "BOOL":
+		return Bool, true
+	case "BYTES":
+		return Bytes, true
+	case "BIGINT":
+		return BigInt, true
+	case "ARRAY<INT>":
+		return ArrInt, true
+	case "ARRAY<DOUBLE>":
+		return ArrDouble, true
+	case "ARRAY<VARCHAR>", "ARRAY<STRING>":
+		return ArrString, true
+	case "ARRAY<BOOL>":
+		return ArrBool, true
+	case "ARRAY<BYTES>":
+		return ArrBytes, true
+	case "ARRAY<BIGINT>":
+		return ArrBigInt, true
+	case "MAP<VARCHAR, INT>", "MAP<STRING, INT>":
+		return MapInt, true
+	case "MAP<VARCHAR, DOUBLE>", "MAP<STRING, DOUBLE>":
+		return MapDouble, true
+	case "MAP<VARCHAR, VARCHAR>", "MAP<VARCHAR, STRING>",
+		"MAP<STRING, VARCHAR>", "MAP<STRING, STRING>":
+		return MapString, true
+	case "MAP<VARCHAR, BOOL>, MAP<STRING, BOOL>":
+		return MapBool, true
+	case "MAP<VARCHAR, BYTES>, MAP<STRING, BYTES>":
+		return MapBytes, true
+	case "MAP<VARCHAR, BIGINT>, MAP<STRING, BIGINT>":
+		return MapBigInt, true
+	default:
+		return 0, false
+	}
+}
+
 var (
 	errUnsupportedType = errors.New("type isn't supported at now")
 )

@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"ksql/schema"
 	"ksql/static"
-	"reflect"
 	"strings"
 )
 
@@ -22,7 +21,7 @@ type (
 		WithCTE(inner SelectBuilder) SelectBuilder
 		WithMeta(with Metadata) SelectBuilder
 		Select(fields ...Field) SelectBuilder
-		SelectStruct(name string, val reflect.Type) SelectBuilder
+		SelectStruct(name string, fields schema.LintedFields) SelectBuilder
 		From(schema string, reference Reference) SelectBuilder
 		Where(expressions ...Expression) SelectBuilder
 		Windowed(window WindowExpression) SelectBuilder
@@ -195,7 +194,7 @@ func Select(fields ...Field) SelectBuilder {
 	return sb.Select(fields...)
 }
 
-func SelectAsStruct(name string, val reflect.Type) SelectBuilder {
+func SelectAsStruct(name string, val schema.LintedFields) SelectBuilder {
 	sb := newSelectBuilder()
 	return sb.SelectStruct(name, val)
 }
@@ -234,19 +233,19 @@ func (s *selectBuilder) SchemaFields() []schema.SearchField {
 	return s.ctx.Fields()
 }
 
-func (s *selectBuilder) SelectStruct(name string, val reflect.Type) SelectBuilder {
-	structFields := schema.ParseReflectStructToFields(val.Name(), val)
+func (s *selectBuilder) SelectStruct(name string, val schema.LintedFields) SelectBuilder {
+	fieldsList := val.Array()
 
 	if s.ctx != nil {
-		s.ctx.AddFields(structFields...)
+		s.ctx.AddFields(fieldsList...)
 	}
 
-	fields := make([]Field, 0, len(structFields))
+	fields := make([]Field, 0, len(fieldsList))
 
-	for i := range structFields {
+	for i := range fieldsList {
 		f := field{
 			schema: name,
-			col:    structFields[i].Name,
+			col:    fieldsList[i].Name,
 		}
 		fields = append(fields, &f)
 	}

@@ -73,9 +73,14 @@ func (i *insertBuilder) AsSelect(selectBuilder SelectBuilder) InsertBuilder {
 }
 
 func (i *insertBuilder) InsertStruct(relationName string, val any) InsertBuilder {
-	fields := schema.ParseStructToFields(relationName, val)
-	values := make(map[string]string, len(fields))
-	for _, field := range fields {
+	fields, err := schema.NativeStructRepresentation(val)
+	if err != nil {
+		return nil
+	}
+
+	fieldsList := fields.Array()
+	values := make(map[string]string, len(fieldsList))
+	for _, field := range fieldsList {
 		if field.Value == nil {
 			continue
 		}
