@@ -1,17 +1,19 @@
 package dao
 
-import "ksql/kernel/protocol/dto"
+import (
+	"ksql/kernel/protocol/dto"
+)
 
 type FieldSchema struct {
-	Type         string      `json:"type"`
-	Fields       []any       `json:"fields"`
-	MemberSchema interface{} `json:"memberSchema"`
+	Type         string       `json:"type"`
+	Fields       []any        `json:"fields"`
+	MemberSchema *FieldSchema `json:"memberSchema"`
 }
 
 type Field struct {
 	Name   string      `json:"name"`
 	Schema FieldSchema `json:"schema"`
-	Type   string      `json:"type,omitempty"`
+	Type   string      `json:"type"`
 }
 
 type SourceDescription struct {
@@ -55,9 +57,20 @@ func (dr DescribeResponse) DTO() dto.RelationDescription {
 	fields := make([]dto.Field, len(dr.SourceDescription.Fields))
 
 	for i, field := range dr.SourceDescription.Fields {
+		kind := field.Schema.Type
+
+		if kind == "ARRAY" && field.Schema.MemberSchema != nil {
+			kind = "ARRAY<" + field.Schema.MemberSchema.Type + ">"
+		}
+
+		if kind == "MAP" && field.Schema.MemberSchema != nil {
+			// in ksql maps only strings keys are allowed
+			kind = "MAP<STRING, " + field.Schema.MemberSchema.Type + ">"
+		}
+
 		fields[i] = dto.Field{
 			Name: field.Name,
-			Kind: field.Schema.Type,
+			Kind: kind,
 		}
 	}
 

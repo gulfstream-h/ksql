@@ -65,7 +65,7 @@ func Test_CreateSchemaMethods(t *testing.T) {
 			createSQL: Create(STREAM, "stream_name").
 				SchemaFields(
 					schema.SearchField{Name: "column1", Kind: kinds.String},
-					schema.SearchField{Name: "column2", Kind: kinds.Float},
+					schema.SearchField{Name: "column2", Kind: kinds.Double},
 				),
 			expected:  "CREATE STREAM stream_name (column1 VARCHAR, column2 FLOAT);",
 			expectErr: false,
@@ -77,7 +77,7 @@ func Test_CreateSchemaMethods(t *testing.T) {
 				SchemaFields(
 					schema.SearchField{Name: "column1", Kind: kinds.String},
 				),
-			expected:  "CREATE TABLE table_name (column1 VARCHAR) WITH (\n  KAFKA_TOPIC = 'value'\n);",
+			expected:  "CREATE TABLE table_name (column1 VARCHAR) WITH (KAFKA_TOPIC = 'value');",
 			expectErr: false,
 		},
 		{
@@ -95,7 +95,7 @@ func Test_CreateSchemaMethods(t *testing.T) {
 				SchemaFields(
 					schema.SearchField{Name: "column1", Kind: kinds.String},
 					schema.SearchField{Name: "column2", Kind: kinds.Int},
-					schema.SearchField{Name: "column3", Kind: kinds.Float},
+					schema.SearchField{Name: "column3", Kind: kinds.Double},
 				),
 			expected:  "CREATE TABLE table_name (column1 VARCHAR, column2 INT, column3 FLOAT);",
 			expectErr: false,

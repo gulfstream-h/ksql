@@ -24,7 +24,7 @@ type (
 		WithCTE(inner SelectBuilder) SelectBuilder
 		WithMeta(with Metadata) SelectBuilder
 		Select(fields ...Field) SelectBuilder
-		SelectStruct(name string, val any) SelectBuilder
+		SelectStruct(name string, fields schema.LintedFields) SelectBuilder
 		From(schema string, reference Reference) SelectBuilder
 		Where(expressions ...Conditional) SelectBuilder
 		Windowed(window WindowExpression) SelectBuilder
@@ -225,7 +225,7 @@ func Select(fields ...Field) SelectBuilder {
 	return sb.Select(fields...)
 }
 
-func SelectAsStruct(name string, val any) SelectBuilder {
+func SelectAsStruct(name string, val schema.LintedFields) SelectBuilder {
 	sb := newSelectBuilder()
 	return sb.SelectStruct(name, val)
 }
@@ -264,25 +264,19 @@ func (s *selectBuilder) SchemaFields() []schema.SearchField {
 	return s.ctx.Fields()
 }
 
-// todo:
-//  maybe parse struct relation name from provided struct ?
+func (s *selectBuilder) SelectStruct(name string, val schema.LintedFields) SelectBuilder {
+	fieldsList := val.Array()
 
-func (s *selectBuilder) SelectStruct(name string, val any) SelectBuilder {
-	structFields, err := schema.ParseRelation(val)
-	if err != nil {
-		return s
+	if s.ctx != nil {
+		s.ctx.AddFields(fieldsList...)
 	}
 
-	if static.ReflectionFlag {
-		s.addRelation(name, structFields)
-	}
+	fields := make([]Field, 0, len(fieldsList))
 
-	fields := make([]Field, 0, len(structFields))
-
-	for i := range structFields {
+	for i := range fieldsList {
 		f := field{
 			schema: name,
-			col:    structFields[i].Name,
+			col:    fieldsList[i].Name,
 		}
 		fields = append(fields, &f)
 	}

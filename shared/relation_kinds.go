@@ -3,31 +3,37 @@ package shared
 import (
 	"context"
 	"ksql/kinds"
-	"reflect"
+	"ksql/schema"
 )
 
-// StreamSettings - describes the settings of stream
-// it's not bound to any specific structure
-// so can be easily called from any space
-type StreamSettings struct {
+type Settings struct {
 	Name        string
 	SourceTopic *string
 	Partitions  *uint8
-	Schema      reflect.Type
+	Schema      schema.LintedFields
 	Format      kinds.ValueFormat
 	DeleteFunc  func(context.Context)
 }
 
+// StreamSettings - describes the settings of stream
+// it's not bound to any specific structure
+// so can be easily called from any space
+type StreamSettings Settings
+
 // TableSettings - describes the settings of a table
 // it's not bound to any specific structure
 // so can be easily called from any space
-type TableSettings struct {
-	Name        string
-	SourceTopic *string
-	Partitions  *uint8
-	Schema      reflect.Type
-	Format      kinds.ValueFormat
-	DeleteFunc  func(context.Context)
+type TableSettings Settings
+
+type RelationSettings interface {
+	~struct {
+		Name        string
+		SourceTopic *string
+		Partitions  *uint8
+		Schema      schema.LintedFields
+		Format      kinds.ValueFormat
+		DeleteFunc  func(context.Context)
+	}
 }
 
 type Linter interface {

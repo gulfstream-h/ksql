@@ -1,11 +1,8 @@
 package schema
 
 import (
-	"errors"
+	"fmt"
 	"ksql/kinds"
-	"ksql/shared"
-	"ksql/static"
-	"reflect"
 )
 
 // SearchField - is the most important
@@ -21,58 +18,39 @@ type SearchField struct {
 	Tag      string
 }
 
-// CompareStructs - checks if two structs matches
-// if some fields are missing in one of the structs
-// it returns a map of common fields and a map of
-// different fields
-func CompareStructs(
-	firstStruct reflect.Type,
-	secondStruct reflect.Type) (
-	map[string]bool, map[string]struct{}) {
+type (
+	structFields map[string]SearchField
+)
 
-	var (
-		commonMap = make(map[string]bool)
-		diffMap   = make(map[string]struct{})
-	)
-
-	for i := 0; i < firstStruct.NumField(); i++ {
-		fs := firstStruct.Field(i)
-		commonMap[fs.Name] = false
-	}
-
-	for i := 0; i < secondStruct.NumField(); i++ {
-		ss := secondStruct.Field(i)
-		if _, exists := commonMap[ss.Name]; exists {
-			commonMap[ss.Name] = true
-			continue
+func (sf structFields) CompareWithFields(compFields []SearchField) error {
+	for _, field := range compFields {
+		matchField, ok := sf[field.Name]
+		if !ok {
+			return fmt.Errorf("match for field %s not found", field.Name)
 		}
 
-		diffMap[ss.Name] = struct{}{}
+		if matchField.Kind != field.Kind {
+			return fmt.Errorf("kinds for field %s doesnt match", field.Name)
+		}
 	}
 
-	return commonMap, diffMap
+	return nil
 }
 
-// FindRelationFields returns the fields of a relation (stream or table) based on its name.
-// It can be used for other DDL check-ups
-func FindRelationFields(relationName string) (map[string]SearchField, error) {
-	streamSettings, exists := static.StreamsProjections.Load(relationName)
-	if exists {
-		settings, ok := streamSettings.(shared.StreamSettings)
-		if !ok {
-			return nil, errors.New("invalid map values have been inserted")
-		}
-		return ParseStructToFieldsDictionary(relationName, settings.Schema), nil
-	}
+type LintedFields interface {
+	Map() map[string]SearchField
+	Array() []SearchField
+	CompareWithFields(compFields []SearchField) error
+}
 
-	tableSettings, exists := static.TablesProjections.Load(relationName)
-	if exists {
-		settings, ok := tableSettings.(shared.TableSettings)
-		if !ok {
-			return nil, errors.New("invalid map values have been inserted")
-		}
-		return ParseStructToFieldsDictionary(relationName, settings.Schema), nil
-	}
+func (sf structFields) Map() map[string]SearchField {
+	return sf
+}
 
-	return nil, errors.New("cannot find relation fields")
+func (sf structFields) Array() []SearchField {
+	fieldsList := make([]SearchField, 0, len(sf))
+	for _, value := range sf {
+		fieldsList = append(fieldsList, value)
+	}
+	return fieldsList
 }
