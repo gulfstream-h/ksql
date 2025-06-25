@@ -5,6 +5,7 @@ import (
 	"ksql/consts"
 	"ksql/kinds"
 	"ksql/reflector"
+	"ksql/util"
 	"log/slog"
 )
 
@@ -40,6 +41,11 @@ func NativeStructRepresentation(structure any) (structFields, error) {
 		return nil, fmt.Errorf("cannot get reflect.Type of provided struct: %w", err)
 	}
 
+	val, err := reflector.GetValue(structure)
+	if err != nil {
+		return nil, fmt.Errorf("cannot get reflect.Value of provided struct: %w", err)
+	}
+
 	structName := typ.Name()
 
 	var (
@@ -48,6 +54,7 @@ func NativeStructRepresentation(structure any) (structFields, error) {
 
 	for i := 0; i < typ.NumField(); i++ {
 		fieldTyp := typ.Field(i)
+		fieldVal := val.Field(i)
 
 		ksqlKind, err := kinds.ToKsql(fieldTyp.Type)
 		if err != nil {
@@ -59,10 +66,13 @@ func NativeStructRepresentation(structure any) (structFields, error) {
 			continue
 		}
 
+		literalValue := util.Serialize(fieldVal.Interface())
+
 		fields[tag] = SearchField{
 			Name:     tag,
 			Relation: structName,
 			Kind:     ksqlKind,
+			Value:    &literalValue,
 		}
 	}
 

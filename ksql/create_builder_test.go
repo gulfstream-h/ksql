@@ -77,7 +77,7 @@ func Test_CreateSchemaMethods(t *testing.T) {
 				SchemaFields(
 					schema.SearchField{Name: "column1", Kind: kinds.String},
 				),
-			expected:  "CREATE TABLE table_name (column1 VARCHAR) WITH (\n  KAFKA_TOPIC = 'value'\n);",
+			expected:  "CREATE TABLE table_name (column1 VARCHAR) WITH (KAFKA_TOPIC = 'value');",
 			expectErr: false,
 		},
 		{
