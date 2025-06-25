@@ -51,7 +51,7 @@ func Test_CreateSchemaMethods(t *testing.T) {
 		{
 			name: "Create Table with SchemaFromStruct",
 			createSQL: Create(TABLE, "table_name").
-				SchemaFromStruct("table_name", struct {
+				SchemaFromStruct(struct {
 					Column1 string `ksql:"column1"`
 					Column2 int    `ksql:"column2"`
 				}{}),
@@ -72,7 +72,7 @@ func Test_CreateSchemaMethods(t *testing.T) {
 		{
 			name: "Create Table with SchemaFromStruct",
 			createSQL: Create(TABLE, "table_name").
-				SchemaFromStruct("table_name", struct {
+				SchemaFromStruct(struct {
 					Column1 string `ksql:"column1"`
 					Column2 int    `ksql:"column2"`
 				}{}),
@@ -128,7 +128,7 @@ func Test_CreateSchemaMethods(t *testing.T) {
 		{
 			name: "Create Stream with SchemaFromStruct",
 			createSQL: Create(STREAM, "stream_name").
-				SchemaFromStruct("stream_name", struct {
+				SchemaFromStruct(struct {
 					Column1 string  `ksql:"column1"`
 					Column2 float64 `ksql:"column2"`
 				}{}),
