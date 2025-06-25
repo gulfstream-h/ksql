@@ -6,28 +6,34 @@ import (
 	"ksql/schema"
 )
 
-// StreamSettings - describes the settings of stream
-// it's not bound to any specific structure
-// so can be easily called from any space
-type StreamSettings struct {
+type Settings struct {
 	Name        string
 	SourceTopic *string
 	Partitions  *uint8
-	Schema      LintedFields
+	Schema      schema.LintedFields
 	Format      kinds.ValueFormat
 	DeleteFunc  func(context.Context)
 }
 
+// StreamSettings - describes the settings of stream
+// it's not bound to any specific structure
+// so can be easily called from any space
+type StreamSettings Settings
+
 // TableSettings - describes the settings of a table
 // it's not bound to any specific structure
 // so can be easily called from any space
-type TableSettings struct {
-	Name        string
-	SourceTopic *string
-	Partitions  *uint8
-	Schema      LintedFields
-	Format      kinds.ValueFormat
-	DeleteFunc  func(context.Context)
+type TableSettings Settings
+
+type RelationSettings interface {
+	~struct {
+		Name        string
+		SourceTopic *string
+		Partitions  *uint8
+		Schema      schema.LintedFields
+		Format      kinds.ValueFormat
+		DeleteFunc  func(context.Context)
+	}
 }
 
 type Linter interface {
@@ -37,10 +43,4 @@ type Linter interface {
 type Config interface {
 	Linter
 	Configure(context.Context) error
-}
-
-type LintedFields interface {
-	Map() map[string]schema.SearchField
-	Array() []schema.SearchField
-	CompareWithFields(compFields []schema.SearchField) error
 }

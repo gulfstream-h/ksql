@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	jsoniter "github.com/json-iterator/go"
+	"ksql/consts"
 	"ksql/kernel/network"
 	"ksql/kernel/protocol/dao"
 	"ksql/kernel/protocol/dto"
@@ -26,7 +27,7 @@ import (
 type Stream[S any] struct {
 	Name         string
 	partitions   *uint8
-	remoteSchema shared.LintedFields
+	remoteSchema schema.LintedFields
 	format       kinds.ValueFormat
 }
 
@@ -151,7 +152,7 @@ func Drop(ctx context.Context, stream string) error {
 			return errors.New("cannot drop stream")
 		}
 
-		if drop[0].CommandStatus.Status != static.SUCCESS {
+		if drop[0].CommandStatus.Status != consts.SUCCESS {
 			return fmt.Errorf("cannot drop stream: %s", drop[0].CommandStatus.Status)
 		}
 
@@ -265,7 +266,7 @@ func CreateStream[S any](
 
 		status := create[0]
 
-		if status.CommandStatus.Status != static.SUCCESS {
+		if status.CommandStatus.Status != consts.SUCCESS {
 			return nil, fmt.Errorf("unsuccesful respose. msg: %s", status.CommandStatus.Message)
 		}
 
@@ -346,7 +347,7 @@ func CreateStreamAsSelect[S any](
 
 		status := create[0]
 
-		if status.CommandStatus.Status != static.SUCCESS {
+		if status.CommandStatus.Status != consts.SUCCESS {
 			return nil, fmt.Errorf("unsuccesful respose. msg: %s", status.CommandStatus.Message)
 		}
 

@@ -37,6 +37,12 @@ func (sf structFields) CompareWithFields(compFields []SearchField) error {
 	return nil
 }
 
+type LintedFields interface {
+	Map() map[string]SearchField
+	Array() []SearchField
+	CompareWithFields(compFields []SearchField) error
+}
+
 func (sf structFields) Map() map[string]SearchField {
 	return sf
 }

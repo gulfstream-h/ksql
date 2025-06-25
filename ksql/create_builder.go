@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"ksql/schema"
-	"ksql/shared"
 	"strings"
 )
 
@@ -14,7 +13,7 @@ type (
 		AsSelect(builder SelectBuilder) CreateBuilder
 		SchemaFields(fields ...schema.SearchField) CreateBuilder
 		SchemaFromStruct(schemaName string, schemaStruct any) CreateBuilder
-		SchemaFromRemoteStruct(fields shared.LintedFields) CreateBuilder
+		SchemaFromRemoteStruct(fields schema.LintedFields) CreateBuilder
 		With(metadata Metadata) CreateBuilder
 		Type() Reference
 		Schema() string
@@ -126,7 +125,7 @@ func (c *createBuilder) SchemaFromStruct(
 }
 
 func (c *createBuilder) SchemaFromRemoteStruct(
-	fields shared.LintedFields,
+	fields schema.LintedFields,
 ) CreateBuilder {
 	fieldsList := fields.Array()
 

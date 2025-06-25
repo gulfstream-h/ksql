@@ -1,12 +1,10 @@
 package schema
 
 import (
-	"errors"
 	"fmt"
+	"ksql/consts"
 	"ksql/kinds"
 	"ksql/reflector"
-	"ksql/shared"
-	"ksql/static"
 	"log/slog"
 )
 
@@ -56,7 +54,7 @@ func NativeStructRepresentation(structure any) (structFields, error) {
 			continue
 		}
 
-		tag := fieldTyp.Tag.Get(static.KSQL)
+		tag := fieldTyp.Tag.Get(consts.KSQL)
 		if tag == "" {
 			continue
 		}
@@ -69,28 +67,4 @@ func NativeStructRepresentation(structure any) (structFields, error) {
 	}
 
 	return fields, nil
-}
-
-// FindRelationFields returns the fields of a relation (stream or table) based on its name.
-// It can be used for other DDL check-ups
-func FindRelationFields(relationName string) (structFields, error) {
-	streamSettings, exists := static.StreamsProjections.Load(relationName)
-	if exists {
-		settings, ok := streamSettings.(shared.StreamSettings)
-		if !ok {
-			return nil, errors.New("invalid map values have been inserted")
-		}
-		return settings.Schema.Map(), nil
-	}
-
-	tableSettings, exists := static.TablesProjections.Load(relationName)
-	if exists {
-		settings, ok := tableSettings.(shared.TableSettings)
-		if !ok {
-			return nil, errors.New("invalid map values have been inserted")
-		}
-		return settings.Schema.Map(), nil
-	}
-
-	return nil, errors.New("cannot find relation fields")
 }
