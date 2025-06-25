@@ -4,7 +4,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"ksql/schema"
 	"ksql/static"
-	"reflect"
 	"testing"
 )
 
@@ -637,13 +636,13 @@ func Test_SelectBuilderRelationStorage(t *testing.T) {
 	testcases := []struct {
 		name                    string
 		builder                 SelectBuilder
-		expectedRelationStorage map[string]schema.Relation
+		expectedRelationStorage map[string]map[string]schema.SearchField
 	}{
 		{
 			name: "Simple SELECT with table storage",
 			builder: Select(F("table.column1")).
 				From("table", TABLE),
-			expectedRelationStorage: map[string]schema.Relation{
+			expectedRelationStorage: map[string]map[string]schema.SearchField{
 				"table": {
 					"column1": schema.SearchField{
 						Name:     "column1",
@@ -656,7 +655,7 @@ func Test_SelectBuilderRelationStorage(t *testing.T) {
 			name: "SELECT with multiple fields",
 			builder: Select(F("table.column1"), F("table.column2")).
 				From("table", TABLE),
-			expectedRelationStorage: map[string]schema.Relation{
+			expectedRelationStorage: map[string]map[string]schema.SearchField{
 				"table": {
 					"column1": schema.SearchField{
 						Name:     "column1",
@@ -674,7 +673,7 @@ func Test_SelectBuilderRelationStorage(t *testing.T) {
 			builder: Select(F("table1.column1"), F("table2.column2")).
 				From("table1", TABLE).
 				Join("table2", F("table1.id").Equal(F("table2.id"))),
-			expectedRelationStorage: map[string]schema.Relation{
+			expectedRelationStorage: map[string]map[string]schema.SearchField{
 				"table1": {
 					"column1": schema.SearchField{
 						Name:     "column1",
@@ -702,7 +701,7 @@ func Test_SelectBuilderRelationStorage(t *testing.T) {
 			builder: Select(F("table.column1"), F("table.column2")).
 				From("table", TABLE).
 				GroupBy(F("table.column1")),
-			expectedRelationStorage: map[string]schema.Relation{
+			expectedRelationStorage: map[string]map[string]schema.SearchField{
 				"table": {
 					"column1": schema.SearchField{
 						Name:     "column1",
@@ -720,7 +719,7 @@ func Test_SelectBuilderRelationStorage(t *testing.T) {
 			builder: Select(F("table.column1")).
 				From("table", TABLE).
 				Where(F("table.column1").Equal(1)),
-			expectedRelationStorage: map[string]schema.Relation{
+			expectedRelationStorage: map[string]map[string]schema.SearchField{
 				"table": {
 					"column1": schema.SearchField{
 						Name:     "column1",
@@ -738,7 +737,7 @@ func Test_SelectBuilderRelationStorage(t *testing.T) {
 				Where(F("table1.column1").Greater(10), F("table2.column2").Less(50)).
 				GroupBy(F("table1.column1"), F("table2.column2")).
 				Having(F("count_column3").Greater(5)),
-			expectedRelationStorage: map[string]schema.Relation{
+			expectedRelationStorage: map[string]map[string]schema.SearchField{
 				"table1": {
 					"column1": schema.SearchField{
 						Name:     "column1",
@@ -778,7 +777,7 @@ func Test_SelectBuilderRelationStorage(t *testing.T) {
 				GroupBy(F("stream.column1")).
 				Windowed(NewTumblingWindow(TimeUnit{Val: 10, Unit: Seconds})).
 				OrderBy(F("count_column2").Desc()),
-			expectedRelationStorage: map[string]schema.Relation{
+			expectedRelationStorage: map[string]map[string]schema.SearchField{
 				"stream": {
 					"column1": schema.SearchField{
 						Name:     "column1",
@@ -800,7 +799,7 @@ func Test_SelectBuilderRelationStorage(t *testing.T) {
 				From("t1", TABLE).
 				Join("t2", F("t1.id").Equal(F("t2.t1_id"))).
 				Join("t3", F("t2.id").Equal(F("t3.t2_id"))),
-			expectedRelationStorage: map[string]schema.Relation{
+			expectedRelationStorage: map[string]map[string]schema.SearchField{
 				"t1": {
 					"col1": {Name: "col1", Relation: "t1"},
 					"col2": {Name: "col2", Relation: "t1"},
@@ -835,7 +834,7 @@ func Test_SelectBuilderRelationStorage(t *testing.T) {
 				Where(F("sales.amount").Greater(100)).
 				GroupBy(F("sales.region")).
 				Having(F("total_amount").Greater(10000)),
-			expectedRelationStorage: map[string]schema.Relation{
+			expectedRelationStorage: map[string]map[string]schema.SearchField{
 				"sales": {
 					"region":         {Name: "region", Relation: "sales"},
 					"amount":         {Name: "amount", Relation: "sales"},
@@ -849,7 +848,11 @@ func Test_SelectBuilderRelationStorage(t *testing.T) {
 	for _, tc := range testcases {
 		t.Run(tc.name, func(t *testing.T) {
 			relationStorage := tc.builder.RelationStorage()
-			assert.Equal(t, tc.expectedRelationStorage, relationStorage)
+			result := make(map[string]map[string]schema.SearchField)
+			for relation, fields := range relationStorage {
+				result[relation] = fields.Map()
+			}
+			assert.Equal(t, tc.expectedRelationStorage, result)
 		})
 	}
 

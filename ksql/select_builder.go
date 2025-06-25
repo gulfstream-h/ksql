@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"ksql/schema"
 	"ksql/static"
-	"maps"
 	"strings"
 	"sync"
 )
@@ -15,7 +14,7 @@ type (
 		Joiner
 		aggregated() bool
 		windowed() bool
-		RelationStorage() map[string]schema.Relation
+		RelationStorage() map[string]schema.LintedFields
 
 		SchemaFields() []schema.SearchField
 		As(alias string) SelectBuilder
@@ -68,7 +67,7 @@ type (
 
 		// relationStorage contains all relations that were added to the select builder
 		// it is used to validate reflection when static.ReflectionFlag is enabled
-		relationStorage map[string]schema.Relation
+		relationStorage map[string]schema.LintedFields
 
 		// virtualSchemas contains pairs of alias and schema name
 		// used to resolve schema names in the select builder
@@ -213,7 +212,7 @@ func newSelectBuilder() SelectBuilder {
 		havingEx:        NewHavingExpression(),
 		groupByEx:       NewGroupByExpression(),
 		orderByEx:       NewOrderByExpression(),
-		relationStorage: make(map[string]schema.Relation),
+		relationStorage: make(map[string]schema.LintedFields),
 		virtualSchemas:  make(map[string]string),
 		virtualColumns:  make(map[string]string),
 	}
@@ -612,7 +611,7 @@ func (s *selectBuilder) Expression() (string, error) {
 	return builder.String(), nil
 }
 
-func (s *selectBuilder) RelationStorage() map[string]schema.Relation {
+func (s *selectBuilder) RelationStorage() map[string]schema.LintedFields {
 	if static.ReflectionFlag {
 		s.aliasRefresher.Do(func() {
 			// update defaultSchemaName to the real schema name
@@ -662,14 +661,16 @@ func (s *selectBuilder) withAggregatedOperators() bool {
 
 func (s *selectBuilder) addRelation(
 	relationName string,
-	relation schema.Relation,
+	relation schema.LintedFields,
 ) {
 	if relation == nil {
 		return
 	}
 
 	if _, exists := s.relationStorage[relationName]; exists {
-		maps.Copy(s.relationStorage[relationName], relation)
+		for _, field := range relation.Map() {
+			s.relationStorage[relationName].Set(field)
+		}
 		return
 	}
 
@@ -687,9 +688,9 @@ func (s *selectBuilder) addSearchField(
 		return
 	}
 	if s.relationStorage[field.Relation] == nil {
-		s.relationStorage[field.Relation] = make(schema.Relation)
+		s.relationStorage[field.Relation] = schema.NewLintedFields()
 	}
-	s.relationStorage[field.Relation][field.Name] = field
+	s.relationStorage[field.Relation].Set(field)
 }
 
 func (s *selectBuilder) parseRelationName(f Field) string {
