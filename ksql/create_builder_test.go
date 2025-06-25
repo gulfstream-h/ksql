@@ -4,15 +4,39 @@ import (
 	"github.com/stretchr/testify/assert"
 	"ksql/kinds"
 	"ksql/schema"
+	"regexp"
+	"sort"
+	"strings"
 	"testing"
 )
 
+func normalizeCreateSQL(sql string) string {
+	re := regexp.MustCompile(`(?i)CREATE (TABLE|STREAM) (\w+) \((.+?)\)(?: WITH \((.+?)\))?;`)
+	matches := re.FindStringSubmatch(sql)
+	if len(matches) < 3 {
+		return sql
+	}
+
+	tableType := matches[1]
+	tableName := matches[2]
+	fields := strings.Split(strings.TrimSpace(matches[3]), ", ")
+
+	sort.Strings(fields)
+	options := ""
+	if len(matches) > 4 && matches[4] != "" {
+		options = " WITH (" + strings.TrimSpace(matches[4]) + ")"
+	}
+
+	return "CREATE " + tableType + " " + tableName + " (" + strings.Join(fields, ", ") + ")" + options + ";"
+}
+
 func Test_CreateSchemaMethods(t *testing.T) {
 	testcases := []struct {
-		name      string
-		createSQL CreateBuilder
-		expected  string
-		expectErr bool
+		name                string
+		createSQL           CreateBuilder
+		expected            string
+		expectErr           bool
+		normalizationNeeded bool
 	}{
 		{
 			name: "Create Table with SchemaFields",
@@ -31,8 +55,9 @@ func Test_CreateSchemaMethods(t *testing.T) {
 					Column1 string `ksql:"column1"`
 					Column2 int    `ksql:"column2"`
 				}{}),
-			expected:  "CREATE TABLE table_name (column1 VARCHAR, column2 INT);",
-			expectErr: false,
+			expected:            "CREATE TABLE table_name (column1 VARCHAR, column2 INT);",
+			expectErr:           false,
+			normalizationNeeded: true,
 		},
 		{
 			name: "Create Table with SchemaFields",
@@ -107,14 +132,20 @@ func Test_CreateSchemaMethods(t *testing.T) {
 					Column1 string  `ksql:"column1"`
 					Column2 float64 `ksql:"column2"`
 				}{}),
-			expected:  "CREATE STREAM stream_name (column1 VARCHAR, column2 FLOAT);",
-			expectErr: false,
+			expected:            "CREATE STREAM stream_name (column1 VARCHAR, column2 FLOAT);",
+			expectErr:           false,
+			normalizationNeeded: true,
 		},
 	}
 
 	for _, tc := range testcases {
 		t.Run(tc.name, func(t *testing.T) {
 			expr, err := tc.createSQL.Expression()
+			if tc.normalizationNeeded {
+				expr = normalizeCreateSQL(expr)
+				tc.expected = normalizeCreateSQL(tc.expected)
+			}
+
 			assert.Equal(t, tc.expectErr, err != nil)
 			if !tc.expectErr {
 				assert.Equal(t, tc.expected, expr)

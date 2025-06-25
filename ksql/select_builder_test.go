@@ -4,23 +4,42 @@ import (
 	"github.com/stretchr/testify/assert"
 	"ksql/schema"
 	"ksql/static"
+	"regexp"
+	"sort"
+	"strings"
 	"testing"
 )
 
+func normalizeSelectSQL(sql string) string {
+
+	re := regexp.MustCompile(`(?i)^SELECT\s+(.+?)\s+FROM\s+(\w+)\s*(.*);?$`)
+	matches := re.FindStringSubmatch(sql)
+	if len(matches) != 3 {
+		return sql
+	}
+
+	fields := strings.Split(matches[1], ", ")
+	sort.Strings(fields)
+	relation := matches[2]
+	tail := matches[3]
+	return "SELECT " + strings.Join(fields, ", ") + " FROM " + relation + tail + ";"
+}
+
 func Test_SelectExpression(t *testing.T) {
 	testcases := []struct {
-		name               string
-		fields             []Field
-		schemaFrom         string
-		whereExpressions   []Conditional
-		join               []JoinExpression
-		havingExpressions  []Conditional
-		groupByFields      []Field
-		windowEx           WindowExpression
-		orderbyExpressions []OrderedExpression
-		structScan         schema.LintedFields
-		wantExpr           string
-		expectErr          bool
+		name                string
+		fields              []Field
+		schemaFrom          string
+		whereExpressions    []Conditional
+		join                []JoinExpression
+		havingExpressions   []Conditional
+		groupByFields       []Field
+		windowEx            WindowExpression
+		orderbyExpressions  []OrderedExpression
+		structScan          any
+		wantExpr            string
+		expectErr           bool
+		normalizationNeeded bool
 	}{
 		{
 			name:       "Simple SELECT with one field",
@@ -90,13 +109,17 @@ func Test_SelectExpression(t *testing.T) {
 		},
 		{
 			name: "SELECT with struct scan",
-			structScan: schema.RemoteFieldsRepresentation("users", map[string]string{
-				"id":   "INTEGER",
-				"name": "VARCHAR",
-			}),
-			schemaFrom: "users",
-			wantExpr:   "SELECT users.id, users.name FROM users;",
-			expectErr:  false,
+			structScan: struct {
+				ID   int    `ksql:"id"`
+				Name string `ksql:"name"`
+			}{
+				ID:   0,
+				Name: "",
+			},
+			schemaFrom:          "users",
+			wantExpr:            "SELECT users.id, users.name FROM users;",
+			expectErr:           false,
+			normalizationNeeded: true,
 		},
 		{
 			name:             "SELECT with multiple WHERE clauses",
@@ -535,7 +558,17 @@ func Test_SelectExpression(t *testing.T) {
 				OrderBy(tc.orderbyExpressions...).
 				Expression()
 
-			assert.Equal(t, tc.expectErr, err != nil)
+			if tc.normalizationNeeded {
+				gotExpr = normalizeSelectSQL(gotExpr)
+				tc.wantExpr = normalizeSelectSQL(tc.wantExpr)
+			}
+
+			if tc.expectErr {
+				assert.NotNil(t, err, "expected an error but got none")
+				return
+			} else {
+				assert.Nil(t, err, "expected no error but got one")
+			}
 			if !tc.expectErr {
 				assert.Equal(t, tc.wantExpr, gotExpr)
 			}

@@ -16,14 +16,13 @@ type (
 		windowed() bool
 		RelationStorage() map[string]schema.LintedFields
 
-		SchemaFields() []schema.SearchField
 		As(alias string) SelectBuilder
 		Ref() Reference
 		Alias() string
 		WithCTE(inner SelectBuilder) SelectBuilder
 		WithMeta(with Metadata) SelectBuilder
 		Select(fields ...Field) SelectBuilder
-		SelectStruct(name string, fields schema.LintedFields) SelectBuilder
+		SelectStruct(name string, val any) SelectBuilder
 		From(schema string, reference Reference) SelectBuilder
 		Where(expressions ...Conditional) SelectBuilder
 		Windowed(window WindowExpression) SelectBuilder
@@ -54,13 +53,8 @@ type (
 		) SelectBuilder
 	}
 
-	selectBuilderContext interface {
-		AddFields(fields ...schema.SearchField)
-		Fields() []schema.SearchField
-	}
-
 	selectBuilder struct {
-		ctx         selectBuilderContext
+		ctx         selectBuilderCtx
 		ref         Reference
 		emitChanges bool
 		emitFinal   bool
@@ -96,7 +90,7 @@ type (
 	}
 
 	selectBuilderCtx struct {
-		schemaRel []schema.SearchField
+		err error
 	}
 
 	selectBuilderRule struct {
@@ -184,27 +178,10 @@ var (
 	}
 )
 
-func (sbc *selectBuilderCtx) AddFields(fields ...schema.SearchField) {
-	sbc.schemaRel = append(sbc.schemaRel, fields...)
-}
-
-func (sbc *selectBuilderCtx) Fields() []schema.SearchField {
-	fields := make([]schema.SearchField, len(sbc.schemaRel))
-	copy(fields, sbc.schemaRel)
-	return fields
-}
-
 func newSelectBuilder() SelectBuilder {
-	var (
-		ctx selectBuilderContext
-	)
-
-	if static.ReflectionFlag {
-		ctx = &selectBuilderCtx{}
-	}
 
 	return &selectBuilder{
-		ctx:             ctx,
+		ctx:             selectBuilderCtx{},
 		fields:          nil,
 		joinExs:         nil,
 		fromEx:          NewFromExpression(),
@@ -256,19 +233,14 @@ func (s *selectBuilder) Windowed(window WindowExpression) SelectBuilder {
 	return s
 }
 
-func (s *selectBuilder) SchemaFields() []schema.SearchField {
-	if s.ctx == nil {
-		return []schema.SearchField{}
+func (s *selectBuilder) SelectStruct(name string, val any) SelectBuilder {
+	relation, err := schema.NativeStructRepresentation(val)
+	if err != nil {
+		s.ctx.err = fmt.Errorf("cannot create relation from struct: %w", err)
+		return s
 	}
-	return s.ctx.Fields()
-}
 
-func (s *selectBuilder) SelectStruct(name string, val schema.LintedFields) SelectBuilder {
-	fieldsList := val.Array()
-
-	if s.ctx != nil {
-		s.ctx.AddFields(fieldsList...)
-	}
+	fieldsList := relation.Array()
 
 	fields := make([]Field, 0, len(fieldsList))
 
@@ -462,6 +434,10 @@ func (s *selectBuilder) Expression() (string, error) {
 		cteIsFirst   = true
 		fieldIsFirst = true
 	)
+
+	if s.ctx.err != nil {
+		return "", fmt.Errorf("select builder error: %w", s.ctx.err)
+	}
 
 	// validate reference
 	switch s.ref {
