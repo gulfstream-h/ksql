@@ -91,9 +91,9 @@ type (
 // They ensure that the generated SQL is valid according to KSQL syntax and semantics.
 var (
 	// 1. GROUP BY requires WINDOW clause on streams
-	groupByWindowed = selectBuilderRule{ // TODO: ??? Ask about this
+	groupByWindowed = selectBuilderRule{
 		ruleFn: func(builder *selectBuilder) (valid bool) {
-			return (builder.ref == STREAM && builder.windowEx == nil && !builder.emitChanges)
+			return !(builder.ref == STREAM && builder.windowEx == nil && !builder.emitChanges)
 		},
 		description: `GROUP BY requires WINDOW clause on streams`,
 	}

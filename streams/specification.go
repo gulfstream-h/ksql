@@ -378,8 +378,6 @@ func (s *Stream[S]) Insert(
 
 	relationCachedFields := scheme.Map()
 
-	// TODO:
-	// 	if no key presented in fields - return error?
 	for key, value := range fields {
 		field, ok := relationCachedFields[key]
 		if !ok {
