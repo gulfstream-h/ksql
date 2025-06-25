@@ -26,7 +26,7 @@ import (
 type Stream[S any] struct {
 	Name         string
 	partitions   *uint8
-	remoteSchema schema.LintedFields
+	remoteSchema shared.LintedFields
 	format       kinds.ValueFormat
 }
 

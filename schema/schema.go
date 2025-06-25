@@ -13,7 +13,7 @@ import (
 func RemoteFieldsRepresentation(
 	relationName string,
 	remoteFields map[string]string,
-) LintedFields {
+) structFields {
 
 	var (
 		schemaFields = make(structFields)
@@ -36,7 +36,7 @@ func RemoteFieldsRepresentation(
 	return schemaFields
 }
 
-func NativeStructRepresentation(structure any) (LintedFields, error) {
+func NativeStructRepresentation(structure any) (structFields, error) {
 	typ, err := reflector.GetType(structure)
 	if err != nil {
 		return nil, fmt.Errorf("cannot get reflect.Type of provided struct: %w", err)
@@ -73,14 +73,14 @@ func NativeStructRepresentation(structure any) (LintedFields, error) {
 
 // FindRelationFields returns the fields of a relation (stream or table) based on its name.
 // It can be used for other DDL check-ups
-func FindRelationFields(relationName string) (LintedFields, error) {
+func FindRelationFields(relationName string) (structFields, error) {
 	streamSettings, exists := static.StreamsProjections.Load(relationName)
 	if exists {
 		settings, ok := streamSettings.(shared.StreamSettings)
 		if !ok {
 			return nil, errors.New("invalid map values have been inserted")
 		}
-		return settings.Schema, nil
+		return settings.Schema.Map(), nil
 	}
 
 	tableSettings, exists := static.TablesProjections.Load(relationName)
@@ -89,7 +89,7 @@ func FindRelationFields(relationName string) (LintedFields, error) {
 		if !ok {
 			return nil, errors.New("invalid map values have been inserted")
 		}
-		return settings.Schema, nil
+		return settings.Schema.Map(), nil
 	}
 
 	return nil, errors.New("cannot find relation fields")

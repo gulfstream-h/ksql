@@ -13,7 +13,7 @@ type StreamSettings struct {
 	Name        string
 	SourceTopic *string
 	Partitions  *uint8
-	Schema      schema.LintedFields
+	Schema      LintedFields
 	Format      kinds.ValueFormat
 	DeleteFunc  func(context.Context)
 }
@@ -25,7 +25,7 @@ type TableSettings struct {
 	Name        string
 	SourceTopic *string
 	Partitions  *uint8
-	Schema      schema.LintedFields
+	Schema      LintedFields
 	Format      kinds.ValueFormat
 	DeleteFunc  func(context.Context)
 }
@@ -37,4 +37,10 @@ type Linter interface {
 type Config interface {
 	Linter
 	Configure(context.Context) error
+}
+
+type LintedFields interface {
+	Map() map[string]schema.SearchField
+	Array() []schema.SearchField
+	CompareWithFields(compFields []schema.SearchField) error
 }

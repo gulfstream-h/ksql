@@ -26,7 +26,7 @@ type Table[S any] struct {
 	Name         string
 	sourceTopic  *string
 	partitions   *uint8
-	remoteSchema schema.LintedFields
+	remoteSchema shared.LintedFields
 	format       kinds.ValueFormat
 }
 

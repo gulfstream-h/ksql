@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"ksql/schema"
+	"ksql/shared"
 	"ksql/static"
 	"strings"
 )
@@ -21,7 +22,7 @@ type (
 		WithCTE(inner SelectBuilder) SelectBuilder
 		WithMeta(with Metadata) SelectBuilder
 		Select(fields ...Field) SelectBuilder
-		SelectStruct(name string, fields schema.LintedFields) SelectBuilder
+		SelectStruct(name string, fields shared.LintedFields) SelectBuilder
 		From(schema string, reference Reference) SelectBuilder
 		Where(expressions ...Expression) SelectBuilder
 		Windowed(window WindowExpression) SelectBuilder
@@ -194,7 +195,7 @@ func Select(fields ...Field) SelectBuilder {
 	return sb.Select(fields...)
 }
 
-func SelectAsStruct(name string, val schema.LintedFields) SelectBuilder {
+func SelectAsStruct(name string, val shared.LintedFields) SelectBuilder {
 	sb := newSelectBuilder()
 	return sb.SelectStruct(name, val)
 }
@@ -233,7 +234,7 @@ func (s *selectBuilder) SchemaFields() []schema.SearchField {
 	return s.ctx.Fields()
 }
 
-func (s *selectBuilder) SelectStruct(name string, val schema.LintedFields) SelectBuilder {
+func (s *selectBuilder) SelectStruct(name string, val shared.LintedFields) SelectBuilder {
 	fieldsList := val.Array()
 
 	if s.ctx != nil {

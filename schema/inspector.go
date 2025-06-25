@@ -20,11 +20,6 @@ type SearchField struct {
 
 type (
 	structFields map[string]SearchField
-	LintedFields interface {
-		Map() structFields
-		Array() []SearchField
-		CompareWithFields(compFields []SearchField) error
-	}
 )
 
 func (sf structFields) CompareWithFields(compFields []SearchField) error {
@@ -42,7 +37,7 @@ func (sf structFields) CompareWithFields(compFields []SearchField) error {
 	return nil
 }
 
-func (sf structFields) Map() structFields {
+func (sf structFields) Map() map[string]SearchField {
 	return sf
 }
 
