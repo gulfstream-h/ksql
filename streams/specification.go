@@ -522,8 +522,6 @@ func (s *Stream[S]) SelectOnce(
 				return value, static.ErrMalformedResponse
 			}
 
-			fmt.Println("Received value:", string(val))
-
 			if strings.Contains(string(val), "Query Completed") {
 				return value, nil
 			}
@@ -534,8 +532,6 @@ func (s *Stream[S]) SelectOnce(
 				if err = jsoniter.Unmarshal(str, &headers); err != nil {
 					return value, fmt.Errorf("cannot unmarshal headers: %w", err)
 				}
-
-				fmt.Println("Headers:", headers)
 
 				iter++
 				continue
@@ -554,8 +550,6 @@ func (s *Stream[S]) SelectOnce(
 				return value, fmt.Errorf("cannot parse headers and values: %w", err)
 			}
 
-			fmt.Println(mappa)
-
 			t := reflect.ValueOf(&value)
 			if t.Kind() != reflect.Ptr || t.Elem().Kind() != reflect.Struct {
 				panic("value must be a pointer to a struct")
@@ -565,8 +559,6 @@ func (s *Stream[S]) SelectOnce(
 
 			for k, v := range mappa {
 				for i := 0; i < t.NumField(); i++ {
-					fmt.Println(k, ":", v)
-					fmt.Println(t.Kind().String(), tt.Kind().String())
 					structField := tt.Field(i)
 					fieldVal := t.Field(i)
 

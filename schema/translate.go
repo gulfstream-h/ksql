@@ -21,7 +21,6 @@ func ParseHeadersAndValues(
 	matches := re.FindAllString(headers, -1)
 
 	for _, m := range matches {
-		fmt.Println("Found match:", m)
 		parts = append(parts, m)
 	}
 
