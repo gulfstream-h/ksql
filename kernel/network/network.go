@@ -7,7 +7,7 @@ import (
 	"fmt"
 	jsoniter "github.com/json-iterator/go"
 	"io"
-	"ksql/static"
+	"ksql/consts"
 	"net/http"
 	"time"
 )
@@ -73,8 +73,8 @@ func (n *network) Perform(
 	}
 
 	req.Header.Set(
-		static.ContentType,
-		static.HeaderKSQL,
+		consts.ContentType,
+		consts.HeaderKSQL,
 	)
 
 	var (
@@ -110,8 +110,8 @@ func (n *network) PerformSelect(
 		return nil, fmt.Errorf("error while formating req: %w", err)
 	}
 	req.Header.Set(
-		static.ContentType,
-		static.HeaderKSQL,
+		consts.ContentType,
+		consts.HeaderKSQL,
 	)
 
 	var (

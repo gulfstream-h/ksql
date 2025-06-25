@@ -6,7 +6,6 @@ import (
 )
 
 func GetType(val any) (reflect.Type, error) {
-
 	t := reflect.TypeOf(val)
 
 	if t == nil {

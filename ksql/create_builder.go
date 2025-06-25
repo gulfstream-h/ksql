@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"ksql/schema"
-	"reflect"
 	"strings"
 )
 
@@ -14,10 +13,7 @@ type (
 		AsSelect(builder SelectBuilder) CreateBuilder
 		SchemaFields(fields ...schema.SearchField) CreateBuilder
 		SchemaFromStruct(schemaName string, schemaStruct any) CreateBuilder
-		SchemaFromRemoteStruct(
-			schemaName string,
-			schemaStruct reflect.Type,
-		) CreateBuilder
+		SchemaFromRemoteStruct(fields schema.LintedFields) CreateBuilder
 		With(metadata Metadata) CreateBuilder
 		Type() Reference
 		Schema() string
@@ -116,17 +112,24 @@ func (c *createBuilder) SchemaFromStruct(
 	schemaName string,
 	schemaStruct any,
 ) CreateBuilder {
-	c.fields = append(c.fields, schema.ParseStructToFields(schemaName, schemaStruct)...)
+	fields, err := schema.NativeStructRepresentation(schemaStruct)
+	if err != nil {
+		return c
+	}
+
+	fieldsList := fields.Array()
+
+	c.fields = append(c.fields, fieldsList...)
 
 	return c
 }
 
 func (c *createBuilder) SchemaFromRemoteStruct(
-	schemaName string,
-	schemaStruct reflect.Type,
+	fields schema.LintedFields,
 ) CreateBuilder {
+	fieldsList := fields.Array()
 
-	c.fields = append(c.fields, schema.ParseReflectStructToFields(schemaName, schemaStruct)...)
+	c.fields = append(c.fields, fieldsList...)
 	return c
 }
 

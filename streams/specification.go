@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	jsoniter "github.com/json-iterator/go"
+	"ksql/consts"
 	"ksql/kernel/network"
 	"ksql/kernel/protocol/dao"
 	"ksql/kernel/protocol/dto"
@@ -13,7 +14,7 @@ import (
 	"ksql/schema"
 	"ksql/shared"
 	"ksql/static"
-	"log/slog"
+	"strings"
 
 	"ksql/util"
 	"net/http"
@@ -26,7 +27,7 @@ import (
 type Stream[S any] struct {
 	Name         string
 	partitions   *uint8
-	remoteSchema *reflect.Type
+	remoteSchema schema.LintedFields
 	format       kinds.ValueFormat
 }
 
@@ -151,7 +152,7 @@ func Drop(ctx context.Context, stream string) error {
 			return errors.New("cannot drop stream")
 		}
 
-		if drop[0].CommandStatus.Status != static.SUCCESS {
+		if drop[0].CommandStatus.Status != consts.SUCCESS {
 			return fmt.Errorf("cannot drop stream: %s", drop[0].CommandStatus.Status)
 		}
 
@@ -171,11 +172,14 @@ func GetStream[S any](
 		s S
 	)
 
-	scheme := schema.SerializeProvidedStruct(&s)
+	scheme, err := schema.NativeStructRepresentation(s)
+	if err != nil {
+		return nil, err
+	}
 
 	streamInstance := &Stream[S]{
 		Name:         stream,
-		remoteSchema: &scheme,
+		remoteSchema: scheme,
 	}
 	desc, err := Describe(ctx, stream)
 	if err != nil {
@@ -193,13 +197,9 @@ func GetStream[S any](
 		responseSchema[field.Name] = field.Kind
 	}
 
-	remoteSchema := schema.SerializeRemoteSchema(responseSchema)
-	matchMap, diffMap := schema.CompareStructs(scheme, remoteSchema)
-
-	if len(diffMap) != 0 {
-		slog.Debug("match", "fields", matchMap)
-		slog.Debug("diff", "fields", diffMap)
-		return nil, errors.New("schemes doesnt match")
+	remoteSchema := schema.RemoteFieldsRepresentation(stream, responseSchema)
+	if err = remoteSchema.CompareWithFields(scheme.Array()); err != nil {
+		return nil, fmt.Errorf("reflection check failed: %w", err)
 	}
 
 	return streamInstance, nil
@@ -218,8 +218,10 @@ func CreateStream[S any](
 		s S
 	)
 
-	rmSchema := schema.SerializeProvidedStruct(s)
-	searchFields := schema.ParseReflectStructToFields(streamName, rmSchema)
+	rmSchema, err := schema.NativeStructRepresentation(s)
+	if err != nil {
+		return nil, err
+	}
 
 	metadata := ksql.Metadata{
 		Topic:       *settings.SourceTopic,
@@ -228,7 +230,7 @@ func CreateStream[S any](
 	}
 
 	query, _ := ksql.Create(ksql.STREAM, streamName).
-		SchemaFields(searchFields...).
+		SchemaFields(rmSchema.Array()...).
 		With(metadata).
 		Expression()
 
@@ -264,14 +266,14 @@ func CreateStream[S any](
 
 		status := create[0]
 
-		if status.CommandStatus.Status != static.SUCCESS {
+		if status.CommandStatus.Status != consts.SUCCESS {
 			return nil, fmt.Errorf("unsuccesful respose. msg: %s", status.CommandStatus.Message)
 		}
 
 		return &Stream[S]{
 			Name:         streamName,
 			partitions:   settings.Partitions,
-			remoteSchema: &rmSchema,
+			remoteSchema: rmSchema,
 			format:       settings.Format,
 		}, nil
 	}
@@ -291,14 +293,13 @@ func CreateStreamAsSelect[S any](
 		s S
 	)
 
-	scheme := schema.SerializeProvidedStruct(s)
-	rmScheme := schema.SerializeFieldsToStruct(selectBuilder.SchemaFields())
+	scheme, err := schema.NativeStructRepresentation(s)
+	if err != nil {
+		return nil, err
+	}
 
-	matchMap, diffMap := schema.CompareStructs(scheme, rmScheme)
-
-	if len(matchMap) == 0 {
-		slog.Debug("structs difference", "diff", diffMap)
-		return nil, errors.New("schemes doesnt match")
+	if err = scheme.CompareWithFields(selectBuilder.SchemaFields()); err != nil {
+		return nil, fmt.Errorf("reflection check failed: %w", err)
 	}
 
 	query, err := ksql.Create(ksql.STREAM, streamName).
@@ -346,13 +347,13 @@ func CreateStreamAsSelect[S any](
 
 		status := create[0]
 
-		if status.CommandStatus.Status != static.SUCCESS {
+		if status.CommandStatus.Status != consts.SUCCESS {
 			return nil, fmt.Errorf("unsuccesful respose. msg: %s", status.CommandStatus.Message)
 		}
 
 		return &Stream[S]{
 			partitions:   settings.Partitions,
-			remoteSchema: &scheme,
+			remoteSchema: scheme,
 			format:       settings.Format,
 		}, nil
 	}
@@ -370,26 +371,22 @@ func (s *Stream[S]) Insert(
 	fields ksql.Row,
 ) error {
 
-	scheme := *s.remoteSchema
-
-	remoteProjection := schema.ParseStructToFieldsDictionary(
-		s.Name,
-		scheme,
-	)
+	scheme := s.remoteSchema
 
 	var (
 		searchFields []schema.SearchField
 	)
 
-	// TODO:
-	// 	if no key presented in fields - return error?
+	relationCachedFields := scheme.Map()
+
 	for key, value := range fields {
-		field, ok := remoteProjection[key]
+		field, ok := relationCachedFields[key]
 		if !ok {
-			continue
+			return fmt.Errorf("field %s is not represented in remote schema", field.Name)
 		}
 
-		*field.Value = util.Serialize(value)
+		val := util.Serialize(value)
+		field.Value = &val
 
 		searchFields = append(searchFields, field)
 	}
@@ -421,7 +418,7 @@ func (s *Stream[S]) Insert(
 			insert []dao.CreateRelationResponse
 		)
 
-		if err := jsoniter.Unmarshal(val, &insert); err != nil {
+		if err = jsoniter.Unmarshal(val, &insert); err != nil {
 			return fmt.Errorf("cannot unmarshal insert response: %w", err)
 		}
 
@@ -442,14 +439,9 @@ func (s *Stream[S]) InsertAs(
 	selectQuery ksql.SelectBuilder,
 ) error {
 
-	scheme := *s.remoteSchema
-	rmScheme := schema.SerializeFieldsToStruct(selectQuery.SchemaFields())
-
-	matchMap, diffMap := schema.CompareStructs(scheme, rmScheme)
-
-	if len(matchMap) == 0 {
-		slog.Debug("structs diff", "diff", diffMap)
-		return errors.New("schemes doesnt match")
+	err := s.remoteSchema.CompareWithFields(selectQuery.SchemaFields())
+	if err != nil {
+		return fmt.Errorf("reflection check failed: %w", err)
 	}
 
 	query, err := ksql.Insert(ksql.STREAM, s.Name).AsSelect(selectQuery).Expression()
@@ -479,7 +471,7 @@ func (s *Stream[S]) InsertAs(
 			insert dao.CreateRelationResponse
 		)
 
-		if err := jsoniter.Unmarshal(val, &insert); err != nil {
+		if err = jsoniter.Unmarshal(val, &insert); err != nil {
 			return fmt.Errorf("cannot unmarshal insert response: %w", err)
 		}
 
@@ -498,7 +490,7 @@ func (s *Stream[S]) SelectOnce(
 	)
 
 	query, err := ksql.
-		SelectAsStruct(s.Name, *s.remoteSchema).
+		SelectAsStruct(s.Name, s.remoteSchema).
 		From(s.Name, ksql.STREAM).
 		Expression()
 
@@ -516,19 +508,72 @@ func (s *Stream[S]) SelectOnce(
 		return value, fmt.Errorf("cannot perform request: %w", err)
 	}
 
-	select {
-	case <-ctx.Done():
-		return value, ctx.Err()
-	case val, ok := <-pipeline:
-		if !ok {
-			return value, static.ErrMalformedResponse
-		}
+	var (
+		iter    = 0
+		headers dao.Header
+	)
 
-		if err := jsoniter.Unmarshal(val, &value); err != nil {
-			return value, fmt.Errorf("cannot unmarshal select response: %w", err)
-		}
+	for {
+		select {
+		case <-ctx.Done():
+			return value, ctx.Err()
+		case val, ok := <-pipeline:
+			if !ok {
+				return value, static.ErrMalformedResponse
+			}
 
-		return value, nil
+			if strings.Contains(string(val), "Query Completed") {
+				return value, nil
+			}
+
+			if iter == 0 {
+				str := val[1 : len(val)-1]
+
+				if err = jsoniter.Unmarshal(str, &headers); err != nil {
+					return value, fmt.Errorf("cannot unmarshal headers: %w", err)
+				}
+
+				iter++
+				continue
+			}
+
+			var (
+				row dao.Row
+			)
+
+			if err = jsoniter.Unmarshal(val[:len(val)-1], &row); err != nil {
+				return value, fmt.Errorf("cannot unmarshal row: %w", err)
+			}
+
+			mappa, err := schema.ParseHeadersAndValues(headers.Header.Schema, row.Row.Columns)
+			if err != nil {
+				return value, fmt.Errorf("cannot parse headers and values: %w", err)
+			}
+
+			t := reflect.ValueOf(&value)
+			if t.Kind() != reflect.Ptr || t.Elem().Kind() != reflect.Struct {
+				panic("value must be a pointer to a struct")
+			}
+			t = t.Elem()
+			tt := t.Type()
+
+			for k, v := range mappa {
+				for i := 0; i < t.NumField(); i++ {
+					structField := tt.Field(i)
+					fieldVal := t.Field(i)
+
+					if strings.EqualFold(structField.Tag.Get("ksql"), k) {
+						if fieldVal.CanSet() && v != nil {
+							val, ok := schema.NormalizeValue(v, fieldVal.Type())
+							if ok {
+								fieldVal.Set(val)
+							}
+						}
+						break
+					}
+				}
+			}
+		}
 	}
 }
 
@@ -544,7 +589,7 @@ func (s *Stream[S]) SelectWithEmit(
 		valuesC = make(chan S)
 	)
 
-	query, err := ksql.SelectAsStruct(s.Name, *s.remoteSchema).
+	query, err := ksql.SelectAsStruct(s.Name, s.remoteSchema).
 		From(s.Name, ksql.STREAM).
 		WithMeta(ksql.Metadata{ValueFormat: kinds.JSON.String()}).
 		Expression()
@@ -552,8 +597,6 @@ func (s *Stream[S]) SelectWithEmit(
 	if err != nil {
 		return nil, fmt.Errorf("build select query: %w", err)
 	}
-
-	query = "SELECT AMOUNT, CLIENT_HASH FROM NEW_STREAM;"
 
 	pipeline, err := network.Net.PerformSelect(
 		ctx,

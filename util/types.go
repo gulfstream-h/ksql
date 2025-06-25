@@ -40,7 +40,7 @@ func FormatSlice(slice any) (string, error) {
 func Serialize(val any) string {
 	switch v := val.(type) {
 	case []byte:
-		return string(v)
+		return "'" + string(v) + "'"
 	case string:
 		return "'" + v + "'"
 	case fmt.Stringer:
@@ -51,6 +51,62 @@ func Serialize(val any) string {
 		return fmt.Sprintf("%d", v)
 	case uint, uint8, uint16, uint32, uint64:
 		return fmt.Sprintf("%d", v)
+	case []string:
+		parts := make([]string, len(v))
+		for i, s := range v {
+			parts[i] = "'" + s + "'"
+		}
+		return "ARRAY[" + strings.Join(parts, ", ") + "]"
+	case []int:
+		parts := make([]string, len(v))
+		for i, n := range v {
+			parts[i] = fmt.Sprintf("%d", n)
+		}
+		return "ARRAY[" + strings.Join(parts, ", ") + "]"
+	case []float32:
+		parts := make([]string, len(v))
+		for i, n := range v {
+			parts[i] = fmt.Sprintf("%v", n)
+		}
+		return "ARRAY[" + strings.Join(parts, ", ") + "]"
+	case []bool:
+		parts := make([]string, len(v))
+		for i, b := range v {
+			if b {
+				parts[i] = "TRUE"
+			} else {
+				parts[i] = "FALSE"
+			}
+		}
+		return "ARRAY[" + strings.Join(parts, ", ") + "]"
+	case map[string]string:
+		parts := make([]string, 0, len(v))
+		for k, s := range v {
+			parts = append(parts, fmt.Sprintf("'%s' := '%s'", k, s))
+		}
+		return "MAP(" + strings.Join(parts, ", ") + ")"
+	case map[string]int:
+		parts := make([]string, 0, len(v))
+		for k, n := range v {
+			parts = append(parts, fmt.Sprintf("'%s' := %d", k, n))
+		}
+		return "MAP(" + strings.Join(parts, ", ") + ")"
+	case map[string]float64:
+		parts := make([]string, 0, len(v))
+		for k, n := range v {
+			parts = append(parts, fmt.Sprintf("'%s' := %v", k, n))
+		}
+		return "MAP(" + strings.Join(parts, ", ") + ")"
+	case map[string]bool:
+		parts := make([]string, 0, len(v))
+		for k, b := range v {
+			if b {
+				parts = append(parts, fmt.Sprintf("'%s' := TRUE", k))
+			} else {
+				parts = append(parts, fmt.Sprintf("'%s' := FALSE", k))
+			}
+		}
+		return "MAP(" + strings.Join(parts, ", ") + ")"
 	default:
 		if IsNil(v) {
 			return "NULL"

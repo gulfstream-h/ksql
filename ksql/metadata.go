@@ -44,9 +44,9 @@ func (m *Metadata) Expression() string {
 	}
 
 	if len(parts) != 0 {
-		str.WriteString("WITH (\n  ")
-		str.WriteString(strings.Join(parts, ",\n  "))
-		str.WriteString("\n)")
+		str.WriteString("WITH (")
+		str.WriteString(strings.Join(parts, ","))
+		str.WriteString(")")
 	}
 
 	return str.String()
