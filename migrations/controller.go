@@ -15,8 +15,8 @@ import (
 )
 
 const (
-	systemStreamName = "seeker_stream"
-	systemTableName  = "seeker_table"
+	systemStreamName = "seeker_stream" //ksql-system-stream name
+	systemTableName  = "seeker_table"  //ksql-system-table name
 )
 
 type ksqlController struct {

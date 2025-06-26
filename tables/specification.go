@@ -15,6 +15,7 @@ import (
 	"ksql/shared"
 	"ksql/static"
 	"ksql/util"
+	"log/slog"
 	"net/http"
 	"reflect"
 	"strings"
@@ -26,14 +27,13 @@ import (
 type Table[S any] struct {
 	Name         string
 	sourceTopic  *string
-	partitions   *uint8
+	partitions   *int
 	remoteSchema schema.LintedFields
 	format       kinds.ValueFormat
 }
 
 // ListTables - responses with all tables list
-// in the current ksqlDB instance. Also it reloads
-// map of available projections
+// in the current ksqlDB instance
 func ListTables(ctx context.Context) (
 	dto.ShowTables, error,
 ) {
@@ -76,9 +76,7 @@ func ListTables(ctx context.Context) (
 	}
 }
 
-// Describe - responses with table description.
-// Can be used for table schema and query by which
-// it was created
+// Describe - responses with table description
 func Describe(ctx context.Context, stream string) (dto.RelationDescription, error) {
 	query := util.MustNoError(ksql.Describe(ksql.TABLE, stream).Expression)
 
@@ -105,6 +103,8 @@ func Describe(ctx context.Context, stream string) (dto.RelationDescription, erro
 			describe []dao.DescribeResponse
 		)
 
+		slog.Debug("ksql response", "raw", string(val))
+
 		if strings.Contains(string(val), "Could not find STREAM/TABLE") {
 			return dto.RelationDescription{}, static.ErrTableDoesNotExist
 		}
@@ -123,7 +123,7 @@ func Describe(ctx context.Context, stream string) (dto.RelationDescription, erro
 }
 
 // Drop - drops table from ksqlDB instance
-// with parent topic. Also deletes projection from list
+// with parent topic
 func Drop(ctx context.Context, name string) error {
 	query := util.MustNoError(ksql.Drop(ksql.TABLE, name).Expression)
 
@@ -149,6 +149,9 @@ func Drop(ctx context.Context, name string) error {
 			drop []dao.DropInfo
 		)
 
+		fmt.Println("ksql response", "raw", string(val))
+		slog.Debug("ksql response", "raw", string(val))
+
 		if err = jsoniter.Unmarshal(val, &drop); err != nil {
 			return fmt.Errorf("cannot unmarshal drop response: %w", err)
 		}
@@ -166,9 +169,9 @@ func Drop(ctx context.Context, name string) error {
 }
 
 // GetTable - gets table from ksqlDB instance
-// by receiving http description from settings
-// current command return difference between
-// struct tags and remote schema
+// by receiving cache or else http description
+// current command returns error is user-defined structure
+// differs from server response
 func GetTable[S any](
 	ctx context.Context,
 	table string) (*Table[S], error) {
@@ -211,8 +214,6 @@ func GetTable[S any](
 }
 
 // CreateTable - creates table in ksqlDB instance
-// after creating, user should call
-// select or select with emit to get data from it
 func CreateTable[S any](
 	ctx context.Context,
 	tableName string,
@@ -229,6 +230,7 @@ func CreateTable[S any](
 
 	metadata := ksql.Metadata{
 		Topic:       *settings.SourceTopic,
+		Partitions:  *settings.Partitions,
 		ValueFormat: kinds.JSON.String(),
 	}
 
@@ -261,6 +263,8 @@ func CreateTable[S any](
 		var (
 			create []dao.CreateRelationResponse
 		)
+
+		slog.Debug("ksql response", "raw", string(val))
 
 		if err = jsoniter.Unmarshal(val, &create); err != nil {
 			return nil, fmt.Errorf("cannot unmarshal create response: %w", err)
@@ -322,8 +326,6 @@ func CreateTable[S any](
 
 // CreateTableAsSelect - creates table in ksqlDB instance
 // with user built query
-// after creating, user should call
-// select or select with emit to get data from it
 func CreateTableAsSelect[S any](
 	ctx context.Context,
 	tableName string,
@@ -404,7 +406,7 @@ func CreateTableAsSelect[S any](
 
 // SelectOnce - performs select query
 // and return only one http answer
-// channel is closed almost immediately
+// After channel closes
 func (s *Table[S]) SelectOnce(
 	ctx context.Context,
 ) (S, error) {

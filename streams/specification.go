@@ -26,16 +26,14 @@ import (
 // via referred to type functions calls
 type Stream[S any] struct {
 	Name         string
-	partitions   *uint8
+	partitions   *int
 	remoteSchema schema.LintedFields
 	format       kinds.ValueFormat
 }
 
 // ListStreams - responses with all streams list
-// in the current ksqlDB instance. Also it reloads
-// map of available projections
+// in the current ksqlDB instance
 func ListStreams(ctx context.Context) (dto.ShowStreams, error) {
-
 	query := util.MustNoError(ksql.List(ksql.STREAM).Expression)
 
 	pipeline, err := network.Net.Perform(
@@ -74,9 +72,7 @@ func ListStreams(ctx context.Context) (dto.ShowStreams, error) {
 	}
 }
 
-// Describe - responses with stream description.
-// Can be used for table schema and query by which
-// it was created
+// Describe - responses with stream description
 func Describe(ctx context.Context, stream string) (dto.RelationDescription, error) {
 	query := util.MustNoError(ksql.Describe(ksql.STREAM, stream).Expression)
 
@@ -117,7 +113,7 @@ func Describe(ctx context.Context, stream string) (dto.RelationDescription, erro
 }
 
 // Drop - drops stream from ksqlDB instance
-// with parent topic. Also deletes projection from list
+// with parent topic
 func Drop(ctx context.Context, stream string) error {
 
 	query := util.MustNoError(ksql.Drop(ksql.STREAM, stream).Expression)
@@ -162,8 +158,9 @@ func Drop(ctx context.Context, stream string) error {
 
 // GetStream - gets table from ksqlDB instance
 // by receiving http description from settings
-// current command return difference between
-// struct tags and remote schema
+// or from cache if reflection mode is enabled
+// if user-provided struct doesn't match
+// with ksql Description - function returns detailed error
 func GetStream[S any](
 	ctx context.Context,
 	stream string) (*Stream[S], error) {
@@ -206,8 +203,6 @@ func GetStream[S any](
 }
 
 // CreateStream - creates stream in ksqlDB instance
-// after creating, user should call
-// select or select with emit to get data from it
 func CreateStream[S any](
 	ctx context.Context,
 	streamName string,
@@ -281,8 +276,6 @@ func CreateStream[S any](
 
 // CreateStreamAsSelect - creates table in ksqlDB instance
 // with user built query
-// after creating, user should call
-// select or select with emit to get data from it
 func CreateStreamAsSelect[S any](
 	ctx context.Context,
 	streamName string,
@@ -359,13 +352,9 @@ func CreateStreamAsSelect[S any](
 	}
 }
 
-/*
-  TODO:
-    - Replace fields to any ?
-*/
-
-// Insert - provides insertion to stream functionality
-// written fields are defined by user
+// Insert - provides insertion into stream
+// if client provided fields cannot be found in stream
+// function returns error
 func (s *Stream[S]) Insert(
 	ctx context.Context,
 	fields ksql.Row,
@@ -431,8 +420,8 @@ func (s *Stream[S]) Insert(
 
 }
 
-// InsertAs - provides insertion to stream functionality
-// written fields are pre-fetched from select query, that
+// InsertAs - provides insertion to stream.
+// written fields are pre-fetched from select query, which
 // is built by user
 func (s *Stream[S]) InsertAs(
 	ctx context.Context,
@@ -481,7 +470,7 @@ func (s *Stream[S]) InsertAs(
 
 // SelectOnce - performs select query
 // and return only one http answer
-// channel is closed almost immediately
+// After channel closes
 func (s *Stream[S]) SelectOnce(
 	ctx context.Context) (S, error) {
 

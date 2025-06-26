@@ -8,7 +8,9 @@ import (
 	"log/slog"
 )
 
-// downCmd represents the down command
+// downCmd represents the up command
+// that copies migration-file down command
+// and executes it on remote ksql-server
 var downCmd = &cobra.Command{
 	Use:   "down [file_name]",
 	Short: "Discard changes. Invokes down-migration in provided file",

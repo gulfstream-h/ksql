@@ -7,7 +7,6 @@ type Topic struct {
 	Replicas []int  `json:"replicaInfo"`
 }
 
-// curl -X POST \\n  -H "Content-Type: application/vnd.ksql.v1+json" \\n  -d '{"ksql": "SHOW TOPICS;"}' \\n  "http://localhost:8088/ksql"
 type ShowTopics struct {
 	KafkaType string  `json:"type"`
 	Command   string  `json:"statementText"`
@@ -40,7 +39,6 @@ type Table struct {
 	IsWindowed  bool   `json:"isWindowed"`
 }
 
-// curl -X POST \\n  -H "Content-Type: application/vnd.ksql.v1+json" \\n  -d '{"ksql": "SHOW TABLES;"}' \\n  "http://localhost:8088/ksql"
 type ShowTables struct {
 	Type          string  `json:"@type"`
 	StatementText string  `json:"statementText"`

@@ -181,7 +181,7 @@ func (c *createBuilder) Expression() (string, error) {
 			builder.WriteString(item.Name + " " + item.Kind.GetKafkaRepresentation())
 
 			if item.Tag != "" && c.reference != STREAM {
-				if item.Tag == "primary" {
+				if strings.Contains(item.Tag, "primary") {
 					builder.WriteString(" PRIMARY KEY ")
 				}
 			}

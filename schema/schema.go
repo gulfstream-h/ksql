@@ -7,6 +7,7 @@ import (
 	"ksql/reflector"
 	"ksql/util"
 	"log/slog"
+	"strings"
 )
 
 func RemoteFieldsRepresentation(
@@ -61,18 +62,25 @@ func NativeStructRepresentation(structure any) (structFields, error) {
 			continue
 		}
 
-		tag := fieldTyp.Tag.Get(consts.KSQL)
-		if tag == "" {
+		extraData := strings.Split(fieldTyp.Tag.Get(consts.KSQL), ",")
+		if len(extraData) == 0 {
 			continue
+		}
+
+		name := extraData[0]
+		tag := ""
+		if len(extraData) > 1 {
+			tag = extraData[1]
 		}
 
 		literalValue := util.Serialize(fieldVal.Interface())
 
-		fields[tag] = SearchField{
-			Name:     tag,
+		fields[name] = SearchField{
+			Name:     name,
 			Relation: structName,
 			Kind:     ksqlKind,
 			Value:    &literalValue,
+			Tag:      tag,
 		}
 	}
 

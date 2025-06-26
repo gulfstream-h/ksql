@@ -23,6 +23,9 @@ type config struct {
 	shared.Linter  // enables query lintering with reflection
 }
 
+// New returns config file for ksql-connection
+// establishment. It's also configures reflection mode
+// in which library is executed
 func New(
 	host string,
 	timeoutSec int64,
@@ -42,6 +45,9 @@ func New(
 	return &cfg
 }
 
+// Configure - applying method for structures
+// it initialize network connection. Entry-point for library
+// net operations
 func (cfg *config) Configure(ctx context.Context) (err error) {
 	once.Do(func() {
 		if cfg.Host == "" {

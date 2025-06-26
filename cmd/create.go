@@ -10,6 +10,7 @@ import (
 )
 
 // createCmd represents the create command
+// for migration file in executed directory
 var createCmd = &cobra.Command{
 	Use:   "create [file_name]",
 	Short: "Creates a migration file in current directory with provided name",

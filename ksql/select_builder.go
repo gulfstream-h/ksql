@@ -91,12 +91,12 @@ type (
 // They ensure that the generated SQL is valid according to KSQL syntax and semantics.
 var (
 	// 1. GROUP BY requires WINDOW clause on streams
-	groupByWindowed = selectBuilderRule{
-		ruleFn: func(builder *selectBuilder) (valid bool) {
-			return !(builder.ref == STREAM && builder.windowEx == nil && !builder.emitChanges)
-		},
-		description: `GROUP BY requires WINDOW clause on streams`,
-	}
+	//groupByWindowed = selectBuilderRule{
+	//	ruleFn: func(builder *selectBuilder) (valid bool) {
+	//		return !(builder.ref == STREAM && builder.windowEx == nil && !builder.emitChanges)
+	//	},
+	//	description: `GROUP BY requires WINDOW clause on streams`,
+	//}
 
 	// 2. No HAVING without GROUP BY
 	havingWithGroupBy = selectBuilderRule{
@@ -147,7 +147,7 @@ var (
 	}
 
 	selectRuleSet = []selectBuilderRule{
-		groupByWindowed,
+		//groupByWindowed,
 		havingWithGroupBy,
 		aggregatedWithGroupBy,
 		emitChangesWithStream,

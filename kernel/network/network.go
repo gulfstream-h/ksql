@@ -40,7 +40,7 @@ func Init(host string, timeout time.Duration) {
 // Poller - provides different strategies of kafka http processing
 // Like for short polling requests it handles only one full stream of data
 // For Long-Polling requests it provides row-by-row parsing with open connection
-// Mostly all ksql requests are short polling, however EMIT_CHANGES requests are
+// Mostly all ksql requests are short polling, however SELECT and SELECT EMIT_CHANGES requests are
 // long polling
 type Poller interface {
 	Process(io.ReadCloser) <-chan []byte
@@ -65,7 +65,7 @@ func (n *network) Perform(
 	req, err := http.NewRequestWithContext(
 		ctx,
 		method,
-		n.host+"/ksql",
+		n.host+consts.KsqlRoute,
 		bytes.NewReader(q),
 	)
 	if err != nil {
@@ -88,6 +88,8 @@ func (n *network) Perform(
 	return pollingAlgo.Process(resp.Body), nil
 }
 
+// PerformSelect is used for long-living select queries
+// ksql requires asking websocket route for all selects
 func (n *network) PerformSelect(
 	ctx context.Context,
 	method string,
@@ -103,7 +105,7 @@ func (n *network) PerformSelect(
 	req, err := http.NewRequestWithContext(
 		ctx,
 		method,
-		n.host+"/query",
+		n.host+consts.QueryRoute,
 		bytes.NewReader(q),
 	)
 	if err != nil {
@@ -132,7 +134,7 @@ type (
 )
 
 // Process - performs fast and ordinary http request
-// it can be used for show, describe, drop, create, insert and most of select queries
+// it can be used for show, describe, drop, create, insert
 func (sp ShortPolling) Process(
 	payload io.ReadCloser,
 ) <-chan []byte {
@@ -157,7 +159,7 @@ type (
 	LongPolling struct{}
 )
 
-// Process - performs long-living requests. Mostly SELECT with EMIT CHANGES.
+// Process - performs long-living requests. Mostly SELECT or SELECT with EMIT CHANGES.
 // Channel is closed only on receiving EOF from KSQL-Client
 func (lp LongPolling) Process(
 	payload io.ReadCloser) <-chan []byte {
