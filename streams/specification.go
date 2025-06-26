@@ -219,9 +219,15 @@ func CreateStream[S any](
 	}
 
 	metadata := ksql.Metadata{
-		Topic:       *settings.SourceTopic,
-		Partitions:  int(*settings.Partitions),
 		ValueFormat: kinds.JSON.String(),
+	}
+
+	if settings.SourceTopic != nil {
+		metadata.Topic = *settings.SourceTopic
+	}
+
+	if settings.Partitions != nil {
+		metadata.Partitions = *settings.Partitions
 	}
 
 	query, _ := ksql.Create(ksql.STREAM, streamName).
@@ -251,6 +257,7 @@ func CreateStream[S any](
 			create []dao.CreateRelationResponse
 		)
 
+		fmt.Println(string(val))
 		if err := jsoniter.Unmarshal(val, &create); err != nil {
 			return nil, fmt.Errorf("cannot unmarshal create response: %w", err)
 		}
@@ -385,6 +392,8 @@ func (s *Stream[S]) Insert(
 		return fmt.Errorf("build insert query: %w", err)
 	}
 
+	fmt.Println(query)
+
 	pipeline, err := network.Net.Perform(
 		ctx,
 		http.MethodPost,
@@ -406,6 +415,8 @@ func (s *Stream[S]) Insert(
 		var (
 			insert []dao.CreateRelationResponse
 		)
+
+		fmt.Println(string(val))
 
 		if err = jsoniter.Unmarshal(val, &insert); err != nil {
 			return fmt.Errorf("cannot unmarshal insert response: %w", err)

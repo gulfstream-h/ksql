@@ -15,13 +15,13 @@ const (
 )
 
 func main() {
-	ctx := context.Background()
+	//ctx := context.Background()
 	//List(ctx)
 	//Create(ctx)
 	//Describe(ctx)
 	//Drop(ctx)
 	//Select(ctx)
-	SelectWithEmit(ctx)
+	//SelectWithEmit(ctx)
 }
 
 func init() {

@@ -43,7 +43,7 @@ func (ctrl *ksqlController) createSystemRelations(
 
 	var (
 		topic      = "migrations"
-		partitions = uint8(1)
+		partitions = 1
 	)
 
 	settings := shared.StreamSettings{
