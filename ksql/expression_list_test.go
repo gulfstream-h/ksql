@@ -8,35 +8,35 @@ import (
 func Test_ExpressionList(t *testing.T) {
 	tests := []struct {
 		name      string
-		exprs     []Expression
+		exprs     []Conditional
 		typ       BooleanOperationType
 		wantExpr  string
 		expectErr bool
 	}{
 		{
 			name:      "Single Expression",
-			exprs:     []Expression{F("col1")},
+			exprs:     []Conditional{F("col1").Equal(1)},
 			typ:       AndType,
-			wantExpr:  "( col1 )",
+			wantExpr:  "( col1 = 1 )",
 			expectErr: false,
 		},
 		{
 			name:      "Multiple Expressions with AND",
-			exprs:     []Expression{F("col1"), F("col2")},
+			exprs:     []Conditional{F("col1").Equal(1), F("col2").NotEqual(2)},
 			typ:       AndType,
-			wantExpr:  "( col1 AND col2 )",
+			wantExpr:  "( col1 = 1 AND col2 != 2 )",
 			expectErr: false,
 		},
 		{
 			name:      "Multiple Expressions with OR",
-			exprs:     []Expression{F("col1"), F("col2")},
+			exprs:     []Conditional{F("col1").IsNull(), F("col2").IsNotNull()},
 			typ:       OrType,
-			wantExpr:  "( col1 OR col2 )",
+			wantExpr:  "( col1 IS NULL OR col2 IS NOT NULL )",
 			expectErr: false,
 		},
 		{
 			name:      "Empty Expression List",
-			exprs:     []Expression{},
+			exprs:     []Conditional{},
 			typ:       AndType,
 			wantExpr:  "",
 			expectErr: true,

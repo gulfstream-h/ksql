@@ -7,14 +7,14 @@ import (
 
 type (
 	ExpressionList interface {
-		Expression() (string, error)
-		ExpressionList() []Expression
+		Conditional
+		Conditionals() []Conditional
 	}
 
 	BooleanOperationType int
 
 	expressionList struct {
-		expressions []Expression
+		expressions []Conditional
 		opType      BooleanOperationType
 	}
 )
@@ -24,24 +24,40 @@ const (
 	AndType
 )
 
-func Or(exps ...Expression) ExpressionList {
+func Or(exps ...Conditional) ExpressionList {
 	return &expressionList{
 		expressions: exps,
 		opType:      OrType,
 	}
 }
 
-func And(exps ...Expression) ExpressionList {
+func And(exps ...Conditional) ExpressionList {
 	return &expressionList{
 		expressions: exps,
 		opType:      AndType,
 	}
 }
 
-func (el *expressionList) ExpressionList() []Expression {
-	exps := make([]Expression, len(el.expressions))
+func (el *expressionList) Conditionals() []Conditional {
+	exps := make([]Conditional, len(el.expressions))
 	copy(exps, el.expressions)
 	return exps
+}
+
+func (el *expressionList) Left() []Field {
+	fields := make([]Field, 0, len(el.expressions))
+	for _, exp := range el.expressions {
+		fields = append(fields, exp.Left()...)
+	}
+	return fields
+}
+
+func (el *expressionList) Right() []any {
+	rights := make([]any, 0, len(el.expressions))
+	for _, exp := range el.expressions {
+		rights = append(rights, exp.Right()...)
+	}
+	return rights
 }
 
 func (el *expressionList) Expression() (string, error) {
@@ -70,7 +86,7 @@ func (el *expressionList) Expression() (string, error) {
 	for idx := range el.expressions {
 		exp, err := el.expressions[idx].Expression()
 		if err != nil {
-			return "", fmt.Errorf("create expression: %w", err)
+			return "", fmt.Errorf("conditional expression: %w", err)
 		}
 
 		if !isFirst {

@@ -9,7 +9,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func normalizeSQL(sql string) string {
+func normalizeInsertSQL(sql string) string {
 	re := regexp.MustCompile(`(?i)INSERT INTO (\w+) \((.+?)\) VALUES \((.+?)\);`)
 	matches := re.FindStringSubmatch(sql)
 	if len(matches) != 4 {
@@ -116,7 +116,7 @@ func Test_InsertExpression(t *testing.T) {
 			expr, err := builder.Expression()
 			assert.Equal(t, tc.expectErr, err != nil)
 			if !tc.expectErr {
-				assert.Equal(t, normalizeSQL(tc.expected), normalizeSQL(expr))
+				assert.Equal(t, normalizeInsertSQL(tc.expected), normalizeInsertSQL(expr))
 			}
 		})
 	}

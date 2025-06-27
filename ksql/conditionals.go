@@ -8,32 +8,38 @@ import (
 )
 
 type (
+	Conditional interface {
+		Left() []Field
+		Right() []any
+		Expression() (string, error)
+	}
+
 	Expression interface {
 		Expression() (string, error)
 	}
 
 	Comparable interface {
-		Equal(val any) Expression
-		NotEqual(val any) Expression
+		Equal(val any) Conditional
+		NotEqual(val any) Conditional
 	}
 
 	Ordered interface {
-		Greater(val any) Expression
-		Less(val any) Expression
-		GreaterEq(val any) Expression
-		LessEq(val any) Expression
+		Greater(val any) Conditional
+		Less(val any) Conditional
+		GreaterEq(val any) Conditional
+		LessEq(val any) Conditional
 		Asc() OrderedExpression
 		Desc() OrderedExpression
 	}
 
 	Nullable interface {
-		IsNull() Expression
-		IsNotNull() Expression
+		IsNull() Conditional
+		IsNotNull() Conditional
 	}
 
 	ComparableArray interface {
-		In(val ...any) Expression
-		NotIn(val ...any) Expression
+		In(val ...any) Conditional
+		NotIn(val ...any) Conditional
 	}
 
 	Op int
@@ -60,7 +66,7 @@ type booleanExp struct {
 	operation Op
 }
 
-func NewBooleanExp(left Field, right any, op Op) Expression {
+func NewBooleanExp(left Field, right any, op Op) Conditional {
 	return &booleanExp{left: left, right: right, operation: op}
 }
 
@@ -166,10 +172,10 @@ func (b *booleanExp) Expression() (string, error) {
 	return fmt.Sprintf("%s %s %s", expression, operation, rightString), nil
 }
 
-func (b *booleanExp) Left() Field {
-	return b.left
+func (b *booleanExp) Left() []Field {
+	return []Field{b.left}
 }
 
-func (b *booleanExp) Right() any {
-	return b.right
+func (b *booleanExp) Right() []any {
+	return []any{b.right}
 }

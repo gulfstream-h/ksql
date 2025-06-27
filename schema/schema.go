@@ -12,7 +12,7 @@ import (
 func RemoteFieldsRepresentation(
 	relationName string,
 	remoteFields map[string]string,
-) structFields {
+) LintedFields {
 
 	var (
 		schemaFields = make(structFields)
@@ -35,7 +35,7 @@ func RemoteFieldsRepresentation(
 	return schemaFields
 }
 
-func NativeStructRepresentation(structure any) (structFields, error) {
+func NativeStructRepresentation(structure any) (LintedFields, error) {
 	typ, err := reflector.GetType(structure)
 	if err != nil {
 		return nil, fmt.Errorf("cannot get reflect.Type of provided struct: %w", err)
