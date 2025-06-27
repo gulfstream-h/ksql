@@ -78,7 +78,7 @@ type (
 		// received from From() method immediately when RelationStorage() call
 		aliasRefresher sync.Once
 
-		returnTypeMapper map[string]string
+		returnTypeMapper map[string][]returnNameMeta
 
 		alias     string
 		meta      Metadata
@@ -100,6 +100,11 @@ type (
 	selectBuilderRule struct {
 		ruleFn      func(builder *selectBuilder) (valid bool)
 		description string
+	}
+
+	returnNameMeta struct {
+		relation string
+		alias    string
 	}
 )
 
@@ -196,7 +201,7 @@ func newSelectBuilder() SelectBuilder {
 		relationStorage:  make(map[string]schema.LintedFields),
 		virtualSchemas:   make(map[string]string),
 		virtualColumns:   make(map[string]string),
-		returnTypeMapper: make(map[string]string),
+		returnTypeMapper: make(map[string][]returnNameMeta),
 	}
 }
 
@@ -280,9 +285,20 @@ func (s *selectBuilder) Select(fields ...Field) SelectBuilder {
 				Relation: s.parseRelationName(fields[idx]),
 			}
 
-			s.returnTypeMapper[f.Name] = f.Relation
-
 			s.addSearchField(f)
+
+			meta := returnNameMeta{
+				relation: f.Relation,
+				alias:    fields[idx].Alias(),
+			}
+
+			if len(fields[idx].Alias()) > 0 {
+				meta.alias = fields[idx].Alias()
+			}
+
+			sl, _ := s.returnTypeMapper[f.Name]
+			sl = append(sl, meta)
+			s.returnTypeMapper[f.Name] = sl
 		}
 
 	}
@@ -596,9 +612,15 @@ func (s *selectBuilder) Expression() (string, error) {
 
 func (s *selectBuilder) Returns() schema.LintedFields {
 	result := schema.NewLintedFields()
-	for fieldName, relation := range s.returnTypeMapper {
-		v, _ := s.relationStorage[relation].Get(fieldName)
-		result.Set(v)
+	for fieldName, metaSlice := range s.returnTypeMapper {
+		for _, meta := range metaSlice {
+			v, _ := s.relationStorage[meta.relation].Get(fieldName)
+			if len(meta.alias) != 0 {
+				v.Name = meta.alias
+				v.Relation = ""
+			}
+			result.Set(v)
+		}
 	}
 
 	return result
@@ -619,7 +641,6 @@ func (s *selectBuilder) RelationReport() map[string]schema.LintedFields {
 				// and remove the alias from the relation storage
 				if _, exists := s.relationStorage[alias]; exists {
 					s.relationStorage[schemaName] = s.relationStorage[alias]
-					s.returnTypeMapper[schemaName] = s.returnTypeMapper[alias]
 					delete(s.relationStorage, alias)
 					continue
 				}
