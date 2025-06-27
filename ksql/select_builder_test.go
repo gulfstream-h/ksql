@@ -1,6 +1,7 @@
 package ksql
 
 import (
+	"fmt"
 	"github.com/stretchr/testify/assert"
 	"ksql/schema"
 	"ksql/static"
@@ -14,7 +15,7 @@ func normalizeSelectSQL(sql string) string {
 
 	re := regexp.MustCompile(`(?i)^SELECT\s+(.+?)\s+FROM\s+(\w+)\s*(.*);?$`)
 	matches := re.FindStringSubmatch(sql)
-	if len(matches) != 3 {
+	if len(matches) != 4 {
 		return sql
 	}
 
@@ -559,6 +560,7 @@ func Test_SelectExpression(t *testing.T) {
 				Expression()
 
 			if tc.normalizationNeeded {
+				fmt.Println("normalized")
 				gotExpr = normalizeSelectSQL(gotExpr)
 				tc.wantExpr = normalizeSelectSQL(tc.wantExpr)
 			}
@@ -670,6 +672,7 @@ func Test_SelectBuilderRelationStorage(t *testing.T) {
 		name                    string
 		builder                 SelectBuilder
 		expectedRelationStorage map[string]map[string]schema.SearchField
+		expectedReturn          map[string]schema.SearchField
 	}{
 		{
 			name: "Simple SELECT with table storage",
@@ -677,10 +680,16 @@ func Test_SelectBuilderRelationStorage(t *testing.T) {
 				From("table", TABLE),
 			expectedRelationStorage: map[string]map[string]schema.SearchField{
 				"table": {
-					"column1": schema.SearchField{
+					"column1": {
 						Name:     "column1",
 						Relation: "table",
 					},
+				},
+			},
+			expectedReturn: map[string]schema.SearchField{
+				"column1": {
+					Name:     "column1",
+					Relation: "table",
 				},
 			},
 		},
@@ -690,14 +699,24 @@ func Test_SelectBuilderRelationStorage(t *testing.T) {
 				From("table", TABLE),
 			expectedRelationStorage: map[string]map[string]schema.SearchField{
 				"table": {
-					"column1": schema.SearchField{
+					"column1": {
 						Name:     "column1",
 						Relation: "table",
 					},
-					"column2": schema.SearchField{
+					"column2": {
 						Name:     "column2",
 						Relation: "table",
 					},
+				},
+			},
+			expectedReturn: map[string]schema.SearchField{
+				"column1": {
+					Name:     "column1",
+					Relation: "table",
+				},
+				"column2": {
+					Name:     "column2",
+					Relation: "table",
 				},
 			},
 		},
@@ -728,6 +747,16 @@ func Test_SelectBuilderRelationStorage(t *testing.T) {
 					},
 				},
 			},
+			expectedReturn: map[string]schema.SearchField{
+				"column1": {
+					Name:     "column1",
+					Relation: "table1",
+				},
+				"column2": {
+					Name:     "column2",
+					Relation: "table2",
+				},
+			},
 		},
 		{
 			name: "SELECT with GROUP BY",
@@ -746,6 +775,16 @@ func Test_SelectBuilderRelationStorage(t *testing.T) {
 					},
 				},
 			},
+			expectedReturn: map[string]schema.SearchField{
+				"column1": {
+					Name:     "column1",
+					Relation: "table",
+				},
+				"column2": {
+					Name:     "column2",
+					Relation: "table",
+				},
+			},
 		},
 		{
 			name: "SELECT with WHERE clause",
@@ -754,10 +793,16 @@ func Test_SelectBuilderRelationStorage(t *testing.T) {
 				Where(F("table.column1").Equal(1)),
 			expectedRelationStorage: map[string]map[string]schema.SearchField{
 				"table": {
-					"column1": schema.SearchField{
+					"column1": {
 						Name:     "column1",
 						Relation: "table",
 					},
+				},
+			},
+			expectedReturn: map[string]schema.SearchField{
+				"column1": {
+					Name:     "column1",
+					Relation: "table",
 				},
 			},
 		},
@@ -802,6 +847,20 @@ func Test_SelectBuilderRelationStorage(t *testing.T) {
 					},
 				},
 			},
+			expectedReturn: map[string]schema.SearchField{
+				"column1": {
+					Name:     "column1",
+					Relation: "table1",
+				},
+				"column2": {
+					Name:     "column2",
+					Relation: "table2",
+				},
+				"count_column3": {
+					Name:     "count_column3",
+					Relation: "",
+				},
+			},
 		},
 		{
 			name: "SELECT with WINDOW, GROUP BY, and ORDER BY",
@@ -820,6 +879,17 @@ func Test_SelectBuilderRelationStorage(t *testing.T) {
 						Name:     "column2",
 						Relation: "stream",
 					},
+				},
+			},
+
+			expectedReturn: map[string]schema.SearchField{
+				"column1": {
+					Name:     "column1",
+					Relation: "stream",
+				},
+				"count_column2": {
+					Name:     "count_column2",
+					Relation: "",
 				},
 			},
 		},
@@ -854,6 +924,18 @@ func Test_SelectBuilderRelationStorage(t *testing.T) {
 					"t2_id": {Name: "t2_id", Relation: "t3"},
 				},
 			},
+			expectedReturn: map[string]schema.SearchField{
+				"col1":  {Name: "col1", Relation: "t1"},
+				"col2":  {Name: "col2", Relation: "t1"},
+				"col3":  {Name: "col3", Relation: "t1"},
+				"col4":  {Name: "col4", Relation: "t1"},
+				"col5":  {Name: "col5", Relation: "t1"},
+				"col6":  {Name: "col6", Relation: "t2"},
+				"col7":  {Name: "col7", Relation: "t2"},
+				"col8":  {Name: "col8", Relation: "t2"},
+				"col9":  {Name: "col9", Relation: "t3"},
+				"col10": {Name: "col10", Relation: "t3"},
+			},
 		},
 		{
 			name: "Complex SELECT with aliases, aggregates, WHERE, GROUP BY, HAVING",
@@ -875,6 +957,13 @@ func Test_SelectBuilderRelationStorage(t *testing.T) {
 					"discount":       {Name: "discount", Relation: "sales"},
 				},
 			},
+			expectedReturn: map[string]schema.SearchField{
+				"region":            {Name: "region", Relation: "sales"},
+				"total_amount":      {Name: "total_amount"},
+				"transaction_count": {Name: "transaction_count"},
+				"avg_discount":      {Name: "avg_discount"},
+				"max_amount":        {Name: "max_amount"},
+			},
 		},
 	}
 
@@ -886,6 +975,10 @@ func Test_SelectBuilderRelationStorage(t *testing.T) {
 				result[relation] = fields.Map()
 			}
 			assert.Equal(t, tc.expectedRelationStorage, result)
+
+			returnRelation := tc.builder.Returns().Map()
+			assert.Equal(t, tc.expectedReturn, returnRelation)
+
 		})
 	}
 

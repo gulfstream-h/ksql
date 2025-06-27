@@ -76,8 +76,9 @@ func Test_CreateSchemaMethods(t *testing.T) {
 					Column1 string `ksql:"column1"`
 					Column2 int    `ksql:"column2"`
 				}{}),
-			expected:  "CREATE TABLE table_name (column1 VARCHAR, column2 INT);",
-			expectErr: false,
+			expected:            "CREATE TABLE table_name (column1 VARCHAR, column2 INT);",
+			expectErr:           false,
+			normalizationNeeded: true,
 		},
 		{
 			name:      "Create Table with empty SchemaFields",
