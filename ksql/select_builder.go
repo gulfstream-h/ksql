@@ -206,7 +206,7 @@ func Select(fields ...Field) SelectBuilder {
 	return sb.Select(fields...)
 }
 
-func SelectAsStruct(name string, val schema.LintedFields) SelectBuilder {
+func SelectAsStruct(name string, val any) SelectBuilder {
 	sb := newSelectBuilder()
 	return sb.SelectStruct(name, val)
 }
