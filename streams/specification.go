@@ -12,7 +12,7 @@ import (
 	"ksql/kinds"
 	"ksql/ksql"
 	"ksql/schema"
-	"ksql/schema/reflection_report"
+	"ksql/schema/report"
 	"ksql/shared"
 	"ksql/static"
 	"strings"
@@ -308,13 +308,13 @@ func CreateStreamAsSelect[S any](
 	}
 
 	if static.ReflectionFlag {
-		err := reflection_report.ReflectionReportNative(s, fields)
+		err := report.ReflectionReportNative(s, fields)
 		if err != nil {
 			return nil, fmt.Errorf("reflection report native: %w", err)
 		}
 
 		for relName, rel := range selectBuilder.RelationReport() {
-			err = reflection_report.ReflectionReportRemote(relName, rel.Map())
+			err = report.ReflectionReportRemote(relName, rel.Map())
 			if err != nil {
 				return nil, fmt.Errorf("reflection report remote: %w", err)
 			}
@@ -462,12 +462,12 @@ func (s *Stream[S]) InsertAsSelect(
 
 	if static.ReflectionFlag {
 		fields := selectBuilder.Returns()
-		err := reflection_report.ReflectionReportNative(stream, fields)
+		err := report.ReflectionReportNative(stream, fields)
 		if err != nil {
 			return fmt.Errorf("reflection report native: %w", err)
 		}
 		for relName, rel := range selectBuilder.RelationReport() {
-			err = reflection_report.ReflectionReportRemote(relName, rel.Map())
+			err = report.ReflectionReportRemote(relName, rel.Map())
 			if err != nil {
 				return fmt.Errorf("reflection report remote: %w", err)
 			}

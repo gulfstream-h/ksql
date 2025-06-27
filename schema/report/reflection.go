@@ -1,4 +1,4 @@
-package reflection_report
+package report
 
 import (
 	"fmt"
