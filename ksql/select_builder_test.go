@@ -880,7 +880,7 @@ func Test_SelectBuilderRelationStorage(t *testing.T) {
 
 	for _, tc := range testcases {
 		t.Run(tc.name, func(t *testing.T) {
-			relationStorage := tc.builder.RelationStorage()
+			relationStorage := tc.builder.RelationReport()
 			result := make(map[string]map[string]schema.SearchField)
 			for relation, fields := range relationStorage {
 				result[relation] = fields.Map()

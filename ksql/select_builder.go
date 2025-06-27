@@ -14,7 +14,9 @@ type (
 		Joiner
 		aggregated() bool
 		windowed() bool
-		RelationStorage() map[string]schema.LintedFields
+
+		Returns() schema.LintedFields
+		RelationReport() map[string]schema.LintedFields
 
 		As(alias string) SelectBuilder
 		Ref() Reference
@@ -76,6 +78,8 @@ type (
 		// received from From() method immediately when RelationStorage() call
 		aliasRefresher sync.Once
 
+		returnTypeMapper map[string]string
+
 		alias     string
 		meta      Metadata
 		with      []SelectBuilder
@@ -102,7 +106,7 @@ type (
 const (
 	// defaultSchemaName is used for fields that were added
 	// before the From() method call without any schema or schema alias provided
-	// once RelationStorage() is called, the schema name will be replaced with the actual schema name
+	// once RelationReport() is called, the schema name will be replaced with the actual schema name
 	defaultSchemaName = "from.ksql"
 )
 
@@ -181,17 +185,18 @@ var (
 func newSelectBuilder() SelectBuilder {
 
 	return &selectBuilder{
-		ctx:             selectBuilderCtx{},
-		fields:          nil,
-		joinExs:         nil,
-		fromEx:          NewFromExpression(),
-		whereEx:         NewWhereExpression(),
-		havingEx:        NewHavingExpression(),
-		groupByEx:       NewGroupByExpression(),
-		orderByEx:       NewOrderByExpression(),
-		relationStorage: make(map[string]schema.LintedFields),
-		virtualSchemas:  make(map[string]string),
-		virtualColumns:  make(map[string]string),
+		ctx:              selectBuilderCtx{},
+		fields:           nil,
+		joinExs:          nil,
+		fromEx:           NewFromExpression(),
+		whereEx:          NewWhereExpression(),
+		havingEx:         NewHavingExpression(),
+		groupByEx:        NewGroupByExpression(),
+		orderByEx:        NewOrderByExpression(),
+		relationStorage:  make(map[string]schema.LintedFields),
+		virtualSchemas:   make(map[string]string),
+		virtualColumns:   make(map[string]string),
+		returnTypeMapper: make(map[string]string),
 	}
 }
 
@@ -274,6 +279,8 @@ func (s *selectBuilder) Select(fields ...Field) SelectBuilder {
 				Name:     fields[idx].Column(),
 				Relation: s.parseRelationName(fields[idx]),
 			}
+
+			s.returnTypeMapper[f.Name] = f.Relation
 
 			s.addSearchField(f)
 		}
@@ -587,7 +594,17 @@ func (s *selectBuilder) Expression() (string, error) {
 	return builder.String(), nil
 }
 
-func (s *selectBuilder) RelationStorage() map[string]schema.LintedFields {
+func (s *selectBuilder) Returns() schema.LintedFields {
+	result := schema.NewLintedFields()
+	for fieldName, relation := range s.returnTypeMapper {
+		v, _ := s.relationStorage[relation].Get(fieldName)
+		result.Set(v)
+	}
+
+	return result
+}
+
+func (s *selectBuilder) RelationReport() map[string]schema.LintedFields {
 	if static.ReflectionFlag {
 		s.aliasRefresher.Do(func() {
 			// update defaultSchemaName to the real schema name
@@ -602,6 +619,7 @@ func (s *selectBuilder) RelationStorage() map[string]schema.LintedFields {
 				// and remove the alias from the relation storage
 				if _, exists := s.relationStorage[alias]; exists {
 					s.relationStorage[schemaName] = s.relationStorage[alias]
+					s.returnTypeMapper[schemaName] = s.returnTypeMapper[alias]
 					delete(s.relationStorage, alias)
 					continue
 				}

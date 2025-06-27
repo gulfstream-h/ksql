@@ -121,7 +121,6 @@ func (c *createBuilder) SchemaFromStruct(
 		c.ctx.err = fmt.Errorf("cannot get fields from struct %T: %w", schemaStruct, err)
 		return c
 	}
-
 	fieldsList := fields.Array()
 
 	c.fields = append(c.fields, fieldsList...)
@@ -182,10 +181,6 @@ func (c *createBuilder) Expression() (string, error) {
 
 		for idx := range c.fields {
 			item := c.fields[idx]
-
-			//if len(item.Relation) != 0 {
-			//	builder.WriteString(item.Relation + ".")
-			//}
 
 			builder.WriteString(item.Name + " " + item.Kind.GetKafkaRepresentation())
 

@@ -12,6 +12,7 @@ import (
 	"ksql/kinds"
 	"ksql/ksql"
 	"ksql/schema"
+	"ksql/schema/reflection_report"
 	"ksql/shared"
 	"ksql/static"
 	"ksql/util"
@@ -236,6 +237,7 @@ func CreateTable[S any](
 		SchemaFields(rmSchema.Array()...).
 		With(metadata).
 		Expression()
+
 	if err != nil {
 		return nil, fmt.Errorf("build create query: %w", err)
 	}
@@ -328,28 +330,44 @@ func CreateTableAsSelect[S any](
 	ctx context.Context,
 	tableName string,
 	settings shared.TableSettings,
-	selectQuery ksql.SelectBuilder,
+	selectBuilder ksql.SelectBuilder,
 ) (*Table[S], error) {
 
 	var (
 		s S
 	)
 
-	scheme, err := schema.NativeStructRepresentation(s)
-	if err != nil {
-		return nil, err
+	if selectBuilder == nil {
+		return nil, errors.New("select builder cannot be nil")
 	}
 
-	if err = scheme.CompareWithFields(selectQuery.SchemaFields()); err != nil {
-		return nil, fmt.Errorf("reflection check failed: %w", err)
+	fields := selectBuilder.Returns()
+
+	if len(fields.Map()) == 0 {
+		return nil, errors.New("select builder must return at least one field")
 	}
+
+	if static.ReflectionFlag {
+		err := reflection_report.ReflectionReportNative(s, fields)
+		if err != nil {
+			return nil, fmt.Errorf("reflection report native: %w", err)
+		}
+
+		for relName, rel := range selectBuilder.RelationReport() {
+			err = reflection_report.ReflectionReportRemote(relName, rel.Map())
+			if err != nil {
+				return nil, fmt.Errorf("reflection report remote: %w", err)
+			}
+		}
+	}
+
 	meta := ksql.Metadata{
 		Topic:       *settings.SourceTopic,
 		ValueFormat: kinds.JSON.String(),
 	}
 
 	query, err := ksql.Create(ksql.TABLE, tableName).
-		AsSelect(selectQuery).
+		AsSelect(selectBuilder).
 		With(meta).
 		Expression()
 
@@ -396,7 +414,7 @@ func CreateTableAsSelect[S any](
 		return &Table[S]{
 			sourceTopic:  settings.SourceTopic,
 			partitions:   settings.Partitions,
-			remoteSchema: scheme,
+			remoteSchema: fields,
 			format:       settings.Format,
 		}, nil
 	}
