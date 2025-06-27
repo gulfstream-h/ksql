@@ -21,7 +21,7 @@ func ReflectionReportRemote(
 			return fmt.Errorf("field %s not found in remote schema", field.Name)
 		}
 
-		if field.Kind != remoteField.Kind {
+		if field.Kind != remoteField.Kind && remoteField.Kind != 0 {
 			return fmt.Errorf("field %s kind mismatch: expected %s, got %s",
 				field.Name, field.Kind.GetKafkaRepresentation(), remoteField.Kind.GetKafkaRepresentation())
 		}
