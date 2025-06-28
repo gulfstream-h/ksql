@@ -9,7 +9,7 @@ import (
 
 const (
 	ksqlURL       = "http://localhost:8088"
-	migrationPath = "../../ksqlmig/"
+	migrationPath = "/Users/shaya/Mein/ksql/ksqlmig/"
 )
 
 func main() {

@@ -20,7 +20,7 @@ func main() {
 	List(ctx)
 	//Create(ctx)
 	//Describe(ctx)
-	Drop(ctx)
+	//Drop(ctx)
 	//Select(ctx)
 	//SelectWithEmit(ctx)
 	//CreateAsSelect(ctx)

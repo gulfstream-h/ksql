@@ -99,6 +99,11 @@ func Describe(ctx context.Context, stream string) (dto.RelationDescription, erro
 		var (
 			describe []dao.DescribeResponse
 		)
+		slog.Info("response", "formatted", string(val))
+
+		if strings.Contains(string(val), "Could not find STREAM/TABLE") {
+			return dto.RelationDescription{}, static.ErrStreamDoesNotExist
+		}
 
 		if err = jsoniter.Unmarshal(val, &describe); err != nil {
 			err = errors.Join(static.ErrUnserializableResponse, err)
@@ -106,7 +111,7 @@ func Describe(ctx context.Context, stream string) (dto.RelationDescription, erro
 		}
 
 		if len(describe) == 0 {
-			return dto.RelationDescription{}, errors.New("stream not found")
+			return dto.RelationDescription{}, static.ErrStreamDoesNotExist
 		}
 
 		return describe[0].DTO(), nil
