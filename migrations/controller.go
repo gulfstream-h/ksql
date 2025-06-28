@@ -27,8 +27,8 @@ type ksqlController struct {
 
 type (
 	migrationRelation struct {
-		Version   string `ksql:"version,primary"`
-		UpdatedAt string `ksql:"updated_at"`
+		Version   string `ksql:"VERSION,primary"`
+		UpdatedAt string `ksql:"UPDATED_AT"`
 	}
 )
 
@@ -64,6 +64,7 @@ func (ctrl *ksqlController) createSystemRelations(
 
 	migTable, err := tables.CreateTable[migrationRelation](ctx, systemTableName, shared.TableSettings{
 		SourceTopic: &topic,
+		Partitions:  &partitions,
 		Format:      kinds.JSON,
 	})
 	if err != nil {
@@ -71,8 +72,8 @@ func (ctrl *ksqlController) createSystemRelations(
 	}
 
 	if err = migStream.Insert(ctx, map[string]any{
-		"version":    time.Time{}.Format(time.RFC3339),
-		"updated_at": time.Time{}.Format(time.RFC3339),
+		"VERSION":    time.Time{}.Format(time.RFC3339),
+		"UPDATED_AT": time.Time{}.Format(time.RFC3339),
 	}); err != nil {
 		slog.Debug("cannot insert default values to migration stream")
 
@@ -100,12 +101,10 @@ func (k *ksqlController) GetLatestVersion(ctx context.Context) (time.Time, error
 
 	k.table = migrationTable
 
-	message, err := migrationTable.SelectWithEmit(ctx)
+	msg, err := migrationTable.SelectOnce(ctx)
 	if err != nil {
 		return time.Time{}, err
 	}
-
-	msg := <-message
 
 	v, err := time.Parse(time.RFC3339, msg.UpdatedAt)
 	if err != nil {
@@ -137,8 +136,8 @@ func (k *ksqlController) UpgradeWithMigration(
 	}
 
 	fields := map[string]any{
-		"version":    version.Format(time.RFC3339),
-		"updated_at": time.Now().Format(time.RFC3339),
+		"VERSION":    version.Format(time.RFC3339),
+		"UPDATED_AT": time.Now().Format(time.RFC3339),
 	}
 
 	if err = stream.Insert(ctx, fields); err != nil {

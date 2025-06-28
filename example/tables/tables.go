@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"ksql/config"
 	"ksql/kinds"
+	"ksql/ksql"
 	"ksql/shared"
 	"ksql/tables"
 	"log/slog"
@@ -15,13 +16,14 @@ const (
 )
 
 func main() {
-	//ctx := context.Background()
-	//List(ctx)
+	ctx := context.Background()
+	List(ctx)
 	//Create(ctx)
 	//Describe(ctx)
-	//Drop(ctx)
+	Drop(ctx)
 	//Select(ctx)
 	//SelectWithEmit(ctx)
+	//CreateAsSelect(ctx)
 }
 
 func init() {
@@ -47,7 +49,7 @@ type ExampleTable struct {
 }
 
 const (
-	tableName = "exampleTable"
+	tableName = "SEEKER_TABLE"
 )
 
 func Create(ctx context.Context) {
@@ -128,4 +130,19 @@ func SelectWithEmit(ctx context.Context) {
 	for note := range notesStream {
 		slog.Info("received note", "note", note)
 	}
+}
+
+func CreateAsSelect(ctx context.Context) {
+	sql := ksql.Select(ksql.F("ID"), ksql.F("TOKEN")).From("EXAMPLETABLE", ksql.TABLE)
+	sourceTopic := "examples-topics"
+	dublicateTable, err := tables.CreateTableAsSelect[ExampleTable](ctx, "dublicate", shared.TableSettings{
+		SourceTopic: &sourceTopic,
+		Format:      kinds.JSON,
+	}, sql)
+	if err != nil {
+		slog.Error("cannot create table as select", "error", err.Error())
+		return
+	}
+
+	slog.Info("table created!", dublicateTable.Name)
 }

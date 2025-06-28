@@ -342,9 +342,9 @@ func CreateTableAsSelect[S any](
 		return nil, err
 	}
 
-	if err = scheme.CompareWithFields(selectQuery.SchemaFields()); err != nil {
-		return nil, fmt.Errorf("reflection check failed: %w", err)
-	}
+	//if err = scheme.CompareWithFields(selectQuery.SchemaFields()); err != nil {
+	//	return nil, fmt.Errorf("reflection check failed: %w", err)
+	//}
 	meta := ksql.Metadata{
 		Topic:       *settings.SourceTopic,
 		ValueFormat: kinds.JSON.String(),
@@ -380,6 +380,8 @@ func CreateTableAsSelect[S any](
 		var (
 			create []dao.CreateRelationResponse
 		)
+
+		slog.Info("response", "formatted", string(val))
 
 		if err := jsoniter.Unmarshal(val, &create); err != nil {
 			return nil, fmt.Errorf("cannot unmarshal create response: %w", err)

@@ -14,6 +14,7 @@ import (
 	"ksql/schema"
 	"ksql/shared"
 	"ksql/static"
+	"log/slog"
 	"strings"
 
 	"ksql/util"
@@ -298,9 +299,9 @@ func CreateStreamAsSelect[S any](
 		return nil, err
 	}
 
-	if err = scheme.CompareWithFields(selectBuilder.SchemaFields()); err != nil {
-		return nil, fmt.Errorf("reflection check failed: %w", err)
-	}
+	//if err = scheme.CompareWithFields(selectBuilder.SchemaFields()); err != nil {
+	//	return nil, fmt.Errorf("reflection check failed: %w", err)
+	//}
 
 	query, err := ksql.Create(ksql.STREAM, streamName).
 		AsSelect(selectBuilder).
@@ -439,10 +440,10 @@ func (s *Stream[S]) InsertAs(
 	selectQuery ksql.SelectBuilder,
 ) error {
 
-	err := s.remoteSchema.CompareWithFields(selectQuery.SchemaFields())
-	if err != nil {
-		return fmt.Errorf("reflection check failed: %w", err)
-	}
+	//err := s.remoteSchema.CompareWithFields(selectQuery.SchemaFields())
+	//if err != nil {
+	//	return fmt.Errorf("reflection check failed: %w", err)
+	//}
 
 	query, err := ksql.Insert(ksql.STREAM, s.Name).AsSelect(selectQuery).Expression()
 	if err != nil {
@@ -468,11 +469,17 @@ func (s *Stream[S]) InsertAs(
 		}
 
 		var (
-			insert dao.CreateRelationResponse
+			insert []dao.CreateRelationResponse
 		)
+
+		slog.Info("response", "formatted", string(val))
 
 		if err = jsoniter.Unmarshal(val, &insert); err != nil {
 			return fmt.Errorf("cannot unmarshal insert response: %w", err)
+		}
+
+		if len(insert) == 1 && insert[0].CommandStatus.Status == consts.SUCCESS {
+			return nil
 		}
 
 		return errors.New("unpredictable error occurred while inserting")

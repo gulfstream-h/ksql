@@ -16,14 +16,16 @@ const (
 )
 
 func main() {
-	//ctx := context.Background()
-	//List(ctx)
+	ctx := context.Background()
+	List(ctx)
 	//Create(ctx)
 	//Describe(ctx)
 	//Drop(ctx)
 	//Insert(ctx)
 	//Select(ctx)
 	//SelectWithEmit(ctx)
+	//CreateAsSelect(ctx)
+	//InsertAsSelect(ctx)
 }
 
 func init() {
@@ -49,7 +51,7 @@ type ExampleStream struct {
 }
 
 const (
-	streamName = "exampleStream"
+	streamName = "SEEKER_STREAM"
 )
 
 func Create(ctx context.Context) {
@@ -143,4 +145,37 @@ func SelectWithEmit(ctx context.Context) {
 	for note := range notesStream {
 		slog.Info("received note", "note", note)
 	}
+}
+
+func CreateAsSelect(ctx context.Context) {
+	sql := ksql.Select(ksql.F("ID"), ksql.F("TOKEN")).From("EXAMPLESTREAM", ksql.STREAM)
+	sourceTopic := "examples-topics"
+	dublicateStream, err := streams.CreateStreamAsSelect[ExampleStream](ctx, "dublicateStream", shared.StreamSettings{
+		SourceTopic: &sourceTopic,
+		Format:      kinds.JSON,
+	}, sql)
+	if err != nil {
+		slog.Error("cannot create stream as select", "error", err.Error())
+		return
+	}
+
+	slog.Info("stream created!", dublicateStream.Name)
+}
+
+func InsertAsSelect(ctx context.Context) {
+	sql := ksql.Select(ksql.F("ID"), ksql.F("TOKEN")).From("DUBLICATESTREAM", ksql.STREAM)
+
+	stream, err := streams.GetStream[ExampleStream](ctx, "EXAMPLESTREAM")
+	if err != nil {
+		slog.Error("cannot get stream", "error", err.Error())
+		return
+	}
+
+	err = stream.InsertAs(ctx, sql)
+	if err != nil {
+		slog.Error("cannot insert as select to stream", "error", err.Error())
+		return
+	}
+
+	slog.Info("inserted as select")
 }

@@ -77,13 +77,13 @@ func (m *migrator) Up(filename string) error {
 	currentVersion, err := m.ctrl.GetLatestVersion(context.TODO())
 	if err != nil {
 		slog.Debug("cannot get actual version")
-		return ErrMigrationServiceNotAvailable
+		return err
 	}
 
 	filenameSegments := strings.Split(filename, "_")
 	if len(filenameSegments) < 2 {
 		slog.Debug("cannot split filename")
-		return ErrMalformedMigrationFile
+		return err
 	}
 
 	versionInt, err := strconv.Atoi(filenameSegments[0])
