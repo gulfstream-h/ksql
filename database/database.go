@@ -2,6 +2,7 @@ package database
 
 import (
 	"context"
+	"fmt"
 	jsoniter "github.com/json-iterator/go"
 	"ksql/kernel/network"
 	"ksql/kernel/protocol/dao"
@@ -67,6 +68,8 @@ func Select[S any](
 					return
 				}
 
+				fmt.Println(string(val))
+
 				if strings.Contains(string(val), "Query Completed") {
 					close(valuesC)
 					return
@@ -76,6 +79,7 @@ func Select[S any](
 					str := val[1 : len(val)-1]
 
 					if err = jsoniter.Unmarshal(str, &headers); err != nil {
+						close(valuesC)
 						return
 					}
 
@@ -88,10 +92,12 @@ func Select[S any](
 				)
 
 				if err = jsoniter.Unmarshal(val[:len(val)-1], &row); err != nil {
+					close(valuesC)
 					return
 				}
 				value, err := netparse.ParseNetResponse[S](headers, row)
 				if err != nil {
+					close(valuesC)
 					slog.Error(
 						"parse net response",
 						slog.String("error", err.Error()),

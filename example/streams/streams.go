@@ -16,11 +16,20 @@ const (
 )
 
 func main() {
-	ctx := context.Background()
-	List(ctx)
+	//ctx := context.Background()
+	//List(ctx)
 	//Create(ctx)
 	//Describe(ctx)
 	//Drop(ctx)
+	//t := time.NewTicker(5 * time.Second)
+	//go func() {
+	//	for {
+	//		select {
+	//		case <-t.C:
+	//			Insert(ctx)
+	//		}
+	//	}
+	//}()
 	//Insert(ctx)
 	//Select(ctx)
 	//SelectWithEmit(ctx)
@@ -51,7 +60,7 @@ type ExampleStream struct {
 }
 
 const (
-	streamName = "SEEKER_STREAM"
+	streamName = "MY_STREAM"
 )
 
 func Create(ctx context.Context) {
@@ -171,7 +180,7 @@ func InsertAsSelect(ctx context.Context) {
 		return
 	}
 
-	err = stream.InsertAs(ctx, sql)
+	err = stream.InsertAsSelect(ctx, sql)
 	if err != nil {
 		slog.Error("cannot insert as select to stream", "error", err.Error())
 		return

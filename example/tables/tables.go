@@ -16,8 +16,8 @@ const (
 )
 
 func main() {
-	ctx := context.Background()
-	List(ctx)
+	//ctx := context.Background()
+	//List(ctx)
 	//Create(ctx)
 	//Describe(ctx)
 	//Drop(ctx)
@@ -27,7 +27,8 @@ func main() {
 }
 
 func init() {
-	cfg := config.New(ksqlURL, 15, false)
+	slog.SetLogLoggerLevel(slog.LevelDebug)
+	cfg := config.New(ksqlURL, 15, true)
 	if err := cfg.Configure(context.Background()); err != nil {
 		slog.Error("cannot configure ksql", "error", err.Error())
 	}
@@ -44,16 +45,16 @@ func List(ctx context.Context) {
 }
 
 type ExampleTable struct {
-	ID    int    `ksql:"ID, primary"`
-	Token []byte `ksql:"TOKEN"`
+	ID   int    `ksql:"ID, primary"`
+	Name string `ksql:"NAME"`
 }
 
 const (
-	tableName = "SEEKER_TABLE"
+	tableName = "PCE_TABLE"
 )
 
 func Create(ctx context.Context) {
-	sourceTopic := "examples-topics"
+	sourceTopic := "process-topics"
 	partitions := 1 // if topic doesnt exists, partitions are required
 
 	exampleTable, err := tables.CreateTable[ExampleTable](
@@ -114,7 +115,6 @@ func Select(ctx context.Context) {
 }
 
 func SelectWithEmit(ctx context.Context) {
-	// Fix tommorow: invalid select builder: GROUP BY requires WINDOW clause on streams"
 	exampleTable, err := tables.GetTable[ExampleTable](ctx, tableName)
 	if err != nil {
 		slog.Error("cannot get table", "error", err.Error())

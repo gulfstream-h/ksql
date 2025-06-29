@@ -6,13 +6,13 @@ import (
 	"fmt"
 	jsoniter "github.com/json-iterator/go"
 	"ksql/consts"
+	"ksql/database"
 	"ksql/kernel/network"
 	"ksql/kernel/protocol/dao"
 	"ksql/kernel/protocol/dto"
 	"ksql/kinds"
 	"ksql/ksql"
 	"ksql/schema"
-	"ksql/schema/netparse"
 	"ksql/schema/report"
 	"ksql/shared"
 	"ksql/static"
@@ -532,8 +532,16 @@ func (s *Stream[S]) SelectOnce(
 		value S
 	)
 
+	var (
+		fields []ksql.Field
+	)
+
+	for _, field := range s.remoteSchema.Array() {
+		fields = append(fields, ksql.F(field.Name))
+	}
+
 	query, err := ksql.
-		SelectAsStruct(s.Name, s.remoteSchema).
+		Select(fields...).
 		From(s.Name, ksql.STREAM).
 		Expression()
 
@@ -541,67 +549,14 @@ func (s *Stream[S]) SelectOnce(
 		return value, fmt.Errorf("build select query: %w", err)
 	}
 
-	pipeline, err := network.Net.PerformSelect(
-		ctx,
-		http.MethodPost,
-		query,
-		&network.LongPolling{},
-	)
+	valuesC, err := database.Select[S](ctx, query)
 	if err != nil {
-		return value, fmt.Errorf("cannot perform request: %w", err)
+		return value, err
 	}
 
-	var (
-		iter    = 0
-		headers dao.Header
-	)
+	value = <-valuesC
 
-	for {
-		select {
-		case <-ctx.Done():
-			return value, ctx.Err()
-		case val, ok := <-pipeline:
-			if !ok {
-				return value, static.ErrMalformedResponse
-			}
-
-			if strings.Contains(string(val), "Query Completed") {
-				return value, nil
-			}
-
-			if iter == 0 {
-				str := val[1 : len(val)-1]
-
-				if err = jsoniter.Unmarshal(str, &headers); err != nil {
-					return value, fmt.Errorf("cannot unmarshal headers: %w", err)
-				}
-
-				iter++
-				continue
-			}
-
-			var (
-				row dao.Row
-			)
-
-			if err = jsoniter.Unmarshal(val[:len(val)-1], &row); err != nil {
-				return value, fmt.Errorf("cannot unmarshal row: %w", err)
-			}
-
-			value, err = netparse.ParseNetResponse[S](headers, row)
-			if err != nil {
-				slog.Error(
-					"parse net response",
-					slog.String("error", err.Error()),
-					slog.Any("headers", headers),
-					slog.Any("row", row),
-				)
-				return value, err
-			}
-			return value, nil
-
-		}
-	}
+	return value, nil
 }
 
 // SelectWithEmit - performs
@@ -612,80 +567,25 @@ func (s *Stream[S]) SelectWithEmit(
 	ctx context.Context) (<-chan S, error) {
 
 	var (
-		value   S
-		valuesC = make(chan S)
+		fields []ksql.Field
 	)
 
-	query, err := ksql.SelectAsStruct(s.Name, s.remoteSchema).
-		From(s.Name, ksql.STREAM).
-		WithMeta(ksql.Metadata{ValueFormat: kinds.JSON.String()}).
+	for _, field := range s.remoteSchema.Array() {
+		fields = append(fields, ksql.F(field.Name))
+	}
+
+	query, err := ksql.Select(fields...).
+		From(s.Name, ksql.STREAM).EmitChanges().
 		Expression()
 
 	if err != nil {
 		return nil, fmt.Errorf("build select query: %w", err)
 	}
 
-	pipeline, err := network.Net.PerformSelect(
-		ctx,
-		http.MethodPost,
-		query,
-		&network.LongPolling{},
-	)
+	valuesC, err := database.Select[S](ctx, query)
 	if err != nil {
-		return nil, fmt.Errorf("cannot perform request: %w", err)
+		return nil, err
 	}
-
-	go func() {
-
-		var (
-			iter    = 0
-			headers dao.Header
-		)
-
-		for {
-			select {
-			case <-ctx.Done():
-				close(valuesC)
-				return
-			case val, ok := <-pipeline:
-				if !ok {
-					close(valuesC)
-					return
-				}
-
-				if iter == 0 {
-					str := val[1 : len(val)-1]
-
-					if err = jsoniter.Unmarshal(str, &headers); err != nil {
-						return
-					}
-
-					iter++
-					continue
-				}
-
-				var (
-					row dao.Row
-				)
-
-				if err = jsoniter.Unmarshal(val[:len(val)-1], &row); err != nil {
-					return
-				}
-				value, err = netparse.ParseNetResponse[S](headers, row)
-				if err != nil {
-					slog.Error(
-						"parse net response",
-						slog.String("error", err.Error()),
-						slog.Any("headers", headers),
-						slog.Any("row", row),
-					)
-					return
-				}
-
-				valuesC <- value
-			}
-		}
-	}()
 
 	return valuesC, nil
 }
