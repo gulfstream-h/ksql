@@ -27,8 +27,8 @@ import (
 // via referred to type functions calls
 type Table[S any] struct {
 	Name         string
-	sourceTopic  *string
-	partitions   *uint8
+	sourceTopic  string
+	partitions   uint8
 	remoteSchema schema.LintedFields
 	format       kinds.ValueFormat
 }
@@ -230,7 +230,7 @@ func CreateTable[S any](
 	}
 
 	metadata := ksql.Metadata{
-		Topic:       *settings.SourceTopic,
+		Topic:       settings.SourceTopic,
 		ValueFormat: kinds.JSON.String(),
 	}
 
@@ -363,7 +363,7 @@ func CreateTableAsSelect[S any](
 	}
 
 	meta := ksql.Metadata{
-		Topic:       *settings.SourceTopic,
+		Topic:       settings.SourceTopic,
 		ValueFormat: kinds.JSON.String(),
 	}
 

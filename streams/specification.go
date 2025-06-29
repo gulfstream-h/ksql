@@ -28,7 +28,7 @@ import (
 // via referred to type functions calls
 type Stream[S any] struct {
 	Name         string
-	partitions   *uint8
+	partitions   uint8
 	remoteSchema schema.LintedFields
 	format       kinds.ValueFormat
 }
@@ -220,6 +220,11 @@ func CreateStream[S any](
 		s S
 	)
 
+	err := settings.Validate()
+	if err != nil {
+		return nil, fmt.Errorf("validate settings: %w", err)
+	}
+
 	rmSchema, err := schema.NativeStructRepresentation(s)
 	if err != nil {
 		return nil, err
@@ -230,8 +235,8 @@ func CreateStream[S any](
 	}
 
 	metadata := ksql.Metadata{
-		Topic:       *settings.SourceTopic,
-		Partitions:  int(*settings.Partitions),
+		Topic:       settings.SourceTopic,
+		Partitions:  int(settings.Partitions),
 		ValueFormat: kinds.JSON.String(),
 	}
 
@@ -239,6 +244,8 @@ func CreateStream[S any](
 		SchemaFields(rmSchema.Array()...).
 		With(metadata).
 		Expression()
+
+	fmt.Println(query)
 
 	pipeline, err := network.Net.Perform(
 		ctx,
@@ -260,6 +267,11 @@ func CreateStream[S any](
 
 		var (
 			create []dao.CreateRelationResponse
+		)
+
+		slog.Info(
+			"received from create stream",
+			slog.String("value", string(val)),
 		)
 
 		if err := jsoniter.Unmarshal(val, &create); err != nil {
@@ -325,7 +337,7 @@ func CreateStreamAsSelect[S any](
 	query, err := ksql.Create(ksql.STREAM, streamName).
 		AsSelect(selectBuilder).
 		With(ksql.Metadata{
-			Topic:       *settings.SourceTopic,
+			Topic:       settings.SourceTopic,
 			ValueFormat: kinds.JSON.String(),
 		}).
 		Expression()
@@ -379,14 +391,56 @@ func CreateStreamAsSelect[S any](
 	}
 }
 
-/*
-  TODO:
-    - Replace fields to any ?
-*/
-
-// Insert - provides insertion to stream functionality
-// written fields are defined by user
 func (s *Stream[S]) Insert(
+	ctx context.Context,
+	val S,
+) error {
+	query, err := ksql.
+		Insert(ksql.STREAM, s.Name).
+		InsertStruct(val).
+		Expression()
+
+	if err != nil {
+		return fmt.Errorf("construct query: %w", err)
+	}
+
+	pipeline, err := network.Net.Perform(
+		ctx,
+		http.MethodPost,
+		query,
+		&network.ShortPolling{},
+	)
+	if err != nil {
+		return fmt.Errorf("cannot perform request: %w", err)
+	}
+
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case val, ok := <-pipeline:
+		if !ok {
+			return static.ErrMalformedResponse
+		}
+
+		var (
+			insert []dao.CreateRelationResponse
+		)
+
+		if err = jsoniter.Unmarshal(val, &insert); err != nil {
+			return fmt.Errorf("cannot unmarshal insert response: %w", err)
+		}
+
+		if len(insert) == 0 {
+			return nil
+		}
+
+		return errors.New("unpredictable error occurred while inserting")
+	}
+}
+
+// InsertRow - provides insertion to stream functionality
+// written fields are defined by user
+func (s *Stream[S]) InsertRow(
 	ctx context.Context,
 	fields ksql.Row,
 ) error {
@@ -434,6 +488,10 @@ func (s *Stream[S]) Insert(
 		)
 
 		if err = jsoniter.Unmarshal(val, &insert); err != nil {
+			slog.Debug(
+				"unmarshal failed",
+				slog.String("raw", string(val)),
+			)
 			return fmt.Errorf("cannot unmarshal insert response: %w", err)
 		}
 
@@ -604,9 +662,8 @@ func (s *Stream[S]) SelectWithEmit(
 		valuesC = make(chan S)
 	)
 
-	query, err := ksql.SelectAsStruct(s.Name, s.remoteSchema).
+	query, err := ksql.SelectAsStruct(s.Name, value).
 		From(s.Name, ksql.STREAM).
-		WithMeta(ksql.Metadata{ValueFormat: kinds.JSON.String()}).
 		Expression()
 
 	if err != nil {
@@ -641,10 +698,19 @@ func (s *Stream[S]) SelectWithEmit(
 					return
 				}
 
+				slog.Info(
+					"select-with-emit",
+					slog.String("value", string(val)))
+
 				if iter == 0 {
 					str := val[1 : len(val)-1]
 
 					if err = jsoniter.Unmarshal(str, &headers); err != nil {
+						slog.Debug(
+							"select with emit read loop",
+							slog.String("error", err.Error()),
+							slog.String("headers", string(str)),
+						)
 						return
 					}
 
@@ -652,12 +718,27 @@ func (s *Stream[S]) SelectWithEmit(
 					continue
 				}
 
+				slog.Debug(
+					"received raw",
+					slog.String("value", string(val[:len(val)-1])),
+				)
+
 				var (
 					row dao.Row
 				)
 
 				if err = jsoniter.Unmarshal(val[:len(val)-1], &row); err != nil {
-					return
+					slog.Debug("select with emit read loop",
+						slog.String("error", err.Error()),
+						slog.String("val", string(val[:len(val)-1])),
+					)
+					continue
+				}
+
+				if len(row.FinalMessage) != 0 {
+					if row.FinalMessage == "Query Completed" {
+						continue
+					}
 				}
 				value, err = netparse.ParseNetResponse[S](headers, row)
 				if err != nil {

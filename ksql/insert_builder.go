@@ -11,7 +11,7 @@ import (
 type (
 	InsertBuilder interface {
 		AsSelect(selectBuilder SelectBuilder) InsertBuilder
-		InsertStruct(relationName string, val any) InsertBuilder
+		InsertStruct(val any) InsertBuilder
 		Rows(rows ...Row) InsertBuilder
 		Schema() string
 		Reference() Reference
@@ -72,7 +72,7 @@ func (i *insertBuilder) AsSelect(selectBuilder SelectBuilder) InsertBuilder {
 	return i
 }
 
-func (i *insertBuilder) InsertStruct(relationName string, val any) InsertBuilder {
+func (i *insertBuilder) InsertStruct(val any) InsertBuilder {
 	fields, err := schema.NativeStructRepresentation(val)
 	if err != nil {
 		return nil

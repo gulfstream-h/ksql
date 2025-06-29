@@ -51,8 +51,8 @@ func (mode _ReflectionMode) InitLinter(ctx context.Context) error {
 
 		static.StreamsProjections.Set("", shared.StreamSettings{
 			Name:        "",
-			SourceTopic: nil,
-			Partitions:  nil,
+			SourceTopic: "",
+			Partitions:  1,
 			Format:      0,
 			DeleteFunc:  nil,
 		}, responseSchema)
@@ -82,7 +82,7 @@ func (mode _ReflectionMode) InitLinter(ctx context.Context) error {
 
 		static.StreamsProjections.Set(table.Name, shared.StreamSettings{
 			Name:        table.Name,
-			SourceTopic: &table.Topic,
+			SourceTopic: table.Topic,
 			Format:      kinds.JSON,
 		}, responseSchema)
 	}
