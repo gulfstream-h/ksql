@@ -12,12 +12,13 @@ import (
 	"ksql/kinds"
 	"ksql/ksql"
 	"ksql/schema"
+	"ksql/schema/netparse"
 	"ksql/schema/report"
 	"ksql/shared"
 	"ksql/static"
 	"ksql/util"
+	"log/slog"
 	"net/http"
-	"reflect"
 	"strings"
 )
 
@@ -535,33 +536,15 @@ func (s *Table[S]) SelectWithEmit(
 					return
 				}
 
-				mappa, err := schema.ParseHeadersAndValues(headers.Header.Schema, row.Row.Columns)
+				value, err = netparse.ParseNetResponse[S](headers, row)
 				if err != nil {
+					slog.Error(
+						"parse net response",
+						slog.String("error", err.Error()),
+						slog.Any("headers", headers),
+						slog.Any("row", row),
+					)
 					return
-				}
-
-				t := reflect.ValueOf(&value)
-				if t.Kind() != reflect.Ptr || t.Elem().Kind() != reflect.Struct {
-					panic("value must be a pointer to a struct")
-				}
-				t = t.Elem()
-				tt := t.Type()
-
-				for k, v := range mappa {
-					for i := 0; i < t.NumField(); i++ {
-						structField := tt.Field(i)
-						fieldVal := t.Field(i)
-
-						if strings.EqualFold(structField.Tag.Get("ksql"), k) {
-							if fieldVal.CanSet() && v != nil {
-								val := reflect.ValueOf(v)
-								if val.Type().ConvertibleTo(fieldVal.Type()) {
-									fieldVal.Set(val.Convert(fieldVal.Type()))
-								}
-							}
-							break
-						}
-					}
 				}
 
 				valuesC <- value

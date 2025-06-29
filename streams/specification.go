@@ -12,14 +12,15 @@ import (
 	"ksql/kinds"
 	"ksql/ksql"
 	"ksql/schema"
+	"ksql/schema/netparse"
 	"ksql/schema/report"
 	"ksql/shared"
 	"ksql/static"
+	"log/slog"
 	"strings"
 
 	"ksql/util"
 	"net/http"
-	"reflect"
 )
 
 // Stream - is full-functional type,
@@ -575,34 +576,18 @@ func (s *Stream[S]) SelectOnce(
 				return value, fmt.Errorf("cannot unmarshal row: %w", err)
 			}
 
-			mappa, err := schema.ParseHeadersAndValues(headers.Header.Schema, row.Row.Columns)
+			value, err = netparse.ParseNetResponse[S](headers, row)
 			if err != nil {
-				return value, fmt.Errorf("cannot parse headers and values: %w", err)
+				slog.Error(
+					"parse net response",
+					slog.String("error", err.Error()),
+					slog.Any("headers", headers),
+					slog.Any("row", row),
+				)
+				return value, err
 			}
+			return value, nil
 
-			t := reflect.ValueOf(&value)
-			if t.Kind() != reflect.Ptr || t.Elem().Kind() != reflect.Struct {
-				panic("value must be a pointer to a struct")
-			}
-			t = t.Elem()
-			tt := t.Type()
-
-			for k, v := range mappa {
-				for i := 0; i < t.NumField(); i++ {
-					structField := tt.Field(i)
-					fieldVal := t.Field(i)
-
-					if strings.EqualFold(structField.Tag.Get("ksql"), k) {
-						if fieldVal.CanSet() && v != nil {
-							val, ok := schema.NormalizeValue(v, fieldVal.Type())
-							if ok {
-								fieldVal.Set(val)
-							}
-						}
-						break
-					}
-				}
-			}
 		}
 	}
 }
@@ -672,6 +657,16 @@ func (s *Stream[S]) SelectWithEmit(
 				)
 
 				if err = jsoniter.Unmarshal(val[:len(val)-1], &row); err != nil {
+					return
+				}
+				value, err = netparse.ParseNetResponse[S](headers, row)
+				if err != nil {
+					slog.Error(
+						"parse net response",
+						slog.String("error", err.Error()),
+						slog.Any("headers", headers),
+						slog.Any("row", row),
+					)
 					return
 				}
 
