@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"ksql/config"
+	"ksql/ksql"
 	"ksql/shared"
 	"ksql/streams"
 	"log"
@@ -29,7 +30,7 @@ func Init(ctx context.Context) error {
 	slog.SetLogLoggerLevel(slog.LevelDebug)
 
 	err := config.
-		New(host, 15, true).
+		New(host, 600, true).
 		Configure(ctx)
 	if err != nil {
 		return fmt.Errorf("init config: %w", err)
@@ -92,26 +93,8 @@ func StreamFromTopic(
 	}
 
 	go listenLoop(ctx, readChan)
-
-	//err = stream.InsertRow(
-	//	ctx,
-	//	ksql.Row{
-	//		"id":          "event_id_001",
-	//		"external_id": "external_id_001",
-	//		"description": "some desc",
-	//		"event": map[string]string{
-	//			"a": "a_field",
-	//			"b": "b_field",
-	//		},
-	//	},
-	//)
-	//if err != nil {
-	//	return fmt.Errorf("insert row: %w", err)
-	//}
-
-	//slog.Info("row inserted")
-
-	go produceLoop(ctx, stream)
+	go produceStructLoop(ctx, stream)
+	go produceRowLoop(ctx, stream)
 
 	<-ctx.Done()
 
@@ -123,7 +106,7 @@ func StreamFromTopic(
 	return nil
 }
 
-func produceLoop(
+func produceStructLoop(
 	ctx context.Context,
 	stream *streams.Stream[StreamEvent],
 ) {
@@ -143,6 +126,47 @@ func produceLoop(
 			}
 
 			err := stream.Insert(ctx, event)
+			if err != nil {
+				slog.Error(
+					"insert",
+					slog.String("error", err.Error()),
+					slog.Any("event", event),
+				)
+				continue
+			}
+
+			slog.Info("struct inserted")
+		}
+	}
+}
+
+func produceRowLoop(
+	ctx context.Context,
+	stream *streams.Stream[StreamEvent],
+) {
+	counter := 10_000
+	ticker := time.NewTicker(time.Second)
+	for {
+		select {
+		case <-ctx.Done():
+			slog.Info("context is done... exiting")
+			return
+		case <-ticker.C:
+
+			event := ksql.Row{
+				"id":          fmt.Sprintf("event_id_%d", counter),
+				"external_id": fmt.Sprintf("external_id_%d", rand.Int31()),
+				"description": "some desc",
+				"event": map[string]string{
+					"a": "a_field",
+					"b": "b_field",
+				},
+			}
+
+			err := stream.InsertRow(ctx, event)
+
+			slog.Info("row inserted")
+
 			if err != nil {
 				slog.Error(
 					"insert",
@@ -188,7 +212,7 @@ func listenLoop(
 func main() {
 	const (
 		streamName  = `example_stream`
-		sourceTopic = `example_topic_2`
+		sourceTopic = `example_topic`
 	)
 
 	ctx := context.Background()
@@ -210,7 +234,3 @@ func main() {
 	}
 
 }
-
-// A Kafka topic with the name 'example_topic' already exists,
-// with different partition/replica/retention configuration than required.
-// KSQL expects 3 partitions (topic has 1), 1 replication factor (topic has 1), and 604800000 retention (topic has 604800000).

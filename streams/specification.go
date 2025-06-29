@@ -245,8 +245,6 @@ func CreateStream[S any](
 		With(metadata).
 		Expression()
 
-	fmt.Println(query)
-
 	pipeline, err := network.Net.Perform(
 		ctx,
 		http.MethodPost,
@@ -269,7 +267,7 @@ func CreateStream[S any](
 			create []dao.CreateRelationResponse
 		)
 
-		slog.Info(
+		slog.Debug(
 			"received from create stream",
 			slog.String("value", string(val)),
 		)
@@ -664,6 +662,7 @@ func (s *Stream[S]) SelectWithEmit(
 
 	query, err := ksql.SelectAsStruct(s.Name, value).
 		From(s.Name, ksql.STREAM).
+		EmitChanges().
 		Expression()
 
 	if err != nil {
@@ -698,15 +697,11 @@ func (s *Stream[S]) SelectWithEmit(
 					return
 				}
 
-				slog.Info(
-					"select-with-emit",
-					slog.String("value", string(val)))
-
 				if iter == 0 {
 					str := val[1 : len(val)-1]
 
 					if err = jsoniter.Unmarshal(str, &headers); err != nil {
-						slog.Debug(
+						slog.Error(
 							"select with emit read loop",
 							slog.String("error", err.Error()),
 							slog.String("headers", string(str)),
@@ -718,17 +713,12 @@ func (s *Stream[S]) SelectWithEmit(
 					continue
 				}
 
-				slog.Debug(
-					"received raw",
-					slog.String("value", string(val[:len(val)-1])),
-				)
-
 				var (
 					row dao.Row
 				)
 
 				if err = jsoniter.Unmarshal(val[:len(val)-1], &row); err != nil {
-					slog.Debug("select with emit read loop",
+					slog.Error("select with emit read loop",
 						slog.String("error", err.Error()),
 						slog.String("val", string(val[:len(val)-1])),
 					)
