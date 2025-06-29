@@ -179,7 +179,7 @@ func GetTable[S any](
 		s S
 	)
 
-	scheme, err := schema.NativeStructRepresentation(s)
+	scheme, err := schema.NativeStructRepresentation(table, s)
 	if err != nil {
 		return nil, err
 	}
@@ -224,7 +224,7 @@ func CreateTable[S any](
 		s S
 	)
 
-	rmSchema, err := schema.NativeStructRepresentation(s)
+	rmSchema, err := schema.NativeStructRepresentation(tableName, s)
 	if err != nil {
 		return nil, err
 	}

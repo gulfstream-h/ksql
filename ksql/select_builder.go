@@ -244,7 +244,7 @@ func (s *selectBuilder) Windowed(window WindowExpression) SelectBuilder {
 }
 
 func (s *selectBuilder) SelectStruct(name string, val any) SelectBuilder {
-	relation, err := schema.NativeStructRepresentation(val)
+	relation, err := schema.NativeStructRepresentation(name, val)
 	if err != nil {
 		s.ctx.err = fmt.Errorf("cannot create relation from struct: %w", err)
 		return s

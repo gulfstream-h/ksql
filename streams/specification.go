@@ -174,7 +174,7 @@ func GetStream[S any](
 		s S
 	)
 
-	scheme, err := schema.NativeStructRepresentation(s)
+	scheme, err := schema.NativeStructRepresentation(stream, s)
 	if err != nil {
 		return nil, err
 	}
@@ -225,7 +225,7 @@ func CreateStream[S any](
 		return nil, fmt.Errorf("validate settings: %w", err)
 	}
 
-	rmSchema, err := schema.NativeStructRepresentation(s)
+	rmSchema, err := schema.NativeStructRepresentation(streamName, s)
 	if err != nil {
 		return nil, err
 	}
@@ -285,6 +285,8 @@ func CreateStream[S any](
 		if status.CommandStatus.Status != consts.SUCCESS {
 			return nil, fmt.Errorf("unsuccesful respose. msg: %s", status.CommandStatus.Message)
 		}
+
+		static.StreamsProjections.Set(streamName, settings, rmSchema)
 
 		return &Stream[S]{
 			Name:         streamName,
@@ -381,8 +383,11 @@ func CreateStreamAsSelect[S any](
 			return nil, fmt.Errorf("unsuccesful respose. msg: %s", status.CommandStatus.Message)
 		}
 
+		static.StreamsProjections.Set(streamName, settings, fields)
+
 		return &Stream[S]{
 			partitions:   settings.Partitions,
+			Name:         streamName,
 			remoteSchema: fields,
 			format:       settings.Format,
 		}, nil
@@ -519,10 +524,12 @@ func (s *Stream[S]) InsertAsSelect(
 
 	if static.ReflectionFlag {
 		fields := selectBuilder.Returns()
+
 		err := report.ReflectionReportNative(stream, fields)
 		if err != nil {
 			return fmt.Errorf("reflection report native: %w", err)
 		}
+
 		for relName, rel := range selectBuilder.RelationReport() {
 			err = report.ReflectionReportRemote(relName, rel.Map())
 			if err != nil {

@@ -33,6 +33,8 @@ func New(
 		TimeoutSec: timeoutSec,
 	}
 
+	static.ReflectionFlag = reflectionFlag
+
 	if reflectionFlag {
 		cfg.Linter = _NoReflectionMode{}
 	} else {

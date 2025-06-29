@@ -116,7 +116,7 @@ func (c *createBuilder) SchemaFields(
 func (c *createBuilder) SchemaFromStruct(
 	schemaStruct any,
 ) CreateBuilder {
-	fields, err := schema.NativeStructRepresentation(schemaStruct)
+	fields, err := schema.NativeStructRepresentation(c.schema, schemaStruct)
 	if err != nil {
 		c.ctx.err = fmt.Errorf("cannot get fields from struct %T: %w", schemaStruct, err)
 		return c

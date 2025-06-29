@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"ksql/kinds"
+	"ksql/schema"
 	"ksql/shared"
 	"ksql/static"
 	"ksql/streams"
@@ -49,13 +50,14 @@ func (mode _ReflectionMode) InitLinter(ctx context.Context) error {
 			responseSchema[field.Name] = field.Kind
 		}
 
+		fields := schema.RemoteFieldsRepresentation(stream.Name, responseSchema)
 		static.StreamsProjections.Set("", shared.StreamSettings{
 			Name:        "",
 			SourceTopic: "",
 			Partitions:  1,
 			Format:      0,
 			DeleteFunc:  nil,
-		}, responseSchema)
+		}, fields)
 	}
 
 	tableList, err := tables.ListTables(ctx)
@@ -80,11 +82,13 @@ func (mode _ReflectionMode) InitLinter(ctx context.Context) error {
 			responseSchema[field.Name] = field.Kind
 		}
 
+		fields := schema.RemoteFieldsRepresentation(table.Name, responseSchema)
+
 		static.StreamsProjections.Set(table.Name, shared.StreamSettings{
 			Name:        table.Name,
 			SourceTopic: table.Topic,
 			Format:      kinds.JSON,
-		}, responseSchema)
+		}, fields)
 	}
 
 	return nil

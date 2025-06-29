@@ -35,7 +35,10 @@ func RemoteFieldsRepresentation(
 	return schemaFields
 }
 
-func NativeStructRepresentation(structure any) (LintedFields, error) {
+func NativeStructRepresentation(
+	relationName string,
+	structure any,
+) (LintedFields, error) {
 	typ, err := reflector.GetType(structure)
 	if err != nil {
 		return nil, fmt.Errorf("cannot get reflect.Type of provided struct: %w", err)
@@ -45,8 +48,6 @@ func NativeStructRepresentation(structure any) (LintedFields, error) {
 	if err != nil {
 		return nil, fmt.Errorf("cannot get reflect.Value of provided struct: %w", err)
 	}
-
-	structName := typ.Name()
 
 	var (
 		fields = make(structFields)
@@ -70,7 +71,7 @@ func NativeStructRepresentation(structure any) (LintedFields, error) {
 
 		fields[tag] = SearchField{
 			Name:     tag,
-			Relation: structName,
+			Relation: relationName,
 			Kind:     ksqlKind,
 			Value:    &literalValue,
 		}

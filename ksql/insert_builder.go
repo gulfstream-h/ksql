@@ -73,7 +73,7 @@ func (i *insertBuilder) AsSelect(selectBuilder SelectBuilder) InsertBuilder {
 }
 
 func (i *insertBuilder) InsertStruct(val any) InsertBuilder {
-	fields, err := schema.NativeStructRepresentation(val)
+	fields, err := schema.NativeStructRepresentation(i.schema, val)
 	if err != nil {
 		return nil
 	}
