@@ -3,7 +3,6 @@ package kinds
 import (
 	"errors"
 	"log/slog"
-	"math"
 	"reflect"
 )
 
@@ -34,6 +33,8 @@ const (
 	MapBytes
 )
 
+// ToKsql - translate golang struct
+// into internal type
 func ToKsql(typ reflect.Type) (Ktype, error) {
 	switch typ.Kind() {
 	case reflect.Invalid:
@@ -139,6 +140,9 @@ func ToKsql(typ reflect.Type) (Ktype, error) {
 	return 0, errUnsupportedType
 }
 
+// GetKafkaRepresentation - translates
+// internal type representation
+// into ksql acceptable format
 func (k Ktype) GetKafkaRepresentation() string {
 	switch k {
 	case Int:
@@ -182,49 +186,8 @@ func (k Ktype) GetKafkaRepresentation() string {
 	return ""
 }
 
-func (k Ktype) Example() any {
-	switch k {
-	case Bool:
-		return true
-	case Int:
-		return -1
-	case Double:
-		return 2.71
-	case String:
-		return ""
-	case BigInt:
-		return math.MaxInt64
-	case Bytes:
-		return []byte("aGVsbG8gd29ybGQ=")
-	case ArrInt:
-		return []int{-1, 0, 1}
-	case ArrBool:
-		return []bool{true, false}
-	case ArrDouble:
-		return []float64{2.71, 3.14}
-	case ArrString:
-		return []string{"example1", "example2"}
-	case ArrBigInt:
-		return []int64{math.MaxInt64, math.MinInt64}
-	case ArrBytes:
-		return [][]byte{[]byte("example1"), []byte("example2")}
-	case MapInt:
-		return map[string]int{"key1": -1, "key2": 0, "key3": 1}
-	case MapBool:
-		return map[string]bool{"key1": true, "key2": false}
-	case MapDouble:
-		return map[string]float64{"key1": 2.71, "key2": 3.14}
-	case MapString:
-		return map[string]string{"key1": "example1", "key2": "example2"}
-	case MapBigInt:
-		return map[string]int64{"key1": math.MaxInt64, "key2": math.MinInt64}
-	case MapBytes:
-		return map[string][]byte{"key1": []byte("example1"), "key2": []byte("example2")}
-	}
-
-	return nil
-}
-
+// CastResponseTypes - translates ksql describe response
+// string schema into internal representation.
 func CastResponseTypes(typification string) (Ktype, bool) {
 	switch typification {
 	case "INT", "INTEGER":

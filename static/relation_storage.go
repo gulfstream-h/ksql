@@ -74,7 +74,7 @@ func (rs *RelationStorage[S]) Set(
 }
 
 // Also schemas are required for DDL representation
-// And linter functionality in ksql.Builder & protocol.Unmarshaler
+// And linter functionality in sql builder
 
 // However in-memory relation storage is highly valuable for
 // fast building of streams and topics, reducing propagation

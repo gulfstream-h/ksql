@@ -6,13 +6,14 @@ import (
 	"ksql/schema"
 )
 
+// Settings - common structure
+// that describes relation data.
+// used in cache for fast schema access
 type Settings struct {
-	Name        string
 	SourceTopic *string
-	Partitions  *uint8
+	Partitions  *int
 	Schema      schema.LintedFields
 	Format      kinds.ValueFormat
-	DeleteFunc  func(context.Context)
 }
 
 // StreamSettings - describes the settings of stream
@@ -25,21 +26,25 @@ type StreamSettings Settings
 // so can be easily called from any space
 type TableSettings Settings
 
+// RelationSettings - is generic constraint
+// it allows using both methods on certain struct
+// both fields of structure without interface Getters
 type RelationSettings interface {
 	~struct {
-		Name        string
 		SourceTopic *string
-		Partitions  *uint8
+		Partitions  *int
 		Schema      schema.LintedFields
 		Format      kinds.ValueFormat
-		DeleteFunc  func(context.Context)
 	}
 }
 
+// Linter - initializer for reflection-mode settings
 type Linter interface {
 	InitLinter(context.Context) error
 }
 
+// Config - library entry point. Establish connection
+// in network and set-ups reflection rules
 type Config interface {
 	Linter
 	Configure(context.Context) error

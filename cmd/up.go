@@ -9,6 +9,8 @@ import (
 )
 
 // upCmd represents the up command
+// that copies migration-file up command
+// and executes it on remote ksql-server
 var upCmd = &cobra.Command{
 	Use:   "up [file_name]",
 	Short: "Apply changes. Invokes up-migration in provided file",

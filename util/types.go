@@ -6,6 +6,7 @@ import (
 	"strings"
 )
 
+// FormatSlice - generates string representation of slice
 func FormatSlice(slice any) (string, error) {
 	val := reflect.ValueOf(slice)
 	if val.Kind() != reflect.Slice && val.Kind() != reflect.Array {
@@ -37,6 +38,7 @@ func FormatSlice(slice any) (string, error) {
 	return "(" + strings.Join(parts, ", ") + ")", nil
 }
 
+// Serialize - checks interface type and serialize it for kafka
 func Serialize(val any) string {
 	switch v := val.(type) {
 	case []byte:
@@ -115,6 +117,7 @@ func Serialize(val any) string {
 	}
 }
 
+// IsIterable - returns true, if it is possible to range through the value
 func IsIterable(val any) bool {
 	v := reflect.ValueOf(val)
 	if !v.IsValid() {
@@ -126,6 +129,8 @@ func IsIterable(val any) bool {
 	}
 	return false
 }
+
+// IsOrdered - returns true, if current type can be compared
 func IsOrdered(val any) bool {
 	switch val.(type) {
 	case int, uint, int8, uint8, int16, uint16, int32, uint32, int64, uint64:
@@ -141,6 +146,7 @@ func IsOrdered(val any) bool {
 	}
 }
 
+// IsNil - returns true if value is nil
 func IsNil(v any) bool {
 	if v == nil {
 		return true

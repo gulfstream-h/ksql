@@ -1,7 +1,7 @@
 package kinds
 
 type (
-	ValueFormat int
+	ValueFormat int // Modes of data serializing
 )
 
 const (

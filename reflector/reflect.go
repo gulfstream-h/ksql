@@ -5,6 +5,8 @@ import (
 	"reflect"
 )
 
+// GetType - safe function for checking reflect type
+// of user-provided struct
 func GetType(val any) (reflect.Type, error) {
 	t := reflect.TypeOf(val)
 
@@ -25,6 +27,8 @@ func GetType(val any) (reflect.Type, error) {
 	return t, nil
 }
 
+// GetValue - safe function for checking reflect value
+// of user-provided struct
 func GetValue(runtime any) (reflect.Value, error) {
 	val := reflect.ValueOf(runtime)
 

@@ -6,13 +6,13 @@ import (
 	"fmt"
 	jsoniter "github.com/json-iterator/go"
 	"ksql/consts"
+	"ksql/database"
 	"ksql/kernel/network"
 	"ksql/kernel/protocol/dao"
 	"ksql/kernel/protocol/dto"
 	"ksql/kinds"
 	"ksql/ksql"
 	"ksql/schema"
-	"ksql/schema/netparse"
 	"ksql/schema/report"
 	"ksql/shared"
 	"ksql/static"
@@ -28,14 +28,13 @@ import (
 type Table[S any] struct {
 	Name         string
 	sourceTopic  *string
-	partitions   *uint8
+	partitions   *int
 	remoteSchema schema.LintedFields
 	format       kinds.ValueFormat
 }
 
 // ListTables - responses with all tables list
-// in the current ksqlDB instance. Also it reloads
-// map of available projections
+// in the current ksqlDB instance
 func ListTables(ctx context.Context) (
 	dto.ShowTables, error,
 ) {
@@ -78,9 +77,7 @@ func ListTables(ctx context.Context) (
 	}
 }
 
-// Describe - responses with table description.
-// Can be used for table schema and query by which
-// it was created
+// Describe - responses with table description
 func Describe(ctx context.Context, stream string) (dto.RelationDescription, error) {
 	query := util.MustNoError(ksql.Describe(ksql.TABLE, stream).Expression)
 
@@ -107,6 +104,8 @@ func Describe(ctx context.Context, stream string) (dto.RelationDescription, erro
 			describe []dao.DescribeResponse
 		)
 
+		slog.Debug("ksql response", "raw", string(val))
+
 		if strings.Contains(string(val), "Could not find STREAM/TABLE") {
 			return dto.RelationDescription{}, static.ErrTableDoesNotExist
 		}
@@ -125,7 +124,7 @@ func Describe(ctx context.Context, stream string) (dto.RelationDescription, erro
 }
 
 // Drop - drops table from ksqlDB instance
-// with parent topic. Also deletes projection from list
+// with parent topic
 func Drop(ctx context.Context, name string) error {
 	query := util.MustNoError(ksql.Drop(ksql.TABLE, name).Expression)
 
@@ -151,6 +150,9 @@ func Drop(ctx context.Context, name string) error {
 			drop []dao.DropInfo
 		)
 
+		fmt.Println("ksql response", "raw", string(val))
+		slog.Debug("ksql response", "raw", string(val))
+
 		if err = jsoniter.Unmarshal(val, &drop); err != nil {
 			return fmt.Errorf("cannot unmarshal drop response: %w", err)
 		}
@@ -168,9 +170,9 @@ func Drop(ctx context.Context, name string) error {
 }
 
 // GetTable - gets table from ksqlDB instance
-// by receiving http description from settings
-// current command return difference between
-// struct tags and remote schema
+// by receiving cache or else http description
+// current command returns error is user-defined structure
+// differs from server response
 func GetTable[S any](
 	ctx context.Context,
 	table string) (*Table[S], error) {
@@ -213,8 +215,6 @@ func GetTable[S any](
 }
 
 // CreateTable - creates table in ksqlDB instance
-// after creating, user should call
-// select or select with emit to get data from it
 func CreateTable[S any](
 	ctx context.Context,
 	tableName string,
@@ -230,8 +230,15 @@ func CreateTable[S any](
 	}
 
 	metadata := ksql.Metadata{
-		Topic:       *settings.SourceTopic,
 		ValueFormat: kinds.JSON.String(),
+	}
+
+	if settings.SourceTopic != nil {
+		metadata.Topic = *settings.SourceTopic
+	}
+
+	if settings.Partitions != nil {
+		metadata.Partitions = *settings.Partitions
 	}
 
 	query, err := ksql.Create(ksql.TABLE, tableName).
@@ -264,6 +271,8 @@ func CreateTable[S any](
 		var (
 			create []dao.CreateRelationResponse
 		)
+
+		slog.Debug("ksql response", "raw", string(val))
 
 		if err = jsoniter.Unmarshal(val, &create); err != nil {
 			return nil, fmt.Errorf("cannot unmarshal create response: %w", err)
@@ -325,8 +334,6 @@ func CreateTable[S any](
 
 // CreateTableAsSelect - creates table in ksqlDB instance
 // with user built query
-// after creating, user should call
-// select or select with emit to get data from it
 func CreateTableAsSelect[S any](
 	ctx context.Context,
 	tableName string,
@@ -354,6 +361,9 @@ func CreateTableAsSelect[S any](
 			return nil, fmt.Errorf("reflection report native: %w", err)
 		}
 
+		//if err = scheme.CompareWithFields(selectQuery.SchemaFields()); err != nil {
+		//	return nil, fmt.Errorf("reflection check failed: %w", err)
+		//}
 		for relName, rel := range selectBuilder.RelationReport() {
 			err = report.ReflectionReportRemote(relName, rel.Map())
 			if err != nil {
@@ -398,6 +408,8 @@ func CreateTableAsSelect[S any](
 			create []dao.CreateRelationResponse
 		)
 
+		slog.Info("response", "formatted", string(val))
+
 		if err := jsoniter.Unmarshal(val, &create); err != nil {
 			return nil, fmt.Errorf("cannot unmarshal create response: %w", err)
 		}
@@ -423,7 +435,7 @@ func CreateTableAsSelect[S any](
 
 // SelectOnce - performs select query
 // and return only one http answer
-// channel is closed almost immediately
+// After channel closes
 func (s *Table[S]) SelectOnce(
 	ctx context.Context,
 ) (S, error) {
@@ -432,41 +444,31 @@ func (s *Table[S]) SelectOnce(
 		value S
 	)
 
-	meta := ksql.Metadata{ValueFormat: kinds.JSON.String()}
+	var (
+		fields []ksql.Field
+	)
 
-	query, err := ksql.Create(ksql.TABLE, s.Name).
-		SchemaFromRemoteStruct(s.remoteSchema).
-		With(meta).
-		Expression()
+	for _, field := range s.remoteSchema.Array() {
+		fields = append(fields, ksql.F(field.Name))
+	}
+
+	query, err :=
+		ksql.Select(fields...).
+			From(fmt.Sprintf("QUERYABLE_%s", s.Name), ksql.TABLE).
+			Expression()
 
 	if err != nil {
 		return value, fmt.Errorf("build select query: %w", err)
 	}
 
-	pipeline, err := network.Net.Perform(
-		ctx,
-		http.MethodPost,
-		query,
-		&network.ShortPolling{},
-	)
+	valuesC, err := database.Select[S](ctx, query)
 	if err != nil {
-		return value, fmt.Errorf("cannot perform request: %w", err)
+		return value, err
 	}
 
-	select {
-	case <-ctx.Done():
-		return value, ctx.Err()
-	case val, ok := <-pipeline:
-		if !ok {
-			return value, static.ErrMalformedResponse
-		}
+	value = <-valuesC
 
-		if err := jsoniter.Unmarshal(val, &value); err != nil {
-			return value, fmt.Errorf("cannot unmarshal select response: %w", err)
-		}
-
-		return value, nil
-	}
+	return value, nil
 }
 
 // SelectWithEmit - performs
@@ -478,79 +480,24 @@ func (s *Table[S]) SelectWithEmit(
 ) (<-chan S, error) {
 
 	var (
-		value   S
-		valuesC = make(chan S)
+		fields []ksql.Field
 	)
 
-	query, err := ksql.SelectAsStruct("QUERYABLE_"+s.Name, s.remoteSchema).
-		From(s.Name, 0).
-		WithMeta(ksql.Metadata{ValueFormat: kinds.JSON.String()}).
+	for _, field := range s.remoteSchema.Array() {
+		fields = append(fields, ksql.F(field.Name))
+	}
+
+	query, err := ksql.Select(fields...).
+		From(fmt.Sprintf("QUERYABLE_%s", s.Name), ksql.TABLE).EmitChanges().
 		Expression()
 	if err != nil {
 		return nil, fmt.Errorf("build select query: %w", err)
 	}
 
-	pipeline, err := network.Net.PerformSelect(
-		ctx,
-		http.MethodPost,
-		query,
-		&network.LongPolling{},
-	)
+	valuesC, err := database.Select[S](ctx, query)
 	if err != nil {
-		return nil, fmt.Errorf("cannot perform request: %w", err)
+		return nil, err
 	}
-
-	go func() {
-		var (
-			iter    = 0
-			headers dao.Header
-		)
-
-		for {
-			select {
-			case <-ctx.Done():
-				close(valuesC)
-				return
-			case val, ok := <-pipeline:
-				if !ok {
-					close(valuesC)
-					return
-				}
-
-				if iter == 0 {
-					str := val[1 : len(val)-1]
-
-					if err = jsoniter.Unmarshal(str, &headers); err != nil {
-						return
-					}
-
-					iter++
-					continue
-				}
-
-				var (
-					row dao.Row
-				)
-
-				if err = jsoniter.Unmarshal(val[:len(val)-1], &row); err != nil {
-					return
-				}
-
-				value, err = netparse.ParseNetResponse[S](headers, row)
-				if err != nil {
-					slog.Error(
-						"parse net response",
-						slog.String("error", err.Error()),
-						slog.Any("headers", headers),
-						slog.Any("row", row),
-					)
-					return
-				}
-
-				valuesC <- value
-			}
-		}
-	}()
 
 	return valuesC, nil
 }

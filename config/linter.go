@@ -12,14 +12,22 @@ import (
 )
 
 type (
+	// _NoReflectionMode - applying no-cache mode of application.
+	// There is no query fields check-ups
 	_NoReflectionMode struct{}
-	_ReflectionMode   struct{}
+	// _ReflectionMode - applying relation cache mode.
+	// All existing relations are additionally parsed to internal formats
+	// so query builder matches user-listed fields with cached storage.
+	// if field is not presented in cache or user-provided type mismatch with
+	// cashed value - reflection check will return an error before executing query
+	_ReflectionMode struct{}
 )
 
 func (mode _NoReflectionMode) InitLinter(context.Context) error {
 	return nil
 }
 
+// InitLinter - caches streams & tables. Eventually, it changes global reflection variable
 func (mode _ReflectionMode) InitLinter(ctx context.Context) error {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
@@ -50,11 +58,9 @@ func (mode _ReflectionMode) InitLinter(ctx context.Context) error {
 		}
 
 		static.StreamsProjections.Set("", shared.StreamSettings{
-			Name:        "",
 			SourceTopic: nil,
 			Partitions:  nil,
 			Format:      0,
-			DeleteFunc:  nil,
 		}, responseSchema)
 	}
 
@@ -81,7 +87,6 @@ func (mode _ReflectionMode) InitLinter(ctx context.Context) error {
 		}
 
 		static.StreamsProjections.Set(table.Name, shared.StreamSettings{
-			Name:        table.Name,
 			SourceTopic: &table.Topic,
 			Format:      kinds.JSON,
 		}, responseSchema)
