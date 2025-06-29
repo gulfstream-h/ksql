@@ -12,6 +12,8 @@ import (
 	"ksql/kinds"
 	"ksql/ksql"
 	"ksql/schema"
+	"ksql/schema/netparse"
+	"ksql/schema/report"
 	"ksql/shared"
 	"ksql/static"
 	"log/slog"
@@ -19,7 +21,6 @@ import (
 
 	"ksql/util"
 	"net/http"
-	"reflect"
 )
 
 // Stream - is full-functional type,
@@ -35,6 +36,7 @@ type Stream[S any] struct {
 // ListStreams - responses with all streams list
 // in the current ksqlDB instance
 func ListStreams(ctx context.Context) (dto.ShowStreams, error) {
+
 	query := util.MustNoError(ksql.List(ksql.STREAM).Expression)
 
 	pipeline, err := network.Net.Perform(
@@ -224,6 +226,10 @@ func CreateStream[S any](
 		return nil, err
 	}
 
+	if len(rmSchema.Map()) == 0 {
+		return nil, fmt.Errorf("cannot create stream with empty schema")
+	}
+
 	metadata := ksql.Metadata{
 		ValueFormat: kinds.JSON.String(),
 	}
@@ -298,15 +304,29 @@ func CreateStreamAsSelect[S any](
 	var (
 		s S
 	)
-
-	scheme, err := schema.NativeStructRepresentation(s)
-	if err != nil {
-		return nil, err
+	if selectBuilder == nil {
+		return nil, errors.New("select builder cannot be nil")
 	}
 
-	//if err = scheme.CompareWithFields(selectBuilder.SchemaFields()); err != nil {
-	//	return nil, fmt.Errorf("reflection check failed: %w", err)
-	//}
+	fields := selectBuilder.Returns()
+
+	if len(fields.Map()) == 0 {
+		return nil, errors.New("select builder must return at least one field")
+	}
+
+	if static.ReflectionFlag {
+		err := report.ReflectionReportNative(s, fields)
+		if err != nil {
+			return nil, fmt.Errorf("reflection report native: %w", err)
+		}
+
+		for relName, rel := range selectBuilder.RelationReport() {
+			err = report.ReflectionReportRemote(relName, rel.Map())
+			if err != nil {
+				return nil, fmt.Errorf("reflection report remote: %w", err)
+			}
+		}
+	}
 
 	query, err := ksql.Create(ksql.STREAM, streamName).
 		AsSelect(selectBuilder).
@@ -359,7 +379,7 @@ func CreateStreamAsSelect[S any](
 
 		return &Stream[S]{
 			partitions:   settings.Partitions,
-			remoteSchema: scheme,
+			remoteSchema: fields,
 			format:       settings.Format,
 		}, nil
 	}
@@ -373,24 +393,19 @@ func (s *Stream[S]) Insert(
 	fields ksql.Row,
 ) error {
 
-	scheme := s.remoteSchema
+	if static.ReflectionFlag {
+		scheme := s.remoteSchema
+		relationCachedFields := scheme.Map()
+		for key, value := range fields {
+			field, ok := relationCachedFields[key]
+			if !ok {
+				return fmt.Errorf("field %s is not represented in remote schema", field.Name)
+			}
 
-	var (
-		searchFields []schema.SearchField
-	)
+			val := util.Serialize(value)
+			field.Value = &val
 
-	relationCachedFields := scheme.Map()
-
-	for key, value := range fields {
-		field, ok := relationCachedFields[key]
-		if !ok {
-			return fmt.Errorf("field %s is not represented in remote schema", field.Name)
 		}
-
-		val := util.Serialize(value)
-		field.Value = &val
-
-		searchFields = append(searchFields, field)
 	}
 
 	query, err := ksql.Insert(ksql.STREAM, s.Name).Rows(fields).Expression()
@@ -440,17 +455,33 @@ func (s *Stream[S]) Insert(
 // InsertAs - provides insertion to stream.
 // written fields are pre-fetched from select query, which
 // is built by user
-func (s *Stream[S]) InsertAs(
+func (s *Stream[S]) InsertAsSelect(
 	ctx context.Context,
-	selectQuery ksql.SelectBuilder,
+	selectBuilder ksql.SelectBuilder,
 ) error {
 
-	//err := s.remoteSchema.CompareWithFields(selectQuery.SchemaFields())
-	//if err != nil {
-	//	return fmt.Errorf("reflection check failed: %w", err)
-	//}
+	var (
+		stream S
+	)
+	if selectBuilder == nil {
+		return errors.New("select builder cannot be nil")
+	}
 
-	query, err := ksql.Insert(ksql.STREAM, s.Name).AsSelect(selectQuery).Expression()
+	if static.ReflectionFlag {
+		fields := selectBuilder.Returns()
+		err := report.ReflectionReportNative(stream, fields)
+		if err != nil {
+			return fmt.Errorf("reflection report native: %w", err)
+		}
+		for relName, rel := range selectBuilder.RelationReport() {
+			err = report.ReflectionReportRemote(relName, rel.Map())
+			if err != nil {
+				return fmt.Errorf("reflection report remote: %w", err)
+			}
+		}
+	}
+
+	query, err := ksql.Insert(ksql.STREAM, s.Name).AsSelect(selectBuilder).Expression()
 	if err != nil {
 		return fmt.Errorf("build insert query: %w", err)
 	}
@@ -557,34 +588,18 @@ func (s *Stream[S]) SelectOnce(
 				return value, fmt.Errorf("cannot unmarshal row: %w", err)
 			}
 
-			mappa, err := schema.ParseHeadersAndValues(headers.Header.Schema, row.Row.Columns)
+			value, err = netparse.ParseNetResponse[S](headers, row)
 			if err != nil {
-				return value, fmt.Errorf("cannot parse headers and values: %w", err)
+				slog.Error(
+					"parse net response",
+					slog.String("error", err.Error()),
+					slog.Any("headers", headers),
+					slog.Any("row", row),
+				)
+				return value, err
 			}
+			return value, nil
 
-			t := reflect.ValueOf(&value)
-			if t.Kind() != reflect.Ptr || t.Elem().Kind() != reflect.Struct {
-				panic("value must be a pointer to a struct")
-			}
-			t = t.Elem()
-			tt := t.Type()
-
-			for k, v := range mappa {
-				for i := 0; i < t.NumField(); i++ {
-					structField := tt.Field(i)
-					fieldVal := t.Field(i)
-
-					if strings.EqualFold(structField.Tag.Get("ksql"), k) {
-						if fieldVal.CanSet() && v != nil {
-							val, ok := schema.NormalizeValue(v, fieldVal.Type())
-							if ok {
-								fieldVal.Set(val)
-							}
-						}
-						break
-					}
-				}
-			}
 		}
 	}
 }
@@ -654,6 +669,16 @@ func (s *Stream[S]) SelectWithEmit(
 				)
 
 				if err = jsoniter.Unmarshal(val[:len(val)-1], &row); err != nil {
+					return
+				}
+				value, err = netparse.ParseNetResponse[S](headers, row)
+				if err != nil {
+					slog.Error(
+						"parse net response",
+						slog.String("error", err.Error()),
+						slog.Any("headers", headers),
+						slog.Any("row", row),
+					)
 					return
 				}
 

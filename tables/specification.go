@@ -12,12 +12,13 @@ import (
 	"ksql/kinds"
 	"ksql/ksql"
 	"ksql/schema"
+	"ksql/schema/netparse"
+	"ksql/schema/report"
 	"ksql/shared"
 	"ksql/static"
 	"ksql/util"
 	"log/slog"
 	"net/http"
-	"reflect"
 	"strings"
 )
 
@@ -238,6 +239,7 @@ func CreateTable[S any](
 		SchemaFields(rmSchema.Array()...).
 		With(metadata).
 		Expression()
+
 	if err != nil {
 		return nil, fmt.Errorf("build create query: %w", err)
 	}
@@ -330,28 +332,47 @@ func CreateTableAsSelect[S any](
 	ctx context.Context,
 	tableName string,
 	settings shared.TableSettings,
-	selectQuery ksql.SelectBuilder,
+	selectBuilder ksql.SelectBuilder,
 ) (*Table[S], error) {
 
 	var (
 		s S
 	)
 
-	scheme, err := schema.NativeStructRepresentation(s)
-	if err != nil {
-		return nil, err
+	if selectBuilder == nil {
+		return nil, errors.New("select builder cannot be nil")
 	}
+
+	fields := selectBuilder.Returns()
+
+	if len(fields.Map()) == 0 {
+		return nil, errors.New("select builder must return at least one field")
+	}
+
+	if static.ReflectionFlag {
+		err := report.ReflectionReportNative(s, fields)
+		if err != nil {
+			return nil, fmt.Errorf("reflection report native: %w", err)
+		}
 
 	//if err = scheme.CompareWithFields(selectQuery.SchemaFields()); err != nil {
 	//	return nil, fmt.Errorf("reflection check failed: %w", err)
 	//}
+		for relName, rel := range selectBuilder.RelationReport() {
+			err = report.ReflectionReportRemote(relName, rel.Map())
+			if err != nil {
+				return nil, fmt.Errorf("reflection report remote: %w", err)
+			}
+		}
+	}
+
 	meta := ksql.Metadata{
 		Topic:       *settings.SourceTopic,
 		ValueFormat: kinds.JSON.String(),
 	}
 
 	query, err := ksql.Create(ksql.TABLE, tableName).
-		AsSelect(selectQuery).
+		AsSelect(selectBuilder).
 		With(meta).
 		Expression()
 
@@ -400,7 +421,7 @@ func CreateTableAsSelect[S any](
 		return &Table[S]{
 			sourceTopic:  settings.SourceTopic,
 			partitions:   settings.Partitions,
-			remoteSchema: scheme,
+			remoteSchema: fields,
 			format:       settings.Format,
 		}, nil
 	}
@@ -521,33 +542,15 @@ func (s *Table[S]) SelectWithEmit(
 					return
 				}
 
-				mappa, err := schema.ParseHeadersAndValues(headers.Header.Schema, row.Row.Columns)
+				value, err = netparse.ParseNetResponse[S](headers, row)
 				if err != nil {
+					slog.Error(
+						"parse net response",
+						slog.String("error", err.Error()),
+						slog.Any("headers", headers),
+						slog.Any("row", row),
+					)
 					return
-				}
-
-				t := reflect.ValueOf(&value)
-				if t.Kind() != reflect.Ptr || t.Elem().Kind() != reflect.Struct {
-					panic("value must be a pointer to a struct")
-				}
-				t = t.Elem()
-				tt := t.Type()
-
-				for k, v := range mappa {
-					for i := 0; i < t.NumField(); i++ {
-						structField := tt.Field(i)
-						fieldVal := t.Field(i)
-
-						if strings.EqualFold(structField.Tag.Get("ksql"), k) {
-							if fieldVal.CanSet() && v != nil {
-								val := reflect.ValueOf(v)
-								if val.Type().ConvertibleTo(fieldVal.Type()) {
-									fieldVal.Set(val.Convert(fieldVal.Type()))
-								}
-							}
-							break
-						}
-					}
 				}
 
 				valuesC <- value

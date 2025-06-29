@@ -12,14 +12,19 @@ type (
 		Expression() (string, error)
 		AsSelect(builder SelectBuilder) CreateBuilder
 		SchemaFields(fields ...schema.SearchField) CreateBuilder
-		SchemaFromStruct(schemaName string, schemaStruct any) CreateBuilder
+		SchemaFromStruct(schemaStruct any) CreateBuilder
 		SchemaFromRemoteStruct(fields schema.LintedFields) CreateBuilder
 		With(metadata Metadata) CreateBuilder
 		Type() Reference
 		Schema() string
 	}
 
+	createBuilderCtx struct {
+		err error
+	}
+
 	createBuilder struct {
+		ctx       createBuilderCtx
 		asSelect  SelectBuilder
 		fields    []schema.SearchField
 		reference Reference
@@ -109,14 +114,13 @@ func (c *createBuilder) SchemaFields(
 }
 
 func (c *createBuilder) SchemaFromStruct(
-	schemaName string,
 	schemaStruct any,
 ) CreateBuilder {
 	fields, err := schema.NativeStructRepresentation(schemaStruct)
 	if err != nil {
+		c.ctx.err = fmt.Errorf("cannot get fields from struct %T: %w", schemaStruct, err)
 		return c
 	}
-
 	fieldsList := fields.Array()
 
 	c.fields = append(c.fields, fieldsList...)
@@ -135,6 +139,10 @@ func (c *createBuilder) SchemaFromRemoteStruct(
 
 func (c *createBuilder) Expression() (string, error) {
 	builder := new(strings.Builder)
+
+	if c.ctx.err != nil {
+		return "", c.ctx.err
+	}
 
 	// If there are no fields and no AS SELECT, we cannot build a valid CREATE statement.
 	if len(c.fields) == 0 && c.asSelect == nil {
@@ -173,10 +181,6 @@ func (c *createBuilder) Expression() (string, error) {
 
 		for idx := range c.fields {
 			item := c.fields[idx]
-
-			//if len(item.Relation) != 0 {
-			//	builder.WriteString(item.Relation + ".")
-			//}
 
 			builder.WriteString(item.Name + " " + item.Kind.GetKafkaRepresentation())
 

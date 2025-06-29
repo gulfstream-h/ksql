@@ -8,20 +8,20 @@ import (
 
 type HavingExpression interface {
 	Expression() (string, error)
-	Conditionals() []Expression
+	Conditionals() []Conditional
 	IsEmpty() bool
-	Having(exps ...Expression) HavingExpression
+	Having(exps ...Conditional) HavingExpression
 }
 
 type having struct {
-	conditionals []Expression
+	conditionals []Conditional
 }
 
 func NewHavingExpression() HavingExpression {
 	return &having{}
 }
 
-func (h *having) Having(exps ...Expression) HavingExpression {
+func (h *having) Having(exps ...Conditional) HavingExpression {
 	h.conditionals = append(h.conditionals, exps...)
 	return h
 }
@@ -30,8 +30,8 @@ func (h *having) IsEmpty() bool {
 	return len(h.conditionals) == 0
 }
 
-func (h *having) Conditionals() []Expression {
-	conditionals := make([]Expression, len(h.conditionals))
+func (h *having) Conditionals() []Conditional {
+	conditionals := make([]Conditional, len(h.conditionals))
 	copy(conditionals, h.conditionals)
 	return conditionals
 }

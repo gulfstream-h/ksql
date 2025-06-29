@@ -8,19 +8,19 @@ import (
 func Test_HavingExpression(t *testing.T) {
 	tests := []struct {
 		name         string
-		conditionals []Expression
+		conditionals []Conditional
 		wantExpr     string
 		expectErr    bool
 	}{
 		{
 			name:         "Single Expression",
-			conditionals: []Expression{NewBooleanExp(F("aggregated"), 5, more)},
+			conditionals: []Conditional{NewBooleanExp(F("aggregated"), 5, more)},
 			wantExpr:     "HAVING aggregated > 5",
 			expectErr:    false,
 		},
 		{
 			name: "Two Expressions",
-			conditionals: []Expression{
+			conditionals: []Conditional{
 				NewBooleanExp(F("aggregated1"), 6, less),
 				NewBooleanExp(F("aggregated2"), 7, equal),
 			},
@@ -29,13 +29,13 @@ func Test_HavingExpression(t *testing.T) {
 		},
 		{
 			name:         "No Expressions",
-			conditionals: []Expression{},
+			conditionals: []Conditional{},
 			wantExpr:     "",
 			expectErr:    true,
 		},
 		{
 			name: "Invalid Expression",
-			conditionals: []Expression{
+			conditionals: []Conditional{
 				NewBooleanExp(F("aggregated2"), struct{}{}, less),
 			},
 			wantExpr:  "",
@@ -43,7 +43,7 @@ func Test_HavingExpression(t *testing.T) {
 		},
 		{
 			name: "Mixed Valid and Invalid Expressions",
-			conditionals: []Expression{
+			conditionals: []Conditional{
 				NewBooleanExp(F("aggregated1"), 10, more),
 				NewBooleanExp(F("aggregated2"), struct{}{}, less),
 			},
@@ -52,7 +52,7 @@ func Test_HavingExpression(t *testing.T) {
 		},
 		{
 			name: "Three Valid Expressions",
-			conditionals: []Expression{
+			conditionals: []Conditional{
 				NewBooleanExp(F("aggregated1"), 1, more),
 				NewBooleanExp(F("aggregated2"), 2, less),
 				NewBooleanExp(F("aggregated3"), 3, equal),
@@ -62,7 +62,7 @@ func Test_HavingExpression(t *testing.T) {
 		},
 		{
 			name: "Empty Field Name",
-			conditionals: []Expression{
+			conditionals: []Conditional{
 				NewBooleanExp(F(""), 5, more),
 			},
 			wantExpr:  "",
@@ -70,7 +70,7 @@ func Test_HavingExpression(t *testing.T) {
 		},
 		{
 			name: "Duplicate Expressions",
-			conditionals: []Expression{
+			conditionals: []Conditional{
 				NewBooleanExp(F("aggregated"), 5, more),
 				NewBooleanExp(F("aggregated"), 5, more),
 			},
@@ -79,7 +79,7 @@ func Test_HavingExpression(t *testing.T) {
 		},
 		{
 			name: "Expression With Negative Value",
-			conditionals: []Expression{
+			conditionals: []Conditional{
 				NewBooleanExp(F("aggregated"), -10, less),
 			},
 			wantExpr:  "HAVING aggregated < -10",
@@ -87,7 +87,7 @@ func Test_HavingExpression(t *testing.T) {
 		},
 		{
 			name: "Expression With Zero Value",
-			conditionals: []Expression{
+			conditionals: []Conditional{
 				NewBooleanExp(F("aggregated"), 0, equal),
 			},
 			wantExpr:  "HAVING aggregated = 0",
