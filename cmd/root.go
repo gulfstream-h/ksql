@@ -14,6 +14,7 @@ var dbURL string
 var rootCmd = &cobra.Command{
 	Use: "ksql",
 	PersistentPreRun: func(cmd *cobra.Command, args []string) {
+		// if ksql_url is not provided in command via --db_url tag, seeking in .env file
 		if !cmd.Flags().Changed("db_url") {
 			if err := godotenv.Load(); err != nil {
 				slog.Error("cannot load .env file", "error", err)

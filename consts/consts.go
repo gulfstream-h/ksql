@@ -1,17 +1,19 @@
 package consts
 
-import "time"
-
 const (
-	KSQL            = "ksql"
-	KsqlConnTimeout = 30 * time.Second
+	KSQL = "ksql" // struct field tag for custom structs
 )
 
 const (
-	SUCCESS = "SUCCESS"
+	KsqlRoute  = "/ksql"  // used for http mode
+	QueryRoute = "/query" // used for websocket mode
 )
 
 const (
-	ContentType = "Content-Type"
-	HeaderKSQL  = "application/vnd.ksql.v1+json"
+	SUCCESS = "SUCCESS" // ksql responses with such literal status code
+)
+
+const (
+	ContentType = "Content-Type"                 // http Header-Name
+	HeaderKSQL  = "application/vnd.ksql.v1+json" // ksql Header
 )
