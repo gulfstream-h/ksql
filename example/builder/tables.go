@@ -26,7 +26,7 @@ func main() {
 	//SelectAvg()
 
 	//createAdditionalTable(context.Background())
-	Join()
+	CTE()
 
 }
 
@@ -124,6 +124,30 @@ func Join() {
 		Select(ksql.F("INFO"), ksql.F("LIKES")).
 		From("QUERYABLE_experimantaltable", ksql.TABLE).
 		Join("ADDITIONALTABLE", ksql.F("QUERYABLE_experimantaltable.INFO").Equal("ADDITIONALTABLE.INFO")).
+		Expression()
+	if err != nil {
+		slog.Error("err", "error", err.Error())
+		return
+	}
+
+	slog.Info("query", "text", query)
+	resp, err := database.Select[ExpTable](context.Background(), query)
+	if err != nil {
+		slog.Error("err", "error", err.Error())
+		return
+	}
+
+	for v := range resp {
+		slog.Info("msg", "struct", v)
+	}
+}
+
+func CTE() {
+	sb := ksql.Select(ksql.F("INFO"), ksql.F("LIKES")).From("QUERYABLE_experimentaltable", ksql.TABLE)
+
+	query, err := ksql.
+		Select(ksql.F("INFO")).
+		From("QUERYABLE_experimantaltable", ksql.TABLE).WithCTE(sb).
 		Expression()
 	if err != nil {
 		slog.Error("err", "error", err.Error())
