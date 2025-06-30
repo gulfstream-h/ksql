@@ -110,7 +110,7 @@ func Test_InsertExpression(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			builder := Insert(TABLE, "table_name").Rows(tc.fields)
 			for _, str := range tc.structRow {
-				builder = builder.InsertStruct("", str)
+				builder = builder.InsertStruct(str)
 			}
 
 			expr, err := builder.Expression()

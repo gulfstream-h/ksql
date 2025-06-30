@@ -123,7 +123,7 @@ var (
 	// 1. GROUP BY requires WINDOW clause on streams
 	groupByWindowed = selectBuilderRule{
 		ruleFn: func(builder *selectBuilder) (valid bool) {
-			return !(builder.ref == STREAM && builder.windowEx == nil && !builder.emitChanges)
+			return !(builder.ref == STREAM && !builder.groupByEx.IsEmpty() && builder.windowEx == nil && !builder.emitChanges)
 		},
 		description: `GROUP BY requires WINDOW clause on streams`,
 	}
@@ -244,7 +244,7 @@ func (s *selectBuilder) Windowed(window WindowExpression) SelectBuilder {
 }
 
 func (s *selectBuilder) SelectStruct(name string, val any) SelectBuilder {
-	relation, err := schema.NativeStructRepresentation(val)
+	relation, err := schema.NativeStructRepresentation(name, val)
 	if err != nil {
 		s.ctx.err = fmt.Errorf("cannot create relation from struct: %w", err)
 		return s
@@ -603,8 +603,10 @@ func (s *selectBuilder) Expression() (string, error) {
 	if s.emitFinal {
 		builder.WriteString(" EMIT FINAL")
 	}
-
-	builder.WriteString(s.meta.Expression())
+	metaExpression := s.meta.Expression()
+	if len(metaExpression) > 0 {
+		builder.WriteString(" " + s.meta.Expression())
+	}
 	builder.WriteString(";")
 
 	return builder.String(), nil

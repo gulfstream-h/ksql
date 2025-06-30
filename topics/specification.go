@@ -70,8 +70,8 @@ func (t *Topic[S]) RegisterStream(streamName string) shared.StreamSettings {
 
 	streamSettings := shared.StreamSettings{
 		Name:        streamName,
-		SourceTopic: &t.Name,
-		Partitions:  &partitions,
+		SourceTopic: t.Name,
+		Partitions:  partitions,
 		DeleteFunc: func(ctx context.Context) {
 			delete(t.ChildObjects.Streams, streamName)
 		},
@@ -89,8 +89,8 @@ func (t *Topic[S]) RegisterTable(tableName string) shared.TableSettings {
 
 	tableSettings := shared.TableSettings{
 		Name:        tableName,
-		SourceTopic: &t.Name,
-		Partitions:  &partitions,
+		SourceTopic: t.Name,
+		Partitions:  partitions,
 		DeleteFunc: func(ctx context.Context) {
 			delete(t.ChildObjects.Tables, tableName)
 		},
