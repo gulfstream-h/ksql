@@ -16,7 +16,7 @@ const (
 )
 
 func main() {
-	//ctx := context.Background()
+	ctx := context.Background()
 	//List(ctx)
 	//Create(ctx)
 	//Describe(ctx)
@@ -32,7 +32,7 @@ func main() {
 	//}()
 	//Insert(ctx)
 	//Select(ctx)
-	//SelectWithEmit(ctx)
+	SelectWithEmit(ctx)
 	//CreateAsSelect(ctx)
 	//InsertAsSelect(ctx)
 }

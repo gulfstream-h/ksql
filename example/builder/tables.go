@@ -24,7 +24,7 @@ func main() {
 	//}
 	//SelectData()
 	//SelectAvg()
-
+	//Join()
 	//createAdditionalTable(context.Background())
 	CTE()
 
@@ -77,7 +77,7 @@ func SelectData() {
 	query, err := ksql.
 		Select(ksql.F("ID"), ksql.F("LABEL"), ksql.F("INFO"), ksql.F("SUBS")).
 		From("QUERYABLE_experimantaltable", ksql.TABLE).
-		Where(ksql.F("SUBS").Equal(10)).
+		Where(ksql.F("SUBS").Equal(10)).EmitChanges().
 		Expression()
 	if err != nil {
 		slog.Error("err", "error", err.Error())
@@ -121,9 +121,9 @@ func SelectAvg() {
 
 func Join() {
 	query, err := ksql.
-		Select(ksql.F("INFO"), ksql.F("LIKES")).
-		From("QUERYABLE_experimantaltable", ksql.TABLE).
-		Join("ADDITIONALTABLE", ksql.F("QUERYABLE_experimantaltable.INFO").Equal("ADDITIONALTABLE.INFO")).
+		Select(ksql.F("QUERYABLE_EXPERIMANTALTABLE.INFO"), ksql.F("LIKES")).
+		From("QUERYABLE_experimantaltable", ksql.TABLE).EmitChanges().
+		Join("ADDITIONALTABLE", ksql.F("QUERYABLE_experimantaltable.ID").Equal(ksql.F("ADDITIONALTABLE.ID"))).
 		Expression()
 	if err != nil {
 		slog.Error("err", "error", err.Error())
@@ -143,10 +143,10 @@ func Join() {
 }
 
 func CTE() {
-	sb := ksql.Select(ksql.F("INFO"), ksql.F("LIKES")).From("QUERYABLE_experimentaltable", ksql.TABLE)
+	sb := ksql.Select(ksql.F("INFO"), ksql.F("LIKES")).From("QUERYABLE_experimentaltable", ksql.TABLE).As("userinfo")
 
 	query, err := ksql.
-		Select(ksql.F("INFO")).
+		Select(ksql.F("INFO"), ksql.F("userinfo.LIKES")).
 		From("QUERYABLE_experimantaltable", ksql.TABLE).WithCTE(sb).
 		Expression()
 	if err != nil {
