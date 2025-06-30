@@ -55,7 +55,7 @@ func (j *join) Expression() (string, error) {
 		operationString string
 	)
 
-	if len(j.fromEx.Schema()) == 0 || j.on == nil {
+	if j.fromEx == nil || j.on == nil {
 		return "", errors.New("join schema and expression cannot be empty")
 	}
 
@@ -89,7 +89,7 @@ func (j *join) Expression() (string, error) {
 
 	return fmt.Sprintf(
 		"%s %s ON %s",
-		operationString, j.fromEx, expression,
+		operationString, j.fromEx.Schema(), expression,
 	), nil
 
 }

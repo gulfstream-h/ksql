@@ -8,7 +8,7 @@ import (
 func Test_Join(t *testing.T) {
 	tests := []struct {
 		name      string
-		schema    string
+		schema    FromExpression
 		on        Conditional
 		joinType  JoinType
 		wantExpr  string
@@ -16,7 +16,7 @@ func Test_Join(t *testing.T) {
 	}{
 		{
 			name:      "Left Join",
-			schema:    "schema1",
+			schema:    Schema("schema1", STREAM),
 			on:        NewBooleanExp(F("table1.col1"), F("table2.col2"), equal),
 			joinType:  Left,
 			wantExpr:  "LEFT JOIN schema1 ON table1.col1 = table2.col2",
@@ -24,7 +24,7 @@ func Test_Join(t *testing.T) {
 		},
 		{
 			name:      "Right Join",
-			schema:    "schema2",
+			schema:    Schema("schema2", STREAM),
 			on:        NewBooleanExp(F("table1.col1"), F("table2.col2"), equal),
 			joinType:  Right,
 			wantExpr:  "RIGHT JOIN schema2 ON table1.col1 = table2.col2",
@@ -32,7 +32,7 @@ func Test_Join(t *testing.T) {
 		},
 		{
 			name:      "Inner Join",
-			schema:    "schema3",
+			schema:    Schema("schema3", STREAM),
 			on:        NewBooleanExp(F("table1.col1"), F("table2.col2"), equal),
 			joinType:  Inner,
 			wantExpr:  "JOIN schema3 ON table1.col1 = table2.col2",
@@ -40,7 +40,7 @@ func Test_Join(t *testing.T) {
 		},
 		{
 			name:      "Outer Join",
-			schema:    "schema4",
+			schema:    Schema("schema4", STREAM),
 			on:        NewBooleanExp(F("table1.col1"), F("table2.col2"), equal),
 			joinType:  Outer,
 			wantExpr:  "OUTER JOIN schema4 ON table1.col1 = table2.col2",
@@ -48,7 +48,7 @@ func Test_Join(t *testing.T) {
 		},
 		{
 			name:      "Empty Schema",
-			schema:    "",
+			schema:    nil,
 			on:        NewBooleanExp(F("table1.col1"), F("table2.col2"), equal),
 			joinType:  Left,
 			wantExpr:  "",
@@ -56,7 +56,7 @@ func Test_Join(t *testing.T) {
 		},
 		{
 			name:      "Nil Expression",
-			schema:    "schema6",
+			schema:    nil,
 			on:        nil,
 			joinType:  Inner,
 			wantExpr:  "",
@@ -64,7 +64,7 @@ func Test_Join(t *testing.T) {
 		},
 		{
 			name:      "Invalid Join Type",
-			schema:    "schema7",
+			schema:    Schema("schema7", STREAM),
 			on:        NewBooleanExp(F("table1.col1"), F("table2.col2"), equal),
 			joinType:  JoinType(999),
 			wantExpr:  "",
@@ -72,7 +72,7 @@ func Test_Join(t *testing.T) {
 		},
 		{
 			name:   "Complex Expression",
-			schema: "schema8",
+			schema: Schema("schema8", TABLE),
 			on: And(
 				NewBooleanExp(F("table1.col1"), F("table2.col2"), equal),
 				NewBooleanExp(F("table3.col3"), F("table3.col3"), equal),
@@ -83,7 +83,7 @@ func Test_Join(t *testing.T) {
 		},
 		{
 			name:      "No Operation",
-			schema:    "schema9",
+			schema:    Schema("schema9", TABLE),
 			on:        NewBooleanExp(F("table1.col1"), F("table2.col2"), equal),
 			joinType:  JoinType(-1),
 			wantExpr:  "",
@@ -91,7 +91,7 @@ func Test_Join(t *testing.T) {
 		},
 		{
 			name:   "OR Expression",
-			schema: "schema10",
+			schema: Schema("schema10", TABLE),
 			on: Or(
 				NewBooleanExp(F("table1.col1"), F("table2.col2"), equal),
 				NewBooleanExp(F("table3.col3"), F("table4.col4"), equal),

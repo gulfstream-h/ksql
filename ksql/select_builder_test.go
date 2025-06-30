@@ -68,7 +68,7 @@ func Test_SelectExpression(t *testing.T) {
 			name:       "SELECT with JOIN",
 			fields:     []Field{F("table1.column1"), F("table2.column2")},
 			schemaFrom: "table1",
-			join:       []JoinExpression{Join("table2", F("table1.id").Equal(F("table2.id")), Inner)},
+			join:       []JoinExpression{Join(Schema("table2", TABLE), F("table1.id").Equal(F("table2.id")), Inner)},
 			wantExpr:   "SELECT table1.column1, table2.column2 FROM table1 JOIN table2 ON table1.id = table2.id;",
 			expectErr:  false,
 		},
@@ -76,7 +76,7 @@ func Test_SelectExpression(t *testing.T) {
 			name:       "SELECT with LEFT JOIN",
 			fields:     []Field{F("table1.column1"), F("table2.column2")},
 			schemaFrom: "table1",
-			join:       []JoinExpression{Join("table2", F("table1.id").Equal(F("table2.id")), Left)},
+			join:       []JoinExpression{Join(Schema("table2", TABLE), F("table1.id").Equal(F("table2.id")), Left)},
 			wantExpr:   "SELECT table1.column1, table2.column2 FROM table1 LEFT JOIN table2 ON table1.id = table2.id;",
 			expectErr:  false,
 		},
@@ -102,8 +102,8 @@ func Test_SelectExpression(t *testing.T) {
 			fields:     []Field{F("table1.column1"), F("table2.column2"), F("table3.column3")},
 			schemaFrom: "table1",
 			join: []JoinExpression{
-				Join("table2", F("table1.id").Equal(F("table2.id")), Inner),
-				Join("table3", F("table2.id").Equal(F("table3.id")), Left),
+				Join(Schema("table2", TABLE), F("table1.id").Equal(F("table2.id")), Inner),
+				Join(Schema("table3", TABLE), F("table2.id").Equal(F("table3.id")), Left),
 			},
 			wantExpr:  "SELECT table1.column1, table2.column2, table3.column3 FROM table1 JOIN table2 ON table1.id = table2.id LEFT JOIN table3 ON table2.id = table3.id;",
 			expectErr: false,
@@ -134,7 +134,7 @@ func Test_SelectExpression(t *testing.T) {
 			name:             "SELECT with multiple WHERE and JOIN clauses",
 			fields:           []Field{F("table1.column1"), F("table2.column2")},
 			schemaFrom:       "table1",
-			join:             []JoinExpression{Join("table2", F("table1.id").Equal(F("table2.id")), Inner)},
+			join:             []JoinExpression{Join(Schema("table2", TABLE), F("table1.id").Equal(F("table2.id")), Inner)},
 			whereExpressions: []Conditional{F("table1.column1").Equal(1), F("table2.column2").Less(10)},
 			wantExpr:         "SELECT table1.column1, table2.column2 FROM table1 JOIN table2 ON table1.id = table2.id WHERE table1.column1 = 1 AND table2.column2 < 10;",
 			expectErr:        false,
@@ -143,7 +143,7 @@ func Test_SelectExpression(t *testing.T) {
 			name:             "SELECT with multiple WHERE, JOIN, and GROUP BY",
 			fields:           []Field{F("table1.column1"), F("table2.column2")},
 			schemaFrom:       "table1",
-			join:             []JoinExpression{Join("table2", F("table1.id").Equal(F("table2.id")), Left)},
+			join:             []JoinExpression{Join(Schema("table2", TABLE), F("table1.id").Equal(F("table2.id")), Left)},
 			whereExpressions: []Conditional{F("table1.column1").Greater(5), F("table2.column2").NotEqual(3)},
 			groupByFields:    []Field{F("table1.column1")},
 			wantExpr:         "SELECT table1.column1, table2.column2 FROM table1 LEFT JOIN table2 ON table1.id = table2.id WHERE table1.column1 > 5 AND table2.column2 != 3 GROUP BY table1.column1;",
@@ -153,7 +153,7 @@ func Test_SelectExpression(t *testing.T) {
 			name:             "SELECT with WHERE, JOIN, GROUP BY, and HAVING",
 			fields:           []Field{F("table1.column1"), F("table2.column2")},
 			schemaFrom:       "table1",
-			join:             []JoinExpression{Join("table2", F("table1.id").Equal(F("table2.id")), Inner)},
+			join:             []JoinExpression{Join(Schema("table2", TABLE), F("table1.id").Equal(F("table2.id")), Inner)},
 			whereExpressions: []Conditional{F("table1.column1").Equal(2)},
 			groupByFields:    []Field{F("table1.column1")},
 			havingExpressions: []Conditional{
@@ -167,8 +167,8 @@ func Test_SelectExpression(t *testing.T) {
 			fields:     []Field{F("table1.column1"), F("table2.column2"), F("table3.column3")},
 			schemaFrom: "table1",
 			join: []JoinExpression{
-				Join("table2", F("table1.id").Equal(F("table2.id")), Inner),
-				Join("table3", F("table2.id").Equal(F("table3.id")), Left),
+				Join(Schema("table2", TABLE), F("table1.id").Equal(F("table2.id")), Inner),
+				Join(Schema("table3", TABLE), F("table2.id").Equal(F("table3.id")), Left),
 			},
 			wantExpr:  "SELECT table1.column1, table2.column2, table3.column3 FROM table1 JOIN table2 ON table1.id = table2.id LEFT JOIN table3 ON table2.id = table3.id;",
 			expectErr: false,
@@ -202,8 +202,8 @@ func Test_SelectExpression(t *testing.T) {
 			},
 			schemaFrom: "table1",
 			join: []JoinExpression{
-				Join("table2", F("table1.id").Equal(F("table2.id")), Inner),
-				Join("table3", F("table2.id").Equal(F("table3.id")), Left),
+				Join(Schema("table2", TABLE), F("table1.id").Equal(F("table2.id")), Inner),
+				Join(Schema("table3", TABLE), F("table2.id").Equal(F("table3.id")), Left),
 			},
 			whereExpressions: []Conditional{
 				F("table1.column1").Greater(10),
@@ -250,7 +250,7 @@ func Test_SelectExpression(t *testing.T) {
 			},
 			schemaFrom: "table1",
 			join: []JoinExpression{
-				Join("table2", F("table1.id").Equal(F("table2.id")), Inner),
+				Join(Schema("table2", TABLE), F("table1.id").Equal(F("table2.id")), Inner),
 			},
 			whereExpressions: []Conditional{
 				F("table1.column1").Greater(5),
@@ -266,7 +266,7 @@ func Test_SelectExpression(t *testing.T) {
 			},
 			schemaFrom: "table1",
 			join: []JoinExpression{
-				Join("table2", F("table1.id").Equal(F("table2.id")), Right),
+				Join(Schema("table2", TABLE), F("table1.id").Equal(F("table2.id")), Right),
 			},
 			whereExpressions: []Conditional{
 				F("table1.column1").NotEqual(0),
@@ -327,8 +327,8 @@ func Test_SelectExpression(t *testing.T) {
 			},
 			schemaFrom: "table1",
 			join: []JoinExpression{
-				Join("table2", F("table1.id").Equal(F("table2.id")), Inner),
-				Join("table3", F("table2.id").Equal(F("table3.id")), Left),
+				Join(Schema("table2", TABLE), F("table1.id").Equal(F("table2.id")), Inner),
+				Join(Schema("table3", TABLE), F("table2.id").Equal(F("table3.id")), Left),
 			},
 			whereExpressions: []Conditional{
 				F("table1.column1").Greater(10),
@@ -461,7 +461,7 @@ func Test_SelectExpression(t *testing.T) {
 			},
 			schemaFrom: "table1",
 			join: []JoinExpression{
-				Join("table2", F("table1.id").Equal(F("table2.id")), Left),
+				Join(Schema("table2", TABLE), F("table1.id").Equal(F("table2.id")), Left),
 			},
 			orderbyExpressions: []OrderedExpression{
 				F("table1.column1").Asc(),
@@ -477,7 +477,7 @@ func Test_SelectExpression(t *testing.T) {
 			},
 			schemaFrom: "table1",
 			join: []JoinExpression{
-				Join("table2", F("table1.id").Equal(F("table2.id")), Right),
+				Join(Schema("table2", TABLE), F("table1.id").Equal(F("table2.id")), Right),
 			},
 			groupByFields: []Field{
 				F("table1.column1"),
@@ -493,7 +493,7 @@ func Test_SelectExpression(t *testing.T) {
 			},
 			schemaFrom: "table1",
 			join: []JoinExpression{
-				Join("table2", F("table1.id").Equal(F("table2.id")), Outer),
+				Join(Schema("table2", TABLE), F("table1.id").Equal(F("table2.id")), Outer),
 			},
 			wantExpr:  "SELECT table1.column1, table2.column2 FROM table1 OUTER JOIN table2 ON table1.id = table2.id;",
 			expectErr: false,
@@ -507,8 +507,8 @@ func Test_SelectExpression(t *testing.T) {
 			},
 			schemaFrom: "table1",
 			join: []JoinExpression{
-				Join("table2", F("table1.id").Equal(F("table2.id")), Inner),
-				Join("table3", F("table2.id").Equal(F("table3.id")), Left),
+				Join(Schema("table2", TABLE), F("table1.id").Equal(F("table2.id")), Inner),
+				Join(Schema("table3", TABLE), F("table2.id").Equal(F("table3.id")), Left),
 			},
 			whereExpressions: []Conditional{
 				F("table1.column1").Greater(10),
