@@ -90,7 +90,7 @@ func NewDataPipeline(ctx context.Context) (*DataPipeline, error) {
 		},
 		ksql.
 			SelectAsStruct(purchasesStreamName, &Discounts{}).
-			From(purchasesStreamName, ksql.STREAM),
+			From(ksql.Schema(purchasesStreamName, ksql.STREAM)),
 	)
 
 	if err != nil {
@@ -106,7 +106,7 @@ func NewDataPipeline(ctx context.Context) (*DataPipeline, error) {
 		},
 		ksql.
 			SelectAsStruct(purchasesStreamName, &SellerPurchases{}).
-			From(purchasesStreamName, ksql.STREAM),
+			From(ksql.Schema(purchasesStreamName, ksql.STREAM)),
 	)
 
 	if err != nil {
@@ -122,7 +122,7 @@ func NewDataPipeline(ctx context.Context) (*DataPipeline, error) {
 		},
 		ksql.
 			SelectAsStruct(purchasesStreamName, &BuyerHistory{}).
-			From(purchasesStreamName, ksql.STREAM),
+			From(ksql.Schema(purchasesStreamName, ksql.STREAM)),
 	)
 
 	if err != nil {
