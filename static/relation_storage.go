@@ -65,12 +65,12 @@ func (rs *RelationStorage[S]) Get(name string) (S, bool) {
 func (rs *RelationStorage[S]) Set(
 	name string,
 	settings S,
-	responseSchema map[string]string,
+	responseSchema schema.LintedFields,
 ) {
 	s := shared.Settings(settings)
 
-	s.Schema = schema.RemoteFieldsRepresentation(name, responseSchema)
-	rs.storage.Store(name, settings)
+	s.Schema = responseSchema
+	rs.storage.Store(name, s)
 }
 
 // Also schemas are required for DDL representation

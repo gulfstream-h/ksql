@@ -1,12 +1,14 @@
 package schema
 
 import (
+	"errors"
 	"fmt"
 	"ksql/consts"
 	"ksql/kinds"
 	"ksql/reflector"
 	"ksql/util"
 	"log/slog"
+	"strings"
 )
 
 func RemoteFieldsRepresentation(
@@ -35,7 +37,10 @@ func RemoteFieldsRepresentation(
 	return schemaFields
 }
 
-func NativeStructRepresentation(structure any) (LintedFields, error) {
+func NativeStructRepresentation(
+	relationName string,
+	structure any,
+) (LintedFields, error) {
 	typ, err := reflector.GetType(structure)
 	if err != nil {
 		return nil, fmt.Errorf("cannot get reflect.Type of provided struct: %w", err)
@@ -46,10 +51,9 @@ func NativeStructRepresentation(structure any) (LintedFields, error) {
 		return nil, fmt.Errorf("cannot get reflect.Value of provided struct: %w", err)
 	}
 
-	structName := typ.Name()
-
 	var (
-		fields = make(structFields)
+		fields     = make(structFields)
+		hasPrimary = false
 	)
 
 	for i := 0; i < typ.NumField(); i++ {
@@ -66,15 +70,29 @@ func NativeStructRepresentation(structure any) (LintedFields, error) {
 			continue
 		}
 
+		tag, isPrimaryField := isPrimary(tag)
+		if isPrimaryField {
+			if hasPrimary {
+				return nil, errors.New("event must contain only one primary key")
+			}
+			hasPrimary = true
+		}
+
 		literalValue := util.Serialize(fieldVal.Interface())
 
 		fields[tag] = SearchField{
-			Name:     tag,
-			Relation: structName,
-			Kind:     ksqlKind,
-			Value:    &literalValue,
+			Name:      tag,
+			Relation:  relationName,
+			Kind:      ksqlKind,
+			Value:     &literalValue,
+			IsPrimary: isPrimaryField,
 		}
 	}
 
 	return fields, nil
+}
+
+func isPrimary(tag string) (string, bool) {
+	return strings.CutSuffix(tag, ", primary")
+
 }

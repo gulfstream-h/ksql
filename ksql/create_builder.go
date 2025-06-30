@@ -116,7 +116,7 @@ func (c *createBuilder) SchemaFields(
 func (c *createBuilder) SchemaFromStruct(
 	schemaStruct any,
 ) CreateBuilder {
-	fields, err := schema.NativeStructRepresentation(schemaStruct)
+	fields, err := schema.NativeStructRepresentation(c.schema, schemaStruct)
 	if err != nil {
 		c.ctx.err = fmt.Errorf("cannot get fields from struct %T: %w", schemaStruct, err)
 		return c
@@ -184,10 +184,8 @@ func (c *createBuilder) Expression() (string, error) {
 
 			builder.WriteString(item.Name + " " + item.Kind.GetKafkaRepresentation())
 
-			if item.Tag != "" && c.reference != STREAM {
-				if item.Tag == "primary" {
-					builder.WriteString(" PRIMARY KEY ")
-				}
+			if c.reference != STREAM && item.IsPrimary {
+				builder.WriteString(" PRIMARY KEY ")
 			}
 
 			if idx != len(c.fields)-1 {

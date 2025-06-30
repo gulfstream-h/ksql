@@ -48,8 +48,8 @@ func (ctrl *ksqlController) createSystemRelations(
 
 	settings := shared.StreamSettings{
 		Format:      kinds.JSON,
-		SourceTopic: &topic,
-		Partitions:  &partitions,
+		SourceTopic: topic,
+		Partitions:  partitions,
 	}
 
 	migStream, err := streams.CreateStream[migrationRelation](
@@ -63,14 +63,14 @@ func (ctrl *ksqlController) createSystemRelations(
 	ctrl.stream = migStream
 
 	migTable, err := tables.CreateTable[migrationRelation](ctx, systemTableName, shared.TableSettings{
-		SourceTopic: &topic,
+		SourceTopic: topic,
 		Format:      kinds.JSON,
 	})
 	if err != nil {
 		return nil, err
 	}
 
-	if err = migStream.Insert(ctx, map[string]any{
+	if err = migStream.InsertRow(ctx, map[string]any{
 		"version":    time.Time{}.Format(time.RFC3339),
 		"updated_at": time.Time{}.Format(time.RFC3339),
 	}); err != nil {
@@ -141,7 +141,7 @@ func (k *ksqlController) UpgradeWithMigration(
 		"updated_at": time.Now().Format(time.RFC3339),
 	}
 
-	if err = stream.Insert(ctx, fields); err != nil {
+	if err = stream.InsertRow(ctx, fields); err != nil {
 		return errors.Join(ErrMigrationServiceNotAvailable, err)
 	}
 

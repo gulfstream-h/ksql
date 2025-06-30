@@ -16,19 +16,20 @@ func ReflectionReportRemote(
 	}
 
 	for _, field := range parsed {
+
 		remoteField, ok := remoteRelation[field.Name]
 		if !ok {
 			return fmt.Errorf("field %s not found in remote schema", field.Name)
 		}
 
-		if field.Kind != remoteField.Kind && remoteField.Kind != 0 {
+		if field.Kind != remoteField.Kind && field.Kind != 0 {
 			return fmt.Errorf("field %s kind mismatch: expected %s, got %s",
-				field.Name, field.Kind.GetKafkaRepresentation(), remoteField.Kind.GetKafkaRepresentation())
+				field.Name, remoteField.Kind.GetKafkaRepresentation(), field.Kind.GetKafkaRepresentation())
 		}
 
 		if field.Relation != remoteField.Relation {
 			return fmt.Errorf("field %s relation mismatch: expected %s, got %s",
-				field.Name, field.Relation, remoteField.Relation)
+				field.Name, remoteField.Relation, field.Relation)
 		}
 	}
 
@@ -39,7 +40,7 @@ func ReflectionReportNative(
 	structure any,
 	parsed schema.LintedFields,
 ) error {
-	fields, err := schema.NativeStructRepresentation(structure)
+	fields, err := schema.NativeStructRepresentation("", structure)
 	if err != nil {
 		return fmt.Errorf("cannot get native struct representation: %w", err)
 	}
@@ -50,9 +51,9 @@ func ReflectionReportNative(
 			return fmt.Errorf("field %s not found in native struct", field.Name)
 		}
 
-		if field.Kind != nativeField.Kind {
+		if field.Kind != nativeField.Kind && field.Kind != 0 {
 			return fmt.Errorf("field %s kind mismatch: expected %s, got %s",
-				field.Name, field.Kind.GetKafkaRepresentation(), nativeField.Kind.GetKafkaRepresentation())
+				field.Name, nativeField.Kind.GetKafkaRepresentation(), field.Kind.GetKafkaRepresentation())
 		}
 	}
 

@@ -27,8 +27,8 @@ import (
 // via referred to type functions calls
 type Table[S any] struct {
 	Name         string
-	sourceTopic  *string
-	partitions   *uint8
+	sourceTopic  string
+	partitions   uint8
 	remoteSchema schema.LintedFields
 	format       kinds.ValueFormat
 }
@@ -151,6 +151,8 @@ func Drop(ctx context.Context, name string) error {
 			drop []dao.DropInfo
 		)
 
+		slog.Debug("received from pipiline", slog.String("val", string(val)))
+
 		if err = jsoniter.Unmarshal(val, &drop); err != nil {
 			return fmt.Errorf("cannot unmarshal drop response: %w", err)
 		}
@@ -179,7 +181,7 @@ func GetTable[S any](
 		s S
 	)
 
-	scheme, err := schema.NativeStructRepresentation(s)
+	scheme, err := schema.NativeStructRepresentation(table, s)
 	if err != nil {
 		return nil, err
 	}
@@ -224,13 +226,13 @@ func CreateTable[S any](
 		s S
 	)
 
-	rmSchema, err := schema.NativeStructRepresentation(s)
+	rmSchema, err := schema.NativeStructRepresentation(tableName, s)
 	if err != nil {
 		return nil, err
 	}
 
 	metadata := ksql.Metadata{
-		Topic:       *settings.SourceTopic,
+		Topic:       settings.SourceTopic,
 		ValueFormat: kinds.JSON.String(),
 	}
 
@@ -265,6 +267,11 @@ func CreateTable[S any](
 			create []dao.CreateRelationResponse
 		)
 
+		slog.Debug(
+			"received from create stream",
+			slog.String("value", string(val)),
+		)
+
 		if err = jsoniter.Unmarshal(val, &create); err != nil {
 			return nil, fmt.Errorf("cannot unmarshal create response: %w", err)
 		}
@@ -278,6 +285,8 @@ func CreateTable[S any](
 		if status.CommandStatus.Status != consts.SUCCESS {
 			return nil, fmt.Errorf("unsuccesful respose. msg: %s", status.CommandStatus.Message)
 		}
+
+		static.TablesProjections.Set(tableName, settings, rmSchema)
 
 		query = fmt.Sprintf("CREATE TABLE QUERYABLE_%s AS SELECT * FROM %s;", tableName, tableName)
 
@@ -363,7 +372,7 @@ func CreateTableAsSelect[S any](
 	}
 
 	meta := ksql.Metadata{
-		Topic:       *settings.SourceTopic,
+		Topic:       settings.SourceTopic,
 		ValueFormat: kinds.JSON.String(),
 	}
 
@@ -411,6 +420,8 @@ func CreateTableAsSelect[S any](
 		if status.CommandStatus.Status != consts.SUCCESS {
 			return nil, fmt.Errorf("unsuccesful respose. msg: %s", status.CommandStatus.Message)
 		}
+
+		static.TablesProjections.Set(tableName, settings, fields)
 
 		return &Table[S]{
 			sourceTopic:  settings.SourceTopic,
@@ -483,7 +494,7 @@ func (s *Table[S]) SelectWithEmit(
 	)
 
 	query, err := ksql.SelectAsStruct("QUERYABLE_"+s.Name, s.remoteSchema).
-		From(s.Name, 0).
+		From(ksql.Schema(s.Name, 0)).
 		WithMeta(ksql.Metadata{ValueFormat: kinds.JSON.String()}).
 		Expression()
 	if err != nil {

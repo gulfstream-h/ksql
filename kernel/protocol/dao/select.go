@@ -10,7 +10,8 @@ type HeaderData struct {
 }
 
 type Row struct {
-	Row Columns `json:"row"`
+	Row          Columns `json:"row"`
+	FinalMessage string  `json:"finalMessage,omitempty"`
 }
 
 type Columns struct {

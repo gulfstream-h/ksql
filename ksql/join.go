@@ -15,7 +15,7 @@ type (
 
 	join struct {
 		on        Conditional
-		schema    string
+		fromEx    FromExpression
 		operation JoinType
 	}
 
@@ -30,16 +30,16 @@ const (
 	Cross
 )
 
-func Join(schema string, on Conditional, joinType JoinType) JoinExpression {
+func Join(schema FromExpression, on Conditional, joinType JoinType) JoinExpression {
 	return &join{
 		on:        on,
-		schema:    schema,
+		fromEx:    schema,
 		operation: joinType,
 	}
 }
 
 func (j *join) Schema() string {
-	return j.schema
+	return j.fromEx.Schema()
 }
 
 func (j *join) On() Conditional {
@@ -55,7 +55,7 @@ func (j *join) Expression() (string, error) {
 		operationString string
 	)
 
-	if len(j.schema) == 0 || j.on == nil {
+	if j.fromEx == nil || j.on == nil {
 		return "", errors.New("join schema and expression cannot be empty")
 	}
 
@@ -78,9 +78,18 @@ func (j *join) Expression() (string, error) {
 	default:
 		return "", errors.New("invalid join type")
 	}
+
+	if len(j.fromEx.Alias()) != 0 {
+		return fmt.Sprintf(
+			"%s %s AS %s ON %s",
+			operationString, j.fromEx.Schema(),
+			j.fromEx.Alias(), expression,
+		), nil
+	}
+
 	return fmt.Sprintf(
 		"%s %s ON %s",
-		operationString, j.schema, expression,
+		operationString, j.fromEx.Schema(), expression,
 	), nil
 
 }

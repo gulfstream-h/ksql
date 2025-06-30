@@ -12,11 +12,12 @@ type (
 	// easily deserialized from internal field to
 	// insert, create, select representation
 	SearchField struct {
-		Name     string      // field name
-		Relation string      // stream/table name
-		Kind     kinds.Ktype // internal type, describing primitive types
-		Value    *string     // value to be inserted (valid only for streams)
-		Tag      string
+		Name      string      // field name
+		Relation  string      // stream/table name
+		Kind      kinds.Ktype // internal type, describing primitive types
+		Value     *string     // value to be inserted (valid only for streams)
+		Tag       string
+		IsPrimary bool
 	}
 
 	structFields map[string]SearchField
