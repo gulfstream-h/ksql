@@ -56,8 +56,8 @@ func createExperimentalTable(ctx context.Context) (*tables.Table[ExpTable], erro
 	partitions := 1
 
 	return tables.CreateTable[ExpTable](ctx, table, shared.TableSettings{
-		SourceTopic: &topic,
-		Partitions:  &partitions,
+		SourceTopic: topic,
+		Partitions:  partitions,
 		Format:      kinds.JSON,
 	})
 }
@@ -67,8 +67,8 @@ func createAdditionalTable(ctx context.Context) (*tables.Table[AdditionalTable],
 	partitions := 1
 
 	return tables.CreateTable[AdditionalTable](ctx, additionalTable, shared.TableSettings{
-		SourceTopic: &topic,
-		Partitions:  &partitions,
+		SourceTopic: topic,
+		Partitions:  partitions,
 		Format:      kinds.JSON,
 	})
 }
@@ -76,7 +76,7 @@ func createAdditionalTable(ctx context.Context) (*tables.Table[AdditionalTable],
 func SelectData() {
 	query, err := ksql.
 		Select(ksql.F("ID"), ksql.F("LABEL"), ksql.F("INFO"), ksql.F("SUBS")).
-		From("QUERYABLE_experimantaltable", ksql.TABLE).
+		From(ksql.Schema("QUERYABLE_experimantaltable", ksql.TABLE)).
 		Where(ksql.F("SUBS").Equal(10)).EmitChanges().
 		Expression()
 	if err != nil {
@@ -99,7 +99,7 @@ func SelectData() {
 func SelectAvg() {
 	query, err := ksql.
 		Select(ksql.F("INFO"), ksql.Avg(ksql.F("SUBS"))).
-		From("QUERYABLE_experimantaltable", ksql.TABLE).
+		From(ksql.Schema("QUERYABLE_experimantaltable", ksql.TABLE)).
 		GroupBy(ksql.F("INFO")).EmitChanges().
 		Expression()
 	if err != nil {
@@ -122,8 +122,8 @@ func SelectAvg() {
 func Join() {
 	query, err := ksql.
 		Select(ksql.F("QUERYABLE_EXPERIMANTALTABLE.INFO"), ksql.F("LIKES")).
-		From("QUERYABLE_experimantaltable", ksql.TABLE).EmitChanges().
-		Join("ADDITIONALTABLE", ksql.F("QUERYABLE_experimantaltable.ID").Equal(ksql.F("ADDITIONALTABLE.ID"))).
+		From(ksql.Schema("QUERYABLE_experimantaltable", ksql.TABLE)).EmitChanges().
+		Join(ksql.Schema("ADDITIONALTABLE", ksql.TABLE), ksql.F("QUERYABLE_experimantaltable.ID").Equal(ksql.F("ADDITIONALTABLE.ID"))).
 		Expression()
 	if err != nil {
 		slog.Error("err", "error", err.Error())
@@ -143,11 +143,11 @@ func Join() {
 }
 
 func CTE() {
-	sb := ksql.Select(ksql.F("INFO"), ksql.F("LIKES")).From("QUERYABLE_experimentaltable", ksql.TABLE).As("userinfo")
+	sb := ksql.Select(ksql.F("INFO"), ksql.F("LIKES")).From(ksql.Schema("QUERYABLE_experimentaltable", ksql.TABLE)).As("userinfo")
 
 	query, err := ksql.
 		Select(ksql.F("INFO"), ksql.F("userinfo.LIKES")).
-		From("QUERYABLE_experimantaltable", ksql.TABLE).WithCTE(sb).
+		From(ksql.Schema("QUERYABLE_experimantaltable", ksql.TABLE)).WithCTE(sb).
 		Expression()
 	if err != nil {
 		slog.Error("err", "error", err.Error())

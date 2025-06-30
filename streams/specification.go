@@ -28,7 +28,7 @@ import (
 // via referred to type functions calls
 type Stream[S any] struct {
 	Name         string
-	partitions   uint8
+	partitions   int
 	remoteSchema schema.LintedFields
 	format       kinds.ValueFormat
 }
@@ -601,7 +601,7 @@ func (s *Stream[S]) SelectOnce(
 
 	query, err := ksql.
 		Select(fields...).
-		From(s.Name, ksql.STREAM).
+		From(ksql.Schema(s.Name, ksql.STREAM)).
 		Expression()
 
 	if err != nil {
@@ -634,7 +634,7 @@ func (s *Stream[S]) SelectWithEmit(
 	}
 
 	query, err := ksql.Select(fields...).
-		From(s.Name, ksql.STREAM).EmitChanges().
+		From(ksql.Schema(s.Name, ksql.STREAM)).EmitChanges().
 		Expression()
 
 	if err != nil {

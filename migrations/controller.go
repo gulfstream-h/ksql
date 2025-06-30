@@ -46,8 +46,8 @@ func (ctrl *ksqlController) createSystemRelations(
 
 	settings := shared.StreamSettings{
 		Format:      kinds.JSON,
-		SourceTopic: &topic,
-		Partitions:  &partitions,
+		SourceTopic: topic,
+		Partitions:  partitions,
 	}
 
 	migStream, err := streams.CreateStream[migrationRelation](
@@ -58,7 +58,7 @@ func (ctrl *ksqlController) createSystemRelations(
 		return nil, err
 	}
 
-	if err = migStream.Insert(ctx, map[string]any{
+	if err = migStream.InsertRow(ctx, map[string]any{
 		"VERSION":    time.Time{}.Format(time.RFC3339),
 		"UPDATED_AT": time.Time{}.Format(time.RFC3339),
 	}); err != nil {

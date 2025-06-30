@@ -28,7 +28,7 @@ import (
 type Table[S any] struct {
 	Name         string
 	sourceTopic  string
-	partitions   uint8
+	partitions   int
 	remoteSchema schema.LintedFields
 	format       kinds.ValueFormat
 }
@@ -443,7 +443,7 @@ func (s *Table[S]) SelectOnce(
 
 	query, err :=
 		ksql.Select(fields...).
-			From(fmt.Sprintf("QUERYABLE_%s", s.Name), ksql.TABLE).
+			From(ksql.Schema(fmt.Sprintf("QUERYABLE_%s", s.Name), ksql.TABLE)).
 			Expression()
 
 	if err != nil {
@@ -477,7 +477,7 @@ func (s *Table[S]) SelectWithEmit(
 	}
 
 	query, err := ksql.Select(fields...).
-		From(fmt.Sprintf("QUERYABLE_%s", s.Name), ksql.TABLE).EmitChanges().
+		From(ksql.Schema(fmt.Sprintf("QUERYABLE_%s", s.Name), ksql.TABLE)).EmitChanges().
 		Expression()
 	if err != nil {
 		return nil, fmt.Errorf("build select query: %w", err)

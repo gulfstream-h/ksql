@@ -59,8 +59,8 @@ func Create(ctx context.Context) {
 
 	exampleTable, err := tables.CreateTable[ExampleTable](
 		ctx, tableName, shared.TableSettings{
-			SourceTopic: &sourceTopic,
-			Partitions:  &partitions,
+			SourceTopic: sourceTopic,
+			Partitions:  partitions,
 			Format:      kinds.JSON,
 		})
 
@@ -133,10 +133,10 @@ func SelectWithEmit(ctx context.Context) {
 }
 
 func CreateAsSelect(ctx context.Context) {
-	sql := ksql.Select(ksql.F("ID"), ksql.F("TOKEN")).From("EXAMPLETABLE", ksql.TABLE)
+	sql := ksql.Select(ksql.F("ID"), ksql.F("TOKEN")).From(ksql.Schema("EXAMPLETABLE", ksql.TABLE))
 	sourceTopic := "examples-topics"
 	dublicateTable, err := tables.CreateTableAsSelect[ExampleTable](ctx, "dublicate", shared.TableSettings{
-		SourceTopic: &sourceTopic,
+		SourceTopic: sourceTopic,
 		Format:      kinds.JSON,
 	}, sql)
 	if err != nil {

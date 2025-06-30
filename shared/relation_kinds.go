@@ -2,36 +2,22 @@ package shared
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"ksql/kinds"
 	"ksql/schema"
+	"strings"
 )
 
 // Settings - common structure
 // that describes relation data.
 // used in cache for fast schema access
 type Settings struct {
-	SourceTopic *string
-	Partitions  *int
+	Name        string
+	SourceTopic string
+	Partitions  int
 	Schema      schema.LintedFields
 	Format      kinds.ValueFormat
-}
-
-func (s *Settings) Validate() error {
-	s.Name = strings.TrimSpace(s.Name)
-
-	if len(s.Name) == 0 {
-		return errors.New("invalid topic name")
-	}
-
-	s.SourceTopic = strings.TrimSpace(s.SourceTopic)
-	//if len(s.SourceTopic) == 0 {
-	// todo return nothing ?
-	//}
-
-	if s.Partitions < 1 {
-		return errors.New("invalid partitions number")
-	}
-	return nil
 }
 
 // StreamSettings - describes the settings of stream
@@ -39,10 +25,46 @@ func (s *Settings) Validate() error {
 // so can be easily called from any space
 type StreamSettings Settings
 
+func (s *StreamSettings) Validate() error {
+	s.Name = strings.TrimSpace(s.Name)
+
+	if len(s.Name) == 0 {
+		return errors.New("invalid topic name")
+	}
+
+	s.SourceTopic = strings.TrimSpace(s.SourceTopic)
+	if len(s.SourceTopic) == 0 {
+		return fmt.Errorf("souce topic cannot be blank")
+	}
+
+	if s.Partitions < 1 {
+		return errors.New("invalid partitions number")
+	}
+	return nil
+}
+
 // TableSettings - describes the settings of a table
 // it's not bound to any specific structure
 // so can be easily called from any space
 type TableSettings Settings
+
+func (s *TableSettings) Validate() error {
+	s.Name = strings.TrimSpace(s.Name)
+
+	if len(s.Name) == 0 {
+		return errors.New("invalid topic name")
+	}
+
+	s.SourceTopic = strings.TrimSpace(s.SourceTopic)
+	if len(s.SourceTopic) == 0 {
+		return fmt.Errorf("souce topic cannot be blank")
+	}
+
+	if s.Partitions < 1 {
+		return errors.New("invalid partitions number")
+	}
+	return nil
+}
 
 // RelationSettings - is generic constraint
 // it allows using both methods on certain struct
@@ -51,7 +73,7 @@ type RelationSettings interface {
 	~struct {
 		Name        string
 		SourceTopic string
-		Partitions  uint8
+		Partitions  int
 		Schema      schema.LintedFields
 		Format      kinds.ValueFormat
 	}

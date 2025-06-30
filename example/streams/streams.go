@@ -69,7 +69,7 @@ func Create(ctx context.Context) {
 
 	exampleTable, err := streams.CreateStream[ExampleStream](
 		ctx, streamName, shared.StreamSettings{
-			SourceTopic: &sourceTopic,
+			SourceTopic: sourceTopic,
 			Format:      kinds.JSON,
 		})
 
@@ -110,7 +110,7 @@ func Insert(ctx context.Context) {
 	data := []byte("SECRET_BASE64_DATA")
 	token := []byte(base64.StdEncoding.EncodeToString(data))
 
-	if err = exampleStream.Insert(ctx, ksql.Row{
+	if err = exampleStream.InsertRow(ctx, ksql.Row{
 		"ID":    1,
 		"TOKEN": token,
 	}); err != nil {
@@ -157,10 +157,10 @@ func SelectWithEmit(ctx context.Context) {
 }
 
 func CreateAsSelect(ctx context.Context) {
-	sql := ksql.Select(ksql.F("ID"), ksql.F("TOKEN")).From("EXAMPLESTREAM", ksql.STREAM)
+	sql := ksql.Select(ksql.F("ID"), ksql.F("TOKEN")).From(ksql.Schema("EXAMPLESTREAM", ksql.STREAM))
 	sourceTopic := "examples-topics"
 	dublicateStream, err := streams.CreateStreamAsSelect[ExampleStream](ctx, "dublicateStream", shared.StreamSettings{
-		SourceTopic: &sourceTopic,
+		SourceTopic: sourceTopic,
 		Format:      kinds.JSON,
 	}, sql)
 	if err != nil {
@@ -172,7 +172,7 @@ func CreateAsSelect(ctx context.Context) {
 }
 
 func InsertAsSelect(ctx context.Context) {
-	sql := ksql.Select(ksql.F("ID"), ksql.F("TOKEN")).From("DUBLICATESTREAM", ksql.STREAM)
+	sql := ksql.Select(ksql.F("ID"), ksql.F("TOKEN")).From(ksql.Schema("DUBLICATESTREAM", ksql.STREAM))
 
 	stream, err := streams.GetStream[ExampleStream](ctx, "EXAMPLESTREAM")
 	if err != nil {
