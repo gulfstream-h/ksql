@@ -664,21 +664,6 @@ func (s *selectBuilder) Returns() schema.LintedFields {
 
 func (s *selectBuilder) RelationReport() map[string]schema.LintedFields {
 	if static.ReflectionFlag {
-		if s.fromEx.Schema() == "orders" && s.fromEx.Alias() == "o" {
-			fmt.Println("here")
-
-			fmt.Println(s.returnTypeMapper)
-			fmt.Println()
-			fmt.Println()
-			fmt.Println(s.virtualSchemas)
-			fmt.Println()
-			fmt.Println()
-			fmt.Println(s.virtualColumns)
-			fmt.Println()
-			fmt.Println()
-			fmt.Println(s.relationStorage)
-			fmt.Println()
-		}
 
 		s.aliasRefresher.Do(func() {
 			// update defaultSchemaName to the real schema name
