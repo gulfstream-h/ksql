@@ -1,12 +1,14 @@
-package usecases
+package main
 
 import (
 	"context"
 	"fmt"
+	"ksql/config"
 	"ksql/ksql"
 	"ksql/shared"
 	"ksql/streams"
 	"ksql/tables"
+	"log/slog"
 	"math/rand"
 	"time"
 )
@@ -22,14 +24,14 @@ type (
 	}
 
 	Customers struct {
-		CustomerID string `ksql:"customer_id"`
+		CustomerID string `ksql:"customer_id, primary"`
 		Name       string `ksql:"name"`
 		Email      string `ksql:"email"`
 		Region     string `ksql:"region"`
 	}
 
 	Inventory struct {
-		ItemID   string `ksql:"item_id"`
+		ItemID   string `ksql:"item_id, primary"`
 		ItemName string `ksql:"item_name"`
 		Stock    int    `ksql:"stock"`
 	}
@@ -48,6 +50,9 @@ type (
 	}
 
 	DataPipeline struct {
+		customersInput *streams.Stream[Customers]
+		inventoryInput *streams.Stream[Inventory]
+
 		orders    *streams.Stream[Orders]
 		customers *tables.Table[Customers]
 		inventory *tables.Table[Inventory]
@@ -58,6 +63,9 @@ type (
 )
 
 const (
+	customersStreamName = `customers_stream`
+	inventoryStreamName = `inventory_stream`
+
 	ordersStreamName   = `orders`
 	customersTableName = `customers`
 	inventoryTableName = `inventory`
@@ -68,8 +76,39 @@ const (
 
 func InitBase(ctx context.Context, pipe *DataPipeline) error {
 
+	customersStream, err := streams.CreateStream[Customers](
+		ctx,
+		customersStreamName,
+		shared.StreamSettings{
+			Name:        customersStreamName,
+			Partitions:  1,
+			SourceTopic: customersStreamName,
+		},
+	)
+	if err != nil {
+		return fmt.Errorf("create customers stream: %w", err)
+	}
+	pipe.customersInput = customersStream
+
+	inventoryStream, err := streams.CreateStream[Inventory](
+		ctx,
+		inventoryStreamName,
+		shared.StreamSettings{
+			Name:        inventoryStreamName,
+			SourceTopic: inventoryStreamName,
+			Partitions:  1,
+		},
+	)
+	if err != nil {
+		return fmt.Errorf("create inventory stream: %w", err)
+	}
+
+	pipe.inventoryInput = inventoryStream
+
 	ordersStream, err := streams.CreateStream[Orders](ctx, ordersStreamName, shared.StreamSettings{
-		Partitions: 1,
+		Partitions:  1,
+		SourceTopic: ordersStreamName,
+		Name:        ordersStreamName,
 	})
 	if err != nil {
 		return fmt.Errorf("create orders stream: %w", err)
@@ -77,14 +116,26 @@ func InitBase(ctx context.Context, pipe *DataPipeline) error {
 
 	pipe.orders = ordersStream
 
-	customersTable, err := tables.CreateTable[Customers](ctx, customersTableName, shared.TableSettings{Partitions: 1})
+	customersTable, err := tables.CreateTable[Customers](
+		ctx,
+		customersTableName,
+		shared.TableSettings{
+			Partitions:  1,
+			SourceTopic: customersStreamName,
+		})
 	if err != nil {
 		return fmt.Errorf("create customers table: %w", err)
 	}
 
 	pipe.customers = customersTable
 
-	inventoryTable, err := tables.CreateTable[Inventory](ctx, inventoryTableName, shared.TableSettings{Partitions: 1})
+	inventoryTable, err := tables.CreateTable[Inventory](
+		ctx,
+		inventoryTableName,
+		shared.TableSettings{
+			Partitions:  1,
+			SourceTopic: inventoryStreamName,
+		})
 	if err != nil {
 		return fmt.Errorf("create inventory table: %w", err)
 	}
@@ -111,15 +162,17 @@ func InitBase(ctx context.Context, pipe *DataPipeline) error {
 			ksql.F("o.item_id"),
 			ksql.F("o.quantity"),
 			ksql.F("o.price"),
-			ksql.F("o.order_time"),
+			//ksql.F("o.order_time").As("order_time"),
 			ksql.F("i.item_name"),
 			ksql.F("c.name").As("customer_name"),
 		).
-			From(ordersStreamName, ksql.STREAM).
-			As("o").
-			LeftJoin(inventoryTableName, ksql.F("o.item_id").Equal(ksql.F("i.item_id"))).
-			LeftJoin(customersTableName, ksql.F("o.customer_id").Equal(ksql.F("c.customer_id"))),
+			From(ksql.Schema(ordersStreamName, ksql.STREAM).As("o")).
+			LeftJoin(ksql.Schema(inventoryTableName, ksql.TABLE).As("i"), ksql.F("o.item_id").Equal(ksql.F("i.item_id"))).
+			LeftJoin(ksql.Schema(customersTableName, ksql.TABLE).As("c"), ksql.F("o.customer_id").Equal(ksql.F("c.customer_id"))),
 	)
+	if err != nil {
+		return fmt.Errorf("create enriched orders stream: %w", err)
+	}
 
 	pipe.enriched = enrichedOrders
 
@@ -155,7 +208,7 @@ func produceOrdersLoop(ctx context.Context, stream *streams.Stream[Orders]) {
 		}
 	}
 }
-func produceInventoryLoop(ctx context.Context, stream *tables.Table[Inventory]) {
+func produceInventoryLoop(ctx context.Context, stream *streams.Stream[Inventory]) {
 	ticker := time.NewTicker(time.Second)
 	defer ticker.Stop()
 
@@ -180,7 +233,7 @@ func produceInventoryLoop(ctx context.Context, stream *tables.Table[Inventory]) 
 		}
 	}
 }
-func produceCustomersLoop(ctx context.Context, stream *tables.Table[Customers]) {
+func produceCustomersLoop(ctx context.Context, stream *streams.Stream[Customers]) {
 	ticker := time.NewTicker(time.Second)
 	defer ticker.Stop()
 
@@ -231,16 +284,36 @@ func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
+	slog.SetLogLoggerLevel(slog.LevelDebug)
+
+	err := config.
+		New("http://localhost:8088", 600, true).
+		Configure(ctx)
+
+	if err != nil {
+		fmt.Printf("Failed to configure ksql: %v\n", err)
+		return
+	}
+
+	streams.Drop(ctx, customersStreamName)
+	streams.Drop(ctx, inventoryStreamName)
+	tables.Drop(ctx, "QUERYABLE_CUSTOMERS")
+	tables.Drop(ctx, "QUERYABLE_INVENTORY")
+	streams.Drop(ctx, ordersStreamName)
+	streams.Drop(ctx, bigOrdersStreamName)
+	tables.Drop(ctx, customersTableName)
+	tables.Drop(ctx, inventoryTableName)
+
 	pipe := &DataPipeline{}
-	err := InitBase(ctx, pipe)
+	err = InitBase(ctx, pipe)
 	if err != nil {
 		fmt.Printf("Failed to initialize data pipeline: %v\n", err)
 		return
 	}
 
 	go produceOrdersLoop(ctx, pipe.orders)
-	go produceCustomersLoop(ctx, pipe.customers)
-	go produceInventoryLoop(ctx, pipe.inventory)
+	go produceCustomersLoop(ctx, pipe.customersInput)
+	go produceInventoryLoop(ctx, pipe.inventoryInput)
 
 	go func() {
 		err := listenLoop(ctx, pipe.bigOrders)

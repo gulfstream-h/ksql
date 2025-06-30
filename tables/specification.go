@@ -151,6 +151,8 @@ func Drop(ctx context.Context, name string) error {
 			drop []dao.DropInfo
 		)
 
+		slog.Debug("received from pipiline", slog.String("val", string(val)))
+
 		if err = jsoniter.Unmarshal(val, &drop); err != nil {
 			return fmt.Errorf("cannot unmarshal drop response: %w", err)
 		}
@@ -265,6 +267,11 @@ func CreateTable[S any](
 			create []dao.CreateRelationResponse
 		)
 
+		slog.Debug(
+			"received from create stream",
+			slog.String("value", string(val)),
+		)
+
 		if err = jsoniter.Unmarshal(val, &create); err != nil {
 			return nil, fmt.Errorf("cannot unmarshal create response: %w", err)
 		}
@@ -278,6 +285,8 @@ func CreateTable[S any](
 		if status.CommandStatus.Status != consts.SUCCESS {
 			return nil, fmt.Errorf("unsuccesful respose. msg: %s", status.CommandStatus.Message)
 		}
+
+		static.TablesProjections.Set(tableName, settings, rmSchema)
 
 		query = fmt.Sprintf("CREATE TABLE QUERYABLE_%s AS SELECT * FROM %s;", tableName, tableName)
 
@@ -412,6 +421,8 @@ func CreateTableAsSelect[S any](
 			return nil, fmt.Errorf("unsuccesful respose. msg: %s", status.CommandStatus.Message)
 		}
 
+		static.TablesProjections.Set(tableName, settings, fields)
+
 		return &Table[S]{
 			sourceTopic:  settings.SourceTopic,
 			partitions:   settings.Partitions,
@@ -483,7 +494,7 @@ func (s *Table[S]) SelectWithEmit(
 	)
 
 	query, err := ksql.SelectAsStruct("QUERYABLE_"+s.Name, s.remoteSchema).
-		From(s.Name, 0).
+		From(ksql.Schema(s.Name, 0)).
 		WithMeta(ksql.Metadata{ValueFormat: kinds.JSON.String()}).
 		Expression()
 	if err != nil {

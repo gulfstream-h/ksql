@@ -146,7 +146,7 @@ func (k Ktype) GetKafkaRepresentation() string {
 	case Bool:
 		return "BOOL"
 	case Double:
-		return "FLOAT"
+		return "DOUBLE"
 	case String:
 		return "VARCHAR"
 	case BigInt:

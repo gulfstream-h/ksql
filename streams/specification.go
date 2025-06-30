@@ -146,6 +146,8 @@ func Drop(ctx context.Context, stream string) error {
 			drop []dao.DropInfo
 		)
 
+		slog.Debug("received from pipiline", slog.String("val", string(val)))
+
 		if err = jsoniter.Unmarshal(val, &drop); err != nil {
 			return fmt.Errorf("cannot unmarshal drop response: %w", err)
 		}
@@ -370,6 +372,7 @@ func CreateStreamAsSelect[S any](
 		)
 
 		if err := jsoniter.Unmarshal(val, &create); err != nil {
+			slog.Debug("raw received", slog.String("raw", string(val)))
 			return nil, fmt.Errorf("cannot unmarshal create response: %w", err)
 		}
 
@@ -585,7 +588,7 @@ func (s *Stream[S]) SelectOnce(
 
 	query, err := ksql.
 		SelectAsStruct(s.Name, s.remoteSchema).
-		From(s.Name, ksql.STREAM).
+		From(ksql.Schema(s.Name, ksql.STREAM)).
 		Expression()
 
 	if err != nil {
@@ -668,7 +671,7 @@ func (s *Stream[S]) SelectWithEmit(
 	)
 
 	query, err := ksql.SelectAsStruct(s.Name, value).
-		From(s.Name, ksql.STREAM).
+		From(ksql.Schema(s.Name, ksql.STREAM)).
 		EmitChanges().
 		Expression()
 

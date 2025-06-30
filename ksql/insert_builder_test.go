@@ -132,7 +132,7 @@ func Test_InsertAsSelectExpression(t *testing.T) {
 		{
 			name: "Insert with simple SELECT",
 			selectSQL: Select(F("table1.column1"), F("table1.column2")).
-				From("table1", TABLE).
+				From(Schema("table1", TABLE)).
 				Where(F("table1.column1").Greater(10)),
 			expected:  "INSERT INTO table_name SELECT table1.column1, table1.column2 FROM table1 WHERE table1.column1 > 10;",
 			expectErr: false,
@@ -140,15 +140,15 @@ func Test_InsertAsSelectExpression(t *testing.T) {
 		{
 			name: "Insert with SELECT and JOIN",
 			selectSQL: Select(F("table1.column1"), F("table2.column2")).
-				From("table1", TABLE).
-				Join("table2", F("table1.id").Equal(F("table2.id"))),
+				From(Schema("table1", TABLE)).
+				Join(Schema("table2", TABLE), F("table1.id").Equal(F("table2.id"))),
 			expected:  "INSERT INTO table_name SELECT table1.column1, table2.column2 FROM table1 JOIN table2 ON table1.id = table2.id;",
 			expectErr: false,
 		},
 		{
 			name: "Insert with SELECT, WHERE, and ORDER BY",
 			selectSQL: Select(F("table1.column1"), F("table1.column2")).
-				From("table1", TABLE).
+				From(Schema("table1", TABLE)).
 				Where(F("table1.column1").Greater(5)).
 				OrderBy(F("table1.column1").Asc()),
 			expected:  "INSERT INTO table_name SELECT table1.column1, table1.column2 FROM table1 WHERE table1.column1 > 5 ORDER BY table1.column1 ASC;",
@@ -157,7 +157,7 @@ func Test_InsertAsSelectExpression(t *testing.T) {
 		{
 			name: "Insert with SELECT, GROUP BY, and HAVING",
 			selectSQL: Select(F("table1.column1"), Count(F("table1.column2")).As("count_column2")).
-				From("table1", TABLE).
+				From(Schema("table1", TABLE)).
 				GroupBy(F("table1.column1")).
 				Having(Count(F("table1.column2")).Greater(1)),
 			expected:  "INSERT INTO table_name SELECT table1.column1, COUNT(table1.column2) AS count_column2 FROM table1 GROUP BY table1.column1 HAVING COUNT(table1.column2) > 1;",
@@ -166,9 +166,9 @@ func Test_InsertAsSelectExpression(t *testing.T) {
 		{
 			name: "Insert with complex SELECT",
 			selectSQL: Select(F("table1.column1"), F("table2.column2"), Avg(F("table3.column3")).As("avg_column3")).
-				From("table1", TABLE).
-				Join("table2", F("table1.id").Equal(F("table2.id"))).
-				LeftJoin("table3", F("table2.id").Equal(F("table3.id"))).
+				From(Schema("table1", TABLE)).
+				Join(Schema("table2", TABLE), F("table1.id").Equal(F("table2.id"))).
+				LeftJoin(Schema("table3", TABLE), F("table2.id").Equal(F("table3.id"))).
 				Where(F("table1.column1").Greater(10)).
 				GroupBy(F("table1.column1")).
 				Having(Avg(F("table3.column3")).Greater(50)).

@@ -29,7 +29,7 @@ func ReflectionReportRemote(
 
 		if field.Relation != remoteField.Relation {
 			return fmt.Errorf("field %s relation mismatch: expected %s, got %s",
-				field.Name, field.Relation, remoteField.Relation)
+				field.Name, remoteField.Relation, field.Relation)
 		}
 	}
 

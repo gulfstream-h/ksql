@@ -25,7 +25,7 @@ type (
 		WithMeta(with Metadata) SelectBuilder
 		Select(fields ...Field) SelectBuilder
 		SelectStruct(name string, val any) SelectBuilder
-		From(schema string, reference Reference) SelectBuilder
+		From(from FromExpression) SelectBuilder
 		Where(expressions ...Conditional) SelectBuilder
 		Windowed(window WindowExpression) SelectBuilder
 		Having(expressions ...Conditional) SelectBuilder
@@ -38,19 +38,19 @@ type (
 
 	Joiner interface {
 		LeftJoin(
-			schema string,
+			from FromExpression,
 			on Conditional,
 		) SelectBuilder
 		Join(
-			schema string,
+			from FromExpression,
 			on Conditional,
 		) SelectBuilder
 		RightJoin(
-			schema string,
+			from FromExpression,
 			on Conditional,
 		) SelectBuilder
 		OuterJoin(
-			schema string,
+			from FromExpression,
 			on Conditional,
 		) SelectBuilder
 	}
@@ -307,38 +307,54 @@ func (s *selectBuilder) Select(fields ...Field) SelectBuilder {
 }
 
 func (s *selectBuilder) Join(
-	schema string,
+	from FromExpression,
 	on Conditional,
 ) SelectBuilder {
-	return s.join(schema, on, Inner)
+	if len(from.Alias()) != 0 {
+		s.virtualSchemas[from.Alias()] = from.Schema()
+	}
+
+	return s.join(from, on, Inner)
 }
 
 func (s *selectBuilder) LeftJoin(
-	schema string,
+	from FromExpression,
 	on Conditional,
 ) SelectBuilder {
-	return s.join(schema, on, Left)
+	if len(from.Alias()) != 0 {
+		s.virtualSchemas[from.Alias()] = from.Schema()
+	}
+
+	return s.join(from, on, Left)
 }
 
 func (s *selectBuilder) RightJoin(
-	schema string,
+	from FromExpression,
 	on Conditional,
 ) SelectBuilder {
-	return s.join(schema, on, Right)
+
+	if len(from.Alias()) != 0 {
+		s.virtualSchemas[from.Alias()] = from.Schema()
+	}
+
+	return s.join(from, on, Right)
 }
 
 func (s *selectBuilder) OuterJoin(
-	schema string,
+	from FromExpression,
 	on Conditional,
 ) SelectBuilder {
-	return s.join(schema, on, Outer)
+	if len(from.Alias()) != 0 {
+		s.virtualSchemas[from.Alias()] = from.Schema()
+	}
+	return s.join(from, on, Outer)
 }
 
 // todo:
 //  make join conditional ?
 
 func (s *selectBuilder) join(
-	schemaName string,
+	schemaName FromExpression,
 	on Conditional,
 	joinType JoinType,
 ) SelectBuilder {
@@ -355,15 +371,19 @@ func (s *selectBuilder) join(
 	return s
 }
 
-func (s *selectBuilder) From(schema string, reference Reference) SelectBuilder {
-	s.ref = reference
-	s.fromEx = s.fromEx.From(schema)
+func (s *selectBuilder) From(from FromExpression) SelectBuilder {
+	s.ref = from.Ref()
+	s.fromEx = from
+
+	if len(s.fromEx.Alias()) != 0 {
+		s.virtualSchemas[s.fromEx.Alias()] = s.fromEx.Schema()
+	}
 
 	// fields that was added to the select builder
 	// before the From() method call has alias defaultSchemaName
 	// to prevent conflicts with other schemas
 	// we should add the defaultSchemaName schema to the alias mapper
-	s.virtualSchemas[defaultSchemaName] = schema
+	s.virtualSchemas[defaultSchemaName] = s.fromEx.Schema()
 	return s
 }
 
@@ -614,13 +634,27 @@ func (s *selectBuilder) Expression() (string, error) {
 
 func (s *selectBuilder) Returns() schema.LintedFields {
 	result := schema.NewLintedFields()
+
 	for fieldName, metaSlice := range s.returnTypeMapper {
 		for _, meta := range metaSlice {
-			v, _ := s.relationStorage[meta.relation].Get(fieldName)
+			rel, ok := s.relationStorage[meta.relation]
+			if !ok {
+				// if relation is gone
+				// there was a aliased storage
+				continue
+			}
+
+			v, _ := rel.Get(fieldName)
+
 			if len(meta.alias) != 0 {
 				v.Name = meta.alias
 				v.Relation = ""
 			}
+
+			if realRel, ok := s.virtualSchemas[meta.relation]; ok {
+				v.Relation = realRel
+			}
+
 			result.Set(v)
 		}
 	}
@@ -630,6 +664,22 @@ func (s *selectBuilder) Returns() schema.LintedFields {
 
 func (s *selectBuilder) RelationReport() map[string]schema.LintedFields {
 	if static.ReflectionFlag {
+		if s.fromEx.Schema() == "orders" && s.fromEx.Alias() == "o" {
+			fmt.Println("here")
+
+			fmt.Println(s.returnTypeMapper)
+			fmt.Println()
+			fmt.Println()
+			fmt.Println(s.virtualSchemas)
+			fmt.Println()
+			fmt.Println()
+			fmt.Println(s.virtualColumns)
+			fmt.Println()
+			fmt.Println()
+			fmt.Println(s.relationStorage)
+			fmt.Println()
+		}
+
 		s.aliasRefresher.Do(func() {
 			// update defaultSchemaName to the real schema name
 			// received from From() method
@@ -638,12 +688,18 @@ func (s *selectBuilder) RelationReport() map[string]schema.LintedFields {
 			}
 			// refresh relation storage with real schema names
 			for alias, schemaName := range s.virtualSchemas {
+
 				// if we have a relation with the alias,
 				// we should replace it with the real schema name
 				// and remove the alias from the relation storage
 				if _, exists := s.relationStorage[alias]; exists {
 					s.relationStorage[schemaName] = s.relationStorage[alias]
+					for _, v := range s.relationStorage[schemaName].Map() {
+						v.Relation = schemaName
+						s.relationStorage[schemaName].Set(v)
+					}
 					delete(s.relationStorage, alias)
+					fmt.Println(s.relationStorage)
 					continue
 				}
 			}

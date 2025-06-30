@@ -1,12 +1,14 @@
 package schema
 
 import (
+	"errors"
 	"fmt"
 	"ksql/consts"
 	"ksql/kinds"
 	"ksql/reflector"
 	"ksql/util"
 	"log/slog"
+	"strings"
 )
 
 func RemoteFieldsRepresentation(
@@ -50,7 +52,8 @@ func NativeStructRepresentation(
 	}
 
 	var (
-		fields = make(structFields)
+		fields     = make(structFields)
+		hasPrimary = false
 	)
 
 	for i := 0; i < typ.NumField(); i++ {
@@ -67,15 +70,29 @@ func NativeStructRepresentation(
 			continue
 		}
 
+		tag, isPrimaryField := isPrimary(tag)
+		if isPrimaryField {
+			if hasPrimary {
+				return nil, errors.New("event must contain only one primary key")
+			}
+			hasPrimary = true
+		}
+
 		literalValue := util.Serialize(fieldVal.Interface())
 
 		fields[tag] = SearchField{
-			Name:     tag,
-			Relation: relationName,
-			Kind:     ksqlKind,
-			Value:    &literalValue,
+			Name:      tag,
+			Relation:  relationName,
+			Kind:      ksqlKind,
+			Value:     &literalValue,
+			IsPrimary: isPrimaryField,
 		}
 	}
 
 	return fields, nil
+}
+
+func isPrimary(tag string) (string, bool) {
+	return strings.CutSuffix(tag, ", primary")
+
 }
