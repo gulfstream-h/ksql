@@ -32,7 +32,7 @@ func main() {
 
 func init() {
 	slog.SetLogLoggerLevel(slog.LevelDebug)
-	cfg := config.New(ksqlURL, 15, true)
+	cfg := config.New(ksqlURL, 15, false)
 	if err := cfg.Configure(context.Background()); err != nil {
 		slog.Error("cannot configure ksql", "error", err.Error())
 	}

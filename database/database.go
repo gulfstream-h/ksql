@@ -76,6 +76,7 @@ func Select[S any](
 					str := val[1 : len(val)-1]
 
 					if err = jsoniter.Unmarshal(str, &headers); err != nil {
+						slog.Debug("unmarshal resonse", "formatted", string(str))
 						close(valuesC)
 						return
 					}

@@ -515,9 +515,9 @@ func (s *selectBuilder) Expression() (string, error) {
 
 			builder.WriteString(alias)
 			builder.WriteString(" AS ")
-			builder.WriteString("(\n")
-			builder.WriteString(expression)
-			builder.WriteString("\n)")
+			builder.WriteString("(")
+			builder.WriteString(expression[:len(expression)-1])
+			builder.WriteString(")")
 			cteIsFirst = false
 
 		}
