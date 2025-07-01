@@ -502,9 +502,11 @@ func (s *Table[S]) SelectOnce(
 // select with emit request
 // answer is received for every new record
 // and propagated to channel
-func (s *Table[S]) SelectWithEmit(
-	ctx context.Context,
-) (<-chan S, error) {
+func (s *Table[S]) SelectWithEmit(ctx context.Context) (
+	<-chan S, context.CancelFunc, error,
+) {
+
+	ctx, cancel := context.WithCancel(ctx)
 
 	var (
 		fields []ksql.Field
@@ -522,13 +524,13 @@ func (s *Table[S]) SelectWithEmit(
 		EmitChanges().
 		Expression()
 	if err != nil {
-		return nil, fmt.Errorf("build select query: %w", err)
+		return nil, cancel, fmt.Errorf("build select query: %w", err)
 	}
 
 	valuesC, err := database.Select[S](ctx, query)
 	if err != nil {
-		return nil, err
+		return nil, cancel, err
 	}
 
-	return valuesC, nil
+	return valuesC, cancel, nil
 }

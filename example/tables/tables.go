@@ -122,7 +122,7 @@ func SelectWithEmit(ctx context.Context) {
 		return
 	}
 
-	notesStream, err := exampleTable.SelectWithEmit(ctx)
+	notesStream, cancel, err := exampleTable.SelectWithEmit(ctx)
 	if err != nil {
 		slog.Error("error during emit", "error", err.Error())
 		return
@@ -130,6 +130,7 @@ func SelectWithEmit(ctx context.Context) {
 
 	for note := range notesStream {
 		slog.Info("received note", "note", note)
+		cancel()
 	}
 }
 

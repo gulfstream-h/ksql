@@ -140,14 +140,13 @@ func Select(ctx context.Context) {
 }
 
 func SelectWithEmit(ctx context.Context) {
-	// Fix tommorow: invalid select builder: GROUP BY requires WINDOW clause on streams"
 	exampleStream, err := streams.GetStream[ExampleStream](ctx, streamName)
 	if err != nil {
 		slog.Error("cannot get stream", "error", err.Error())
 		return
 	}
 
-	notesStream, err := exampleStream.SelectWithEmit(ctx)
+	notesStream, cancel, err := exampleStream.SelectWithEmit(ctx)
 	if err != nil {
 		slog.Error("error during emit", "error", err.Error())
 		return
@@ -155,6 +154,7 @@ func SelectWithEmit(ctx context.Context) {
 
 	for note := range notesStream {
 		slog.Info("received note", "note", note)
+		cancel()
 	}
 }
 
