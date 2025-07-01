@@ -8,6 +8,7 @@ import (
 )
 
 type (
+	// CreateBuilder - contract for building CREATE statements in KSQL
 	CreateBuilder interface {
 		Expression() (string, error)
 		AsSelect(builder SelectBuilder) CreateBuilder
@@ -19,10 +20,12 @@ type (
 		Schema() string
 	}
 
+	// createBuilderCtx holds the context for the create builder, including any errors encountered during construction
 	createBuilderCtx struct {
 		err error
 	}
 
+	// createBuilder implements the CreateBuilder interface for constructing CREATE statements
 	createBuilder struct {
 		ctx       createBuilderCtx
 		asSelect  SelectBuilder
@@ -32,6 +35,7 @@ type (
 		meta      Metadata
 	}
 
+	// createBuilderRule defines a rule for validating create statements.
 	createBuilderRule struct {
 		ruleFn      func(builder *createBuilder) bool
 		description string
@@ -72,6 +76,7 @@ var (
 		description: "Cannot create a table from a windowed stream",
 	}
 
+	// createRuleSet contains the rules for validating create statements.
 	createRuleSet = []createBuilderRule{
 		tableFromNotAggregatedStream,
 		streamFromTable,
@@ -79,6 +84,7 @@ var (
 	}
 )
 
+// Create initializes a new CreateBuilder for creating streams or tables in KSQL.
 func Create(typ Reference, schema string) CreateBuilder {
 	return &createBuilder{
 		reference: typ,
@@ -88,24 +94,29 @@ func Create(typ Reference, schema string) CreateBuilder {
 	}
 }
 
+// Type returns the reference type of the create operation, such as STREAM or TABLE.
 func (c *createBuilder) Type() Reference {
 	return c.reference
 }
 
+// Schema returns the schema name for the create operation.
 func (c *createBuilder) Schema() string {
 	return c.schema
 }
 
+// With sets the metadata for the create operation, allowing additional properties to be specified.
 func (c *createBuilder) With(meta Metadata) CreateBuilder {
 	c.meta = meta
 	return c
 }
 
+// AsSelect sets the select builder for the create operation, allowing the creation of a stream or table from a SELECT statement.
 func (c *createBuilder) AsSelect(builder SelectBuilder) CreateBuilder {
 	c.asSelect = builder
 	return c
 }
 
+// SchemaFields appends one or more fields to the create builder.
 func (c *createBuilder) SchemaFields(
 	fields ...schema.SearchField,
 ) CreateBuilder {
@@ -113,6 +124,7 @@ func (c *createBuilder) SchemaFields(
 	return c
 }
 
+// SchemaFromStruct takes a struct and appends its fields to the create builder.
 func (c *createBuilder) SchemaFromStruct(
 	schemaStruct any,
 ) CreateBuilder {
@@ -128,6 +140,7 @@ func (c *createBuilder) SchemaFromStruct(
 	return c
 }
 
+// SchemaFromRemoteStruct takes a LintedFields object and appends its fields to the create builder.
 func (c *createBuilder) SchemaFromRemoteStruct(
 	fields schema.LintedFields,
 ) CreateBuilder {
@@ -137,6 +150,7 @@ func (c *createBuilder) SchemaFromRemoteStruct(
 	return c
 }
 
+// Expression builds the CREATE statement based on the provided fields, AS SELECT, and metadata.
 func (c *createBuilder) Expression() (string, error) {
 	builder := new(strings.Builder)
 
