@@ -146,7 +146,7 @@ func InitBase(ctx context.Context, pipe *DataPipeline) error {
 		ctx,
 		bigOrdersStreamName,
 		shared.StreamSettings{Partitions: 1},
-		ksql.SelectAsStruct(ordersStreamName, &Orders{}).
+		ksql.SelectAsStruct(ordersStreamName, Orders{}).
 			Where(ksql.F("quantity").Greater(50)),
 	)
 
@@ -297,8 +297,6 @@ func main() {
 
 	streams.Drop(ctx, customersStreamName)
 	streams.Drop(ctx, inventoryStreamName)
-	tables.Drop(ctx, "QUERYABLE_CUSTOMERS")
-	tables.Drop(ctx, "QUERYABLE_INVENTORY")
 	streams.Drop(ctx, ordersStreamName)
 	streams.Drop(ctx, bigOrdersStreamName)
 	tables.Drop(ctx, customersTableName)

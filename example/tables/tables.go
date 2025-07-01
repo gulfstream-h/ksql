@@ -19,7 +19,7 @@ func main() {
 	//ctx := context.Background()
 	//List(ctx)
 	//Create(ctx)
-	//Describe(ctx)
+	///Describe(ctx)
 	//Drop(ctx)
 	//Select(ctx)
 	//SelectWithEmit(ctx)
@@ -28,7 +28,7 @@ func main() {
 
 func init() {
 	slog.SetLogLoggerLevel(slog.LevelDebug)
-	cfg := config.New(ksqlURL, 15, true)
+	cfg := config.New(ksqlURL, 15, false)
 	if err := cfg.Configure(context.Background()); err != nil {
 		slog.Error("cannot configure ksql", "error", err.Error())
 	}

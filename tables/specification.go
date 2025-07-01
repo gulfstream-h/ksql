@@ -78,8 +78,8 @@ func ListTables(ctx context.Context) (
 }
 
 // Describe - responses with table description
-func Describe(ctx context.Context, stream string) (dto.RelationDescription, error) {
-	query := util.MustNoError(ksql.Describe(ksql.TABLE, stream).Expression)
+func Describe(ctx context.Context, table string) (dto.RelationDescription, error) {
+	query := util.MustNoError(ksql.Describe(ksql.TABLE, table).Expression)
 
 	pipeline, err := network.Net.Perform(
 		ctx,
@@ -161,44 +161,46 @@ func Drop(ctx context.Context, name string) error {
 		if drop[0].CommandStatus.Status != consts.SUCCESS {
 			return fmt.Errorf("cannot drop table: %s", drop[0].CommandStatus.Status)
 		}
-
-		query = util.MustNoError(ksql.Drop(ksql.TABLE, name).Expression)
-
-		pipeline, err = network.Net.Perform(
-			ctx,
-			http.MethodPost,
-			query,
-			&network.ShortPolling{},
-		)
-		if err != nil {
-			return fmt.Errorf("cannot perform request: %w", err)
-		}
-
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		case val, ok = <-pipeline:
-			if !ok {
-				return static.ErrMalformedResponse
-			}
-
-			slog.Debug("received from pipiline", slog.String("val", string(val)))
-
-			if err = jsoniter.Unmarshal(val, &drop); err != nil {
-				return fmt.Errorf("cannot unmarshal drop response: %w", err)
-			}
-
-			if len(drop) == 0 {
-				return errors.New("cannot drop stream")
-			}
-
-			if drop[0].CommandStatus.Status != consts.SUCCESS {
-				return fmt.Errorf("cannot drop table: %s", drop[0].CommandStatus.Status)
-			}
-		}
-
-		return nil
 	}
+
+	query = util.MustNoError(ksql.Drop(ksql.TABLE, name).Expression)
+
+	pipeline, err = network.Net.Perform(
+		ctx,
+		http.MethodPost,
+		query,
+		&network.ShortPolling{},
+	)
+	if err != nil {
+		return fmt.Errorf("cannot perform request: %w", err)
+	}
+
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case val, ok := <-pipeline:
+		if !ok {
+			return static.ErrMalformedResponse
+		}
+
+		slog.Debug("received from pipiline", slog.String("val", string(val)))
+
+		var drop []dao.DropInfo
+
+		if err = jsoniter.Unmarshal(val, &drop); err != nil {
+			return fmt.Errorf("cannot unmarshal drop response: %w", err)
+		}
+
+		if len(drop) == 0 {
+			return errors.New("cannot drop stream")
+		}
+
+		if drop[0].CommandStatus.Status != consts.SUCCESS {
+			return fmt.Errorf("cannot drop table: %s", drop[0].CommandStatus.Status)
+		}
+	}
+
+	return nil
 }
 
 // GetTable - gets table from ksqlDB instance
