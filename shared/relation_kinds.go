@@ -31,7 +31,7 @@ func (s *StreamSettings) Validate() error {
 	s.Name = strings.TrimSpace(s.Name)
 
 	if len(s.Name) == 0 {
-		return errors.New("invalid topic name")
+		return errors.New("invalid stream name")
 	}
 
 	s.SourceTopic = strings.TrimSpace(s.SourceTopic)
@@ -39,9 +39,6 @@ func (s *StreamSettings) Validate() error {
 		return fmt.Errorf("souce topic cannot be blank")
 	}
 
-	if s.Partitions < 1 {
-		return errors.New("invalid partitions number")
-	}
 	return nil
 }
 
@@ -64,9 +61,6 @@ func (s *TableSettings) Validate() error {
 		return fmt.Errorf("souce topic cannot be blank")
 	}
 
-	if s.Partitions < 1 {
-		return errors.New("invalid partitions number")
-	}
 	return nil
 }
 

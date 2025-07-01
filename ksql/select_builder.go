@@ -180,7 +180,6 @@ var (
 		groupByWindowed,
 		havingWithGroupBy,
 		aggregatedWithGroupBy,
-		emitChangesWithStream,
 		windowInTable,
 		emitFinalWithTable,
 		emitFinalAndChanges,

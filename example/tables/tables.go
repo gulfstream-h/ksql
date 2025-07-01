@@ -16,12 +16,12 @@ const (
 )
 
 func main() {
-	//ctx := context.Background()
+	ctx := context.Background()
 	//List(ctx)
 	//Create(ctx)
-	///Describe(ctx)
+	//Describe(ctx)
 	//Drop(ctx)
-	//Select(ctx)
+	Select(ctx)
 	//SelectWithEmit(ctx)
 	//CreateAsSelect(ctx)
 }
@@ -59,6 +59,7 @@ func Create(ctx context.Context) {
 
 	exampleTable, err := tables.CreateTable[ExampleTable](
 		ctx, tableName, shared.TableSettings{
+			Name:        tableName,
 			SourceTopic: sourceTopic,
 			Partitions:  partitions,
 			Format:      kinds.JSON,

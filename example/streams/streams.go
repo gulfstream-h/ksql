@@ -32,9 +32,9 @@ func main() {
 	//}()
 	//Insert(ctx)
 	//Select(ctx)
-	SelectWithEmit(ctx)
+	//SelectWithEmit(ctx)
 	//CreateAsSelect(ctx)
-	//InsertAsSelect(ctx)
+	InsertAsSelect(ctx)
 }
 
 func init() {
@@ -65,11 +65,13 @@ const (
 
 func Create(ctx context.Context) {
 	sourceTopic := "examples-topics"
-	//partitions := 1 // if topic doesnt exists, partitions are required
+	partitions := 1 // if topic doesnt exists, partitions are required
 
 	exampleTable, err := streams.CreateStream[ExampleStream](
 		ctx, streamName, shared.StreamSettings{
+			Name:        streamName,
 			SourceTopic: sourceTopic,
+			Partitions:  partitions,
 			Format:      kinds.JSON,
 		})
 
@@ -157,7 +159,7 @@ func SelectWithEmit(ctx context.Context) {
 }
 
 func CreateAsSelect(ctx context.Context) {
-	sql := ksql.Select(ksql.F("ID"), ksql.F("TOKEN")).From(ksql.Schema("EXAMPLESTREAM", ksql.STREAM))
+	sql := ksql.Select(ksql.F("ID"), ksql.F("TOKEN")).From(ksql.Schema(streamName, ksql.STREAM))
 	sourceTopic := "examples-topics"
 	dublicateStream, err := streams.CreateStreamAsSelect[ExampleStream](ctx, "dublicateStream", shared.StreamSettings{
 		SourceTopic: sourceTopic,
@@ -172,7 +174,7 @@ func CreateAsSelect(ctx context.Context) {
 }
 
 func InsertAsSelect(ctx context.Context) {
-	sql := ksql.Select(ksql.F("ID"), ksql.F("TOKEN")).From(ksql.Schema("DUBLICATESTREAM", ksql.STREAM))
+	sql := ksql.Select(ksql.F("ID"), ksql.F("TOKEN")).From(ksql.Schema(streamName, ksql.STREAM))
 
 	stream, err := streams.GetStream[ExampleStream](ctx, "EXAMPLESTREAM")
 	if err != nil {

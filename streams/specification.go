@@ -275,7 +275,7 @@ func CreateStream[S any](
 			slog.String("value", string(val)),
 		)
 
-		if err := jsoniter.Unmarshal(val, &create); err != nil {
+		if err = jsoniter.Unmarshal(val, &create); err != nil {
 			return nil, fmt.Errorf("cannot unmarshal create response: %w", err)
 		}
 

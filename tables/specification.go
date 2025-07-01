@@ -265,6 +265,7 @@ func CreateTable[S any](
 
 	metadata := ksql.Metadata{
 		Topic:       settings.SourceTopic,
+		Partitions:  settings.Partitions,
 		ValueFormat: kinds.JSON.String(),
 	}
 
