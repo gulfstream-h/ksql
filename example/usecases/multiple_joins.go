@@ -287,7 +287,7 @@ func main() {
 	slog.SetLogLoggerLevel(slog.LevelDebug)
 
 	err := config.
-		New("http://localhost:8088", 600, true).
+		New("http://localhost:8088", 600, false).
 		Configure(ctx)
 
 	if err != nil {

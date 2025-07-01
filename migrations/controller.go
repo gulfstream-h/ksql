@@ -15,9 +15,10 @@ import (
 
 const (
 	systemStreamName = "seeker_stream" //ksql-system-stream name
-	systemTableName  = "seeker_table"  //ksql-system-table name
 )
 
+// ksqlController - essence that manages
+// iteration with embedded ksql system stream
 type ksqlController struct {
 	host   string
 	stream *streams.Stream[migrationRelation]

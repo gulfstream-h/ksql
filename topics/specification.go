@@ -13,6 +13,7 @@ import (
 	"net/http"
 )
 
+// ListTopics - returns all existing topics with metadata
 func ListTopics(ctx context.Context) (dto.ShowTopics, error) {
 	query, _ := ksql.List(ksql.TOPIC).Expression()
 

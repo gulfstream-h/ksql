@@ -2,7 +2,6 @@ package database
 
 import (
 	"context"
-	"fmt"
 	jsoniter "github.com/json-iterator/go"
 	"ksql/kernel/network"
 	"ksql/kernel/protocol/dao"
@@ -67,8 +66,6 @@ func Select[S any](
 					close(valuesC)
 					return
 				}
-
-				fmt.Println(string(val))
 
 				if strings.Contains(string(val), "Query Completed") {
 					close(valuesC)

@@ -7,6 +7,8 @@ import (
 	"strings"
 )
 
+// ParseHeadersAndValues - defines fields
+// and values name and group em in coinciding pairs
 func ParseHeadersAndValues(
 	headers string,
 	values []any,
@@ -54,6 +56,10 @@ func ParseHeadersAndValues(
 	return result, nil
 }
 
+// NormalizeValue - defines the real type of
+// unmarshalled ksql response interface field
+// and generates reflect value, that can be set
+// to destination generic struct
 func NormalizeValue(
 	v interface{},
 	targetType reflect.Type,

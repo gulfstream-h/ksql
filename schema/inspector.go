@@ -20,8 +20,12 @@ type (
 		IsPrimary bool
 	}
 
+	// structFields - custom type, used in reflection linter
 	structFields map[string]SearchField
 
+	// LintedFields - contract for reflection checks of native and remote
+	// relation fields. It offers fast access to target representation
+	// and methods for iteration from selectBuidler
 	LintedFields interface {
 		Map() map[string]SearchField
 		Array() []SearchField
@@ -31,10 +35,15 @@ type (
 	}
 )
 
+// NewLintedFields - constructor for
+// default implementation of linter with map
 func NewLintedFields() LintedFields {
 	return make(structFields)
 }
 
+// CompareWithFields - matches two structures for coinciding fields
+// all structure ksql tagged fields must be equal to each other
+// with name and type to receive nil error
 func (sf structFields) CompareWithFields(compFields []SearchField) error {
 	for _, field := range compFields {
 		matchField, ok := sf[field.Name]
@@ -50,6 +59,7 @@ func (sf structFields) CompareWithFields(compFields []SearchField) error {
 	return nil
 }
 
+// Get - proxy for getting value from LintedFields
 func (sf structFields) Get(name string) (SearchField, bool) {
 	field, ok := sf[name]
 	if !ok {
@@ -58,6 +68,7 @@ func (sf structFields) Get(name string) (SearchField, bool) {
 	return field, true
 }
 
+// Set - proxy for setting value into LintedFields
 func (sf structFields) Set(field SearchField) {
 	if sf == nil {
 		sf = make(structFields)
@@ -65,10 +76,12 @@ func (sf structFields) Set(field SearchField) {
 	sf[field.Name] = field
 }
 
+// Map - returns LintedFields elems as map
 func (sf structFields) Map() map[string]SearchField {
 	return sf
 }
 
+// Array - returns LintedFields elems as an array
 func (sf structFields) Array() []SearchField {
 	fieldsList := make([]SearchField, 0, len(sf))
 	for _, value := range sf {

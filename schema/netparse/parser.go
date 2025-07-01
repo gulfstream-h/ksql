@@ -7,6 +7,8 @@ import (
 	"strings"
 )
 
+// ParseNetResponse - parses ksql string select row
+// into defined fields of clients generic
 func ParseNetResponse[S any](
 	headers dao.Header,
 	row dao.Row,

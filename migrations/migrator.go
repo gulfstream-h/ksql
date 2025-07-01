@@ -11,12 +11,14 @@ import (
 	"time"
 )
 
+// migrator - orchestrate migration actions
 type migrator struct {
 	ctrl            controller
 	reflectionCheck bool
 	migrationPath   string
 }
 
+// New - creates new migration orchestrator
 func New(host, migrationPath string) Migrator {
 	return &migrator{
 		migrationPath: migrationPath,
@@ -24,6 +26,9 @@ func New(host, migrationPath string) Migrator {
 	}
 }
 
+// AutoMigrate - iterates through all existing migrations,
+// skipping already applied and executing Up migration till
+// the newest version
 func (m *migrator) AutoMigrate(ctx context.Context) error {
 	currentVersion, err := m.ctrl.GetLatestVersion(ctx)
 	if err != nil {
@@ -77,6 +82,7 @@ func (m *migrator) AutoMigrate(ctx context.Context) error {
 	return nil
 }
 
+// Up - executes single up query from passed file
 func (m *migrator) Up(filename string) error {
 	currentVersion, err := m.ctrl.GetLatestVersion(context.TODO())
 	if err != nil {
@@ -126,6 +132,7 @@ func (m *migrator) Up(filename string) error {
 	return nil
 }
 
+// Down - executes single down query from passed file
 func (m *migrator) Down(filename string) error {
 	currentVersion, err := m.ctrl.GetLatestVersion(context.TODO())
 	if err != nil {
@@ -157,7 +164,6 @@ func (m *migrator) Down(filename string) error {
 
 	slog.Info("query", "parsed", query)
 
-	//TODO MAKE ERROR CHECK
 	lastVersion := m.FindPrecedingMigration(int64(versionInt))
 
 	if err = m.ctrl.UpgradeWithMigration(context.TODO(), lastVersion, query); err != nil {
@@ -167,6 +173,7 @@ func (m *migrator) Down(filename string) error {
 	return nil
 }
 
+// ReadUpQuery - parses migration file and copies up-command
 func (m *migrator) ReadUpQuery(fileName string, path string) (string, error) {
 	file, err := os.ReadFile(path + fileName)
 	if err != nil {
@@ -186,6 +193,7 @@ func (m *migrator) ReadUpQuery(fileName string, path string) (string, error) {
 	return query, nil
 }
 
+// ReadDownQuery - parses migration file and copies down-command
 func (m *migrator) ReadDownQuery(fileName string) (string, error) {
 	file, err := os.ReadFile("./" + fileName)
 	if err != nil {
@@ -200,6 +208,8 @@ func (m *migrator) ReadDownQuery(fileName string) (string, error) {
 	return query, nil
 }
 
+// FindPrecedingMigration - searches for previous migrations
+// to downshift versions to previous and save previous version
 func (m *migrator) FindPrecedingMigration(currentVersion int64) time.Time {
 	directories, err := os.ReadDir(".")
 	if err != nil {

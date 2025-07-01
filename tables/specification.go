@@ -124,7 +124,7 @@ func Describe(ctx context.Context, stream string) (dto.RelationDescription, erro
 // Drop - drops table from ksqlDB instance
 // with parent topic
 func Drop(ctx context.Context, name string) error {
-	query := util.MustNoError(ksql.Drop(ksql.TABLE, name).Expression)
+	query := util.MustNoError(ksql.Drop(ksql.TABLE, fmt.Sprintf("%s_%s", consts.Queryable, name)).Expression)
 
 	pipeline, err := network.Net.Perform(
 		ctx,
@@ -160,6 +160,41 @@ func Drop(ctx context.Context, name string) error {
 
 		if drop[0].CommandStatus.Status != consts.SUCCESS {
 			return fmt.Errorf("cannot drop table: %s", drop[0].CommandStatus.Status)
+		}
+
+		query = util.MustNoError(ksql.Drop(ksql.TABLE, name).Expression)
+
+		pipeline, err = network.Net.Perform(
+			ctx,
+			http.MethodPost,
+			query,
+			&network.ShortPolling{},
+		)
+		if err != nil {
+			return fmt.Errorf("cannot perform request: %w", err)
+		}
+
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case val, ok = <-pipeline:
+			if !ok {
+				return static.ErrMalformedResponse
+			}
+
+			slog.Debug("received from pipiline", slog.String("val", string(val)))
+
+			if err = jsoniter.Unmarshal(val, &drop); err != nil {
+				return fmt.Errorf("cannot unmarshal drop response: %w", err)
+			}
+
+			if len(drop) == 0 {
+				return errors.New("cannot drop stream")
+			}
+
+			if drop[0].CommandStatus.Status != consts.SUCCESS {
+				return fmt.Errorf("cannot drop table: %s", drop[0].CommandStatus.Status)
+			}
 		}
 
 		return nil
@@ -397,7 +432,7 @@ func CreateTableAsSelect[S any](
 			create []dao.CreateRelationResponse
 		)
 
-		if err := jsoniter.Unmarshal(val, &create); err != nil {
+		if err = jsoniter.Unmarshal(val, &create); err != nil {
 			return nil, fmt.Errorf("cannot unmarshal create response: %w", err)
 		}
 
@@ -443,9 +478,9 @@ func (s *Table[S]) SelectOnce(
 
 	query, err :=
 		ksql.Select(fields...).
-			From(ksql.Schema(fmt.Sprintf("QUERYABLE_%s", s.Name), ksql.TABLE)).
-			Expression()
-
+			From(ksql.Schema(
+				fmt.Sprintf("%s_%s", consts.Queryable, s.Name), ksql.TABLE),
+			).Expression()
 	if err != nil {
 		return value, fmt.Errorf("build select query: %w", err)
 	}
@@ -477,7 +512,11 @@ func (s *Table[S]) SelectWithEmit(
 	}
 
 	query, err := ksql.Select(fields...).
-		From(ksql.Schema(fmt.Sprintf("QUERYABLE_%s", s.Name), ksql.TABLE)).EmitChanges().
+		From(ksql.Schema(
+			fmt.Sprintf("%s_%s",
+				consts.Queryable, s.Name), ksql.TABLE),
+		).
+		EmitChanges().
 		Expression()
 	if err != nil {
 		return nil, fmt.Errorf("build select query: %w", err)

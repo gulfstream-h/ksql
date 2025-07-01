@@ -44,6 +44,8 @@ var (
 	TablesProjections  RelationStorage[shared.TableSettings]
 )
 
+// Get - returns cached settings value
+// with reflection inside
 func (rs *RelationStorage[S]) Get(name string) (S, bool) {
 	var (
 		s S
@@ -62,6 +64,7 @@ func (rs *RelationStorage[S]) Get(name string) (S, bool) {
 	return settings, true
 }
 
+// Set - cache some relation settings with schema inside
 func (rs *RelationStorage[S]) Set(
 	name string,
 	settings S,

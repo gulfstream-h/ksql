@@ -25,6 +25,8 @@ type Settings struct {
 // so can be easily called from any space
 type StreamSettings Settings
 
+// Validate - primary checks settings
+// to avoid malformed relation creation
 func (s *StreamSettings) Validate() error {
 	s.Name = strings.TrimSpace(s.Name)
 
@@ -48,6 +50,8 @@ func (s *StreamSettings) Validate() error {
 // so can be easily called from any space
 type TableSettings Settings
 
+// Validate - primary checks settings
+// to avoid malformed relation creation
 func (s *TableSettings) Validate() error {
 	s.Name = strings.TrimSpace(s.Name)
 

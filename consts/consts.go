@@ -14,6 +14,10 @@ const (
 )
 
 const (
+	Queryable = "QUERYABLE" // tables prefix for selecting purpose
+)
+
+const (
 	ContentType = "Content-Type"                 // http Header-Name
 	HeaderKSQL  = "application/vnd.ksql.v1+json" // ksql Header
 )
