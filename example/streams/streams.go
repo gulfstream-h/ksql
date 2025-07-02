@@ -15,26 +15,21 @@ const (
 	ksqlURL = "http://localhost:8088"
 )
 
+// Every of the functions below can be uncommented
+// and executed independently (except for create)
+// in testing and debug purposes
+
 func main() {
-	ctx := context.Background()
+	//ctx := context.Background()
 	//List(ctx)
 	//Create(ctx)
 	//Describe(ctx)
 	//Drop(ctx)
-	//t := time.NewTicker(5 * time.Second)
-	//go func() {
-	//	for {
-	//		select {
-	//		case <-t.C:
-	//			Insert(ctx)
-	//		}
-	//	}
-	//}()
 	//Insert(ctx)
 	//Select(ctx)
 	//SelectWithEmit(ctx)
 	//CreateAsSelect(ctx)
-	InsertAsSelect(ctx)
+	//InsertAsSelect(ctx)
 }
 
 func init() {
