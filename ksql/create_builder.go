@@ -3,7 +3,7 @@ package ksql
 import (
 	"errors"
 	"fmt"
-	"ksql/schema"
+	schema2 "ksql/internal/schema"
 	"strings"
 )
 
@@ -12,9 +12,9 @@ type (
 	CreateBuilder interface {
 		Expression() (string, error)
 		AsSelect(builder SelectBuilder) CreateBuilder
-		SchemaFields(fields ...schema.SearchField) CreateBuilder
+		SchemaFields(fields ...schema2.SearchField) CreateBuilder
 		SchemaFromStruct(schemaStruct any) CreateBuilder
-		SchemaFromRemoteStruct(fields schema.LintedFields) CreateBuilder
+		SchemaFromRemoteStruct(fields schema2.LintedFields) CreateBuilder
 		With(metadata Metadata) CreateBuilder
 		Type() Reference
 		Schema() string
@@ -29,7 +29,7 @@ type (
 	createBuilder struct {
 		ctx       createBuilderCtx
 		asSelect  SelectBuilder
-		fields    []schema.SearchField
+		fields    []schema2.SearchField
 		reference Reference
 		schema    string
 		meta      Metadata
@@ -118,7 +118,7 @@ func (c *createBuilder) AsSelect(builder SelectBuilder) CreateBuilder {
 
 // SchemaFields appends one or more fields to the create builder.
 func (c *createBuilder) SchemaFields(
-	fields ...schema.SearchField,
+	fields ...schema2.SearchField,
 ) CreateBuilder {
 	c.fields = append(c.fields, fields...)
 	return c
@@ -128,7 +128,7 @@ func (c *createBuilder) SchemaFields(
 func (c *createBuilder) SchemaFromStruct(
 	schemaStruct any,
 ) CreateBuilder {
-	fields, err := schema.NativeStructRepresentation(c.schema, schemaStruct)
+	fields, err := schema2.NativeStructRepresentation(c.schema, schemaStruct)
 	if err != nil {
 		c.ctx.err = fmt.Errorf("cannot get fields from struct %T: %w", schemaStruct, err)
 		return c
@@ -142,7 +142,7 @@ func (c *createBuilder) SchemaFromStruct(
 
 // SchemaFromRemoteStruct takes a LintedFields object and appends its fields to the create builder.
 func (c *createBuilder) SchemaFromRemoteStruct(
-	fields schema.LintedFields,
+	fields schema2.LintedFields,
 ) CreateBuilder {
 	fieldsList := fields.Array()
 

@@ -3,9 +3,9 @@ package database
 import (
 	"context"
 	jsoniter "github.com/json-iterator/go"
+	"ksql/internal/schema/netparse"
 	"ksql/kernel/network"
 	"ksql/kernel/protocol/dao"
-	"ksql/schema/netparse"
 	"log/slog"
 	"net/http"
 	"strings"

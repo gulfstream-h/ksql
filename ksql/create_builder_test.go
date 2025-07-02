@@ -2,8 +2,8 @@ package ksql
 
 import (
 	"github.com/stretchr/testify/assert"
+	"ksql/internal/schema"
 	"ksql/kinds"
-	"ksql/schema"
 	"regexp"
 	"sort"
 	"strings"

@@ -4,9 +4,9 @@ import (
 	"errors"
 	"fmt"
 	"ksql/consts"
+	"ksql/internal/reflector"
+	"ksql/internal/util"
 	"ksql/kinds"
-	"ksql/reflector"
-	"ksql/util"
 	"log/slog"
 	"strings"
 )

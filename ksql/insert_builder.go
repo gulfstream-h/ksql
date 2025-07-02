@@ -3,8 +3,8 @@ package ksql
 import (
 	"errors"
 	"fmt"
-	"ksql/schema"
-	"ksql/util"
+	"ksql/internal/schema"
+	"ksql/internal/util"
 	"strings"
 )
 

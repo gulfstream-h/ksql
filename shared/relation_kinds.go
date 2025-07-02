@@ -4,8 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"ksql/internal/schema"
 	"ksql/kinds"
-	"ksql/schema"
 	"strings"
 )
 

@@ -7,19 +7,19 @@ import (
 	jsoniter "github.com/json-iterator/go"
 	"ksql/consts"
 	"ksql/database"
+	schema2 "ksql/internal/schema"
+	"ksql/internal/schema/report"
+	util2 "ksql/internal/util"
 	"ksql/kernel/network"
 	"ksql/kernel/protocol/dao"
 	"ksql/kernel/protocol/dto"
 	"ksql/kinds"
 	"ksql/ksql"
-	"ksql/schema"
-	"ksql/schema/report"
 	"ksql/shared"
 	"ksql/static"
 	"log/slog"
 	"strings"
 
-	"ksql/util"
 	"net/http"
 )
 
@@ -29,7 +29,7 @@ import (
 type Stream[S any] struct {
 	Name         string
 	partitions   int
-	remoteSchema schema.LintedFields
+	remoteSchema schema2.LintedFields
 	format       kinds.ValueFormat
 }
 
@@ -37,7 +37,7 @@ type Stream[S any] struct {
 // in the current ksqlDB instance
 func ListStreams(ctx context.Context) (dto.ShowStreams, error) {
 
-	query := util.MustNoError(ksql.List(ksql.STREAM).Expression)
+	query := util2.MustNoError(ksql.List(ksql.STREAM).Expression)
 
 	pipeline, err := network.Net.Perform(
 		ctx,
@@ -77,7 +77,7 @@ func ListStreams(ctx context.Context) (dto.ShowStreams, error) {
 
 // Describe - responses with stream description
 func Describe(ctx context.Context, stream string) (dto.RelationDescription, error) {
-	query := util.MustNoError(ksql.Describe(ksql.STREAM, stream).Expression)
+	query := util2.MustNoError(ksql.Describe(ksql.STREAM, stream).Expression)
 
 	pipeline, err := network.Net.Perform(
 		ctx,
@@ -124,7 +124,7 @@ func Describe(ctx context.Context, stream string) (dto.RelationDescription, erro
 // with parent topic
 func Drop(ctx context.Context, stream string) error {
 
-	query := util.MustNoError(ksql.Drop(ksql.STREAM, stream).Expression)
+	query := util2.MustNoError(ksql.Drop(ksql.STREAM, stream).Expression)
 
 	pipeline, err := network.Net.Perform(
 		ctx,
@@ -179,7 +179,7 @@ func GetStream[S any](
 		s S
 	)
 
-	scheme, err := schema.NativeStructRepresentation(stream, s)
+	scheme, err := schema2.NativeStructRepresentation(stream, s)
 	if err != nil {
 		return nil, err
 	}
@@ -204,7 +204,7 @@ func GetStream[S any](
 		responseSchema[field.Name] = field.Kind
 	}
 
-	remoteSchema := schema.RemoteFieldsRepresentation(stream, responseSchema)
+	remoteSchema := schema2.RemoteFieldsRepresentation(stream, responseSchema)
 	if err = remoteSchema.CompareWithFields(scheme.Array()); err != nil {
 		return nil, fmt.Errorf("reflection check failed: %w", err)
 	}
@@ -228,7 +228,7 @@ func CreateStream[S any](
 		return nil, fmt.Errorf("validate settings: %w", err)
 	}
 
-	rmSchema, err := schema.NativeStructRepresentation(streamName, s)
+	rmSchema, err := schema2.NativeStructRepresentation(streamName, s)
 	if err != nil {
 		return nil, err
 	}
@@ -459,7 +459,7 @@ func (s *Stream[S]) InsertRow(
 				return fmt.Errorf("field %s is not represented in remote schema", field.Name)
 			}
 
-			val := util.Serialize(value)
+			val := util2.Serialize(value)
 			field.Value = &val
 
 		}

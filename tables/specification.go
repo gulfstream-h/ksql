@@ -7,16 +7,16 @@ import (
 	jsoniter "github.com/json-iterator/go"
 	"ksql/consts"
 	"ksql/database"
+	schema2 "ksql/internal/schema"
+	"ksql/internal/schema/report"
+	"ksql/internal/util"
 	"ksql/kernel/network"
 	"ksql/kernel/protocol/dao"
 	"ksql/kernel/protocol/dto"
 	"ksql/kinds"
 	"ksql/ksql"
-	"ksql/schema"
-	"ksql/schema/report"
 	"ksql/shared"
 	"ksql/static"
-	"ksql/util"
 	"log/slog"
 	"net/http"
 	"strings"
@@ -29,7 +29,7 @@ type Table[S any] struct {
 	Name         string
 	sourceTopic  string
 	partitions   int
-	remoteSchema schema.LintedFields
+	remoteSchema schema2.LintedFields
 	format       kinds.ValueFormat
 }
 
@@ -215,7 +215,7 @@ func GetTable[S any](
 		s S
 	)
 
-	scheme, err := schema.NativeStructRepresentation(table, s)
+	scheme, err := schema2.NativeStructRepresentation(table, s)
 	if err != nil {
 		return nil, err
 	}
@@ -240,7 +240,7 @@ func GetTable[S any](
 		responseSchema[field.Name] = field.Kind
 	}
 
-	remoteSchema := schema.RemoteFieldsRepresentation(table, responseSchema)
+	remoteSchema := schema2.RemoteFieldsRepresentation(table, responseSchema)
 	if err = remoteSchema.CompareWithFields(scheme.Array()); err != nil {
 		return nil, fmt.Errorf("reflection error %w", err)
 	}
@@ -258,7 +258,7 @@ func CreateTable[S any](
 		s S
 	)
 
-	rmSchema, err := schema.NativeStructRepresentation(tableName, s)
+	rmSchema, err := schema2.NativeStructRepresentation(tableName, s)
 	if err != nil {
 		return nil, err
 	}
