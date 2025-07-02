@@ -1,6 +1,8 @@
 package dao
 
-import "ksql/kernel/protocol/dto"
+import (
+	"ksql/internal/kernel/protocol/dto"
+)
 
 type Topic struct {
 	Name     string `json:"name"`

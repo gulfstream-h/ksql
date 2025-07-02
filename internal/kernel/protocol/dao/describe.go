@@ -1,7 +1,7 @@
 package dao
 
 import (
-	"ksql/kernel/protocol/dto"
+	"ksql/internal/kernel/protocol/dto"
 )
 
 type FieldSchema struct {

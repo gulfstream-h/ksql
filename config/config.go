@@ -3,7 +3,8 @@ package config
 import (
 	"context"
 	"fmt"
-	"ksql/kernel/network"
+	"ksql/errors"
+	"ksql/internal/kernel/network"
 	"ksql/shared"
 	"ksql/static"
 	"sync"
@@ -53,12 +54,12 @@ func New(
 func (cfg *config) Configure(ctx context.Context) (err error) {
 	once.Do(func() {
 		if cfg.Host == "" {
-			err = static.ErrMissingHost
+			err = errors.ErrMissingHost
 			return
 		}
 
 		if cfg.TimeoutSec <= 0 {
-			err = static.ErrTimeoutIsZeroOrNegative
+			err = errors.ErrTimeoutIsZeroOrNegative
 			return
 		}
 

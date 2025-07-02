@@ -2,7 +2,7 @@ package ksql
 
 import (
 	"fmt"
-	"ksql/util"
+	"ksql/internal/util"
 	"strconv"
 	"strings"
 )

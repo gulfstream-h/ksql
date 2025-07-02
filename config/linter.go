@@ -3,8 +3,8 @@ package config
 import (
 	"context"
 	"fmt"
+	"ksql/internal/schema"
 	"ksql/kinds"
-	"ksql/schema"
 	"ksql/shared"
 	"ksql/static"
 	"ksql/streams"

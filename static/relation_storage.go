@@ -2,7 +2,7 @@ package static
 
 import (
 	"errors"
-	"ksql/schema"
+	"ksql/internal/schema"
 	"ksql/shared"
 	"sync"
 )

@@ -3,7 +3,7 @@ package ksql
 import (
 	"fmt"
 	"github.com/stretchr/testify/assert"
-	"ksql/schema"
+	"ksql/internal/schema"
 	"ksql/static"
 	"regexp"
 	"sort"

@@ -2,7 +2,7 @@ package report
 
 import (
 	"fmt"
-	"ksql/schema"
+	"ksql/internal/schema"
 	"ksql/static"
 )
 

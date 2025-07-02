@@ -3,7 +3,7 @@ package ksql
 import (
 	"errors"
 	"fmt"
-	"ksql/schema"
+	schema2 "ksql/internal/schema"
 	"ksql/static"
 	"strings"
 	"sync"
@@ -16,8 +16,8 @@ type (
 		aggregated() bool
 		windowed() bool
 
-		Returns() schema.LintedFields
-		RelationReport() map[string]schema.LintedFields
+		Returns() schema2.LintedFields
+		RelationReport() map[string]schema2.LintedFields
 
 		As(alias string) SelectBuilder
 		Ref() Reference
@@ -66,7 +66,7 @@ type (
 
 		// relationStorage contains all relations that were added to the select builder
 		// it is used to validate reflection when static.ReflectionFlag is enabled
-		relationStorage map[string]schema.LintedFields
+		relationStorage map[string]schema2.LintedFields
 
 		// virtualSchemas contains pairs of alias and schema name
 		// used to resolve schema names in the select builder
@@ -194,7 +194,7 @@ func newSelectBuilder() SelectBuilder {
 		havingEx:         NewHavingExpression(),
 		groupByEx:        NewGroupByExpression(),
 		orderByEx:        NewOrderByExpression(),
-		relationStorage:  make(map[string]schema.LintedFields),
+		relationStorage:  make(map[string]schema2.LintedFields),
 		virtualSchemas:   make(map[string]string),
 		virtualColumns:   make(map[string]string),
 		returnTypeMapper: make(map[string][]returnNameMeta),
@@ -250,7 +250,7 @@ func (s *selectBuilder) Windowed(window WindowExpression) SelectBuilder {
 
 // SelectStruct creates a select builder from a struct representation
 func (s *selectBuilder) SelectStruct(name string, val any) SelectBuilder {
-	relation, err := schema.NativeStructRepresentation(name, val)
+	relation, err := schema2.NativeStructRepresentation(name, val)
 	if err != nil {
 		s.ctx.err = fmt.Errorf("cannot create relation from struct: %w", err)
 		return s
@@ -289,7 +289,7 @@ func (s *selectBuilder) Select(fields ...Field) SelectBuilder {
 
 	if static.ReflectionFlag {
 		for idx := range fields {
-			f := schema.SearchField{
+			f := schema2.SearchField{
 				Name:     fields[idx].Column(),
 				Relation: s.parseRelationName(fields[idx]),
 			}
@@ -427,7 +427,7 @@ func (s *selectBuilder) GroupBy(fields ...Field) SelectBuilder {
 			if len(relationName) == 0 {
 				continue
 			}
-			s.addSearchField(schema.SearchField{
+			s.addSearchField(schema2.SearchField{
 				Name:     fields[idx].Column(),
 				Relation: relationName,
 			})
@@ -482,7 +482,7 @@ func (s *selectBuilder) OrderBy(expressions ...OrderedExpression) SelectBuilder 
 			if len(relationName) == 0 {
 				continue
 			}
-			s.addSearchField(schema.SearchField{
+			s.addSearchField(schema2.SearchField{
 				Name:     field.Column(),
 				Relation: relationName,
 			})
@@ -656,8 +656,8 @@ func (s *selectBuilder) Expression() (string, error) {
 
 // Returns - returns all fields that were selected in the select builder
 // it also checks for fields existence in the relation storage
-func (s *selectBuilder) Returns() schema.LintedFields {
-	result := schema.NewLintedFields()
+func (s *selectBuilder) Returns() schema2.LintedFields {
+	result := schema2.NewLintedFields()
 
 	for fieldName, metaSlice := range s.returnTypeMapper {
 		for _, meta := range metaSlice {
@@ -688,7 +688,7 @@ func (s *selectBuilder) Returns() schema.LintedFields {
 
 // RelationReport - sets real relation names to aliased fields
 // if the reflection flag is enabled. Then it returns all processed fields
-func (s *selectBuilder) RelationReport() map[string]schema.LintedFields {
+func (s *selectBuilder) RelationReport() map[string]schema2.LintedFields {
 	if static.ReflectionFlag {
 
 		s.aliasRefresher.Do(func() {
@@ -748,7 +748,7 @@ func (s *selectBuilder) withAggregatedOperators() bool {
 // addRelation adds a relation to the relation storage
 func (s *selectBuilder) addRelation(
 	relationName string,
-	relation schema.LintedFields,
+	relation schema2.LintedFields,
 ) {
 	if relation == nil {
 		return
@@ -766,7 +766,7 @@ func (s *selectBuilder) addRelation(
 
 // addSearchField adds a search field to the relation storage
 func (s *selectBuilder) addSearchField(
-	field schema.SearchField,
+	field schema2.SearchField,
 ) {
 	if field.Relation == "" {
 		return
@@ -776,7 +776,7 @@ func (s *selectBuilder) addSearchField(
 		return
 	}
 	if s.relationStorage[field.Relation] == nil {
-		s.relationStorage[field.Relation] = schema.NewLintedFields()
+		s.relationStorage[field.Relation] = schema2.NewLintedFields()
 	}
 	s.relationStorage[field.Relation].Set(field)
 }
@@ -806,8 +806,8 @@ func (s *selectBuilder) parseRelationName(f Field) string {
 // parseSearchFieldsFromCond parses search fields from the conditional expression
 func (s *selectBuilder) parseSearchFieldsFromCond(
 	cond Conditional,
-) []schema.SearchField {
-	result := make([]schema.SearchField, 0, 2)
+) []schema2.SearchField {
+	result := make([]schema2.SearchField, 0, 2)
 
 	// parse relation name from the left side of the join condition
 	for _, f := range cond.Left() {
@@ -820,7 +820,7 @@ func (s *selectBuilder) parseSearchFieldsFromCond(
 			continue
 		}
 
-		result = append(result, schema.SearchField{
+		result = append(result, schema2.SearchField{
 			Name:     f.Column(),
 			Relation: relationName,
 		})
@@ -838,7 +838,7 @@ func (s *selectBuilder) parseSearchFieldsFromCond(
 			if len(relationName) == 0 {
 				continue
 			}
-			result = append(result, schema.SearchField{
+			result = append(result, schema2.SearchField{
 				Name:     rightField.Column(),
 				Relation: relationName,
 			})
