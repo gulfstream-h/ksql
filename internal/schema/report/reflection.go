@@ -2,7 +2,7 @@ package report
 
 import (
 	"fmt"
-	schema2 "ksql/internal/schema"
+	"ksql/internal/schema"
 	"ksql/static"
 )
 
@@ -10,7 +10,7 @@ import (
 // describe structure with collected fields
 func ReflectionReportRemote(
 	remote string,
-	parsed map[string]schema2.SearchField,
+	parsed map[string]schema.SearchField,
 ) error {
 	remoteRelation, err := static.FindRelationFields(remote)
 	if err != nil {
@@ -43,9 +43,9 @@ func ReflectionReportRemote(
 // and returns error on fields mismatch
 func ReflectionReportNative(
 	structure any,
-	parsed schema2.LintedFields,
+	parsed schema.LintedFields,
 ) error {
-	fields, err := schema2.NativeStructRepresentation("", structure)
+	fields, err := schema.NativeStructRepresentation("", structure)
 	if err != nil {
 		return fmt.Errorf("cannot get native struct representation: %w", err)
 	}

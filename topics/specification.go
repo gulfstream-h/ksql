@@ -5,11 +5,11 @@ import (
 	"errors"
 	"fmt"
 	jsoniter "github.com/json-iterator/go"
+	errors2 "ksql/errors"
 	"ksql/internal/kernel/network"
 	"ksql/internal/kernel/protocol/dao"
 	"ksql/internal/kernel/protocol/dto"
 	"ksql/ksql"
-	"ksql/static"
 	"net/http"
 )
 
@@ -33,7 +33,7 @@ func ListTopics(ctx context.Context) (dto.ShowTopics, error) {
 		return dto.ShowTopics{}, ctx.Err()
 	case val, ok := <-pipeline:
 		if !ok {
-			return dto.ShowTopics{}, static.ErrMalformedResponse
+			return dto.ShowTopics{}, errors2.ErrMalformedResponse
 		}
 
 		var (
@@ -41,7 +41,7 @@ func ListTopics(ctx context.Context) (dto.ShowTopics, error) {
 		)
 
 		if err = jsoniter.Unmarshal(val, &topics); err != nil {
-			err = errors.Join(static.ErrUnserializableResponse, err)
+			err = errors.Join(errors2.ErrUnserializableResponse, err)
 			return dto.ShowTopics{}, err
 		}
 

@@ -7,6 +7,7 @@ import (
 	jsoniter "github.com/json-iterator/go"
 	"ksql/consts"
 	"ksql/database"
+	errors2 "ksql/errors"
 	"ksql/internal/kernel/network"
 	dao2 "ksql/internal/kernel/protocol/dao"
 	dto2 "ksql/internal/kernel/protocol/dto"
@@ -55,7 +56,7 @@ func ListStreams(ctx context.Context) (dto2.ShowStreams, error) {
 		return dto2.ShowStreams{}, ctx.Err()
 	case val, ok := <-pipeline:
 		if !ok {
-			return dto2.ShowStreams{}, static.ErrMalformedResponse
+			return dto2.ShowStreams{}, errors2.ErrMalformedResponse
 		}
 
 		var (
@@ -63,7 +64,7 @@ func ListStreams(ctx context.Context) (dto2.ShowStreams, error) {
 		)
 
 		if err = jsoniter.Unmarshal(val, &streams); err != nil {
-			err = errors.Join(static.ErrUnserializableResponse, err)
+			err = errors.Join(errors2.ErrUnserializableResponse, err)
 			return dto2.ShowStreams{}, err
 		}
 
@@ -95,7 +96,7 @@ func Describe(ctx context.Context, stream string) (dto2.RelationDescription, err
 		return dto2.RelationDescription{}, ctx.Err()
 	case val, ok := <-pipeline:
 		if !ok {
-			return dto2.RelationDescription{}, static.ErrMalformedResponse
+			return dto2.RelationDescription{}, errors2.ErrMalformedResponse
 		}
 
 		var (
@@ -104,16 +105,16 @@ func Describe(ctx context.Context, stream string) (dto2.RelationDescription, err
 		slog.Info("response", "formatted", string(val))
 
 		if strings.Contains(string(val), "Could not find STREAM/TABLE") {
-			return dto2.RelationDescription{}, static.ErrStreamDoesNotExist
+			return dto2.RelationDescription{}, errors2.ErrStreamDoesNotExist
 		}
 
 		if err = jsoniter.Unmarshal(val, &describe); err != nil {
-			err = errors.Join(static.ErrUnserializableResponse, err)
+			err = errors.Join(errors2.ErrUnserializableResponse, err)
 			return dto2.RelationDescription{}, err
 		}
 
 		if len(describe) == 0 {
-			return dto2.RelationDescription{}, static.ErrStreamDoesNotExist
+			return dto2.RelationDescription{}, errors2.ErrStreamDoesNotExist
 		}
 
 		return describe[0].DTO(), nil
@@ -141,7 +142,7 @@ func Drop(ctx context.Context, stream string) error {
 		return ctx.Err()
 	case val, ok := <-pipeline:
 		if !ok {
-			return static.ErrMalformedResponse
+			return errors2.ErrMalformedResponse
 		}
 
 		var (
@@ -190,7 +191,7 @@ func GetStream[S any](
 	}
 	desc, err := Describe(ctx, stream)
 	if err != nil {
-		if errors.Is(err, static.ErrStreamDoesNotExist) || len(desc.Fields) == 0 {
+		if errors.Is(err, errors2.ErrStreamDoesNotExist) || len(desc.Fields) == 0 {
 			return nil, err
 		}
 		return nil, fmt.Errorf("cannot get stream description: %w", err)
@@ -263,7 +264,7 @@ func CreateStream[S any](
 		return nil, ctx.Err()
 	case val, ok := <-pipeline:
 		if !ok {
-			return nil, static.ErrMalformedResponse
+			return nil, errors2.ErrMalformedResponse
 		}
 
 		var (
@@ -424,7 +425,7 @@ func (s *Stream[S]) Insert(
 		return ctx.Err()
 	case val, ok := <-pipeline:
 		if !ok {
-			return static.ErrMalformedResponse
+			return errors2.ErrMalformedResponse
 		}
 
 		var (
@@ -485,7 +486,7 @@ func (s *Stream[S]) InsertRow(
 		return ctx.Err()
 	case val, ok := <-pipeline:
 		if !ok {
-			return static.ErrMalformedResponse
+			return errors2.ErrMalformedResponse
 		}
 
 		var (

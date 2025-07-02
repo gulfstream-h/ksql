@@ -7,6 +7,7 @@ import (
 	jsoniter "github.com/json-iterator/go"
 	"ksql/consts"
 	"ksql/database"
+	errors2 "ksql/errors"
 	"ksql/internal/kernel/network"
 	dao2 "ksql/internal/kernel/protocol/dao"
 	dto2 "ksql/internal/kernel/protocol/dto"
@@ -57,7 +58,7 @@ func ListTables(ctx context.Context) (
 		return dto2.ShowTables{}, ctx.Err()
 	case val, ok := <-pipeline:
 		if !ok {
-			return dto2.ShowTables{}, static.ErrMalformedResponse
+			return dto2.ShowTables{}, errors2.ErrMalformedResponse
 		}
 
 		var (
@@ -65,7 +66,7 @@ func ListTables(ctx context.Context) (
 		)
 
 		if err = jsoniter.Unmarshal(val, &tables); err != nil {
-			err = errors.Join(static.ErrUnserializableResponse, err)
+			err = errors.Join(errors2.ErrUnserializableResponse, err)
 			return dto2.ShowTables{}, err
 		}
 
@@ -97,7 +98,7 @@ func Describe(ctx context.Context, table string) (dto2.RelationDescription, erro
 		return dto2.RelationDescription{}, ctx.Err()
 	case val, ok := <-pipeline:
 		if !ok {
-			return dto2.RelationDescription{}, static.ErrMalformedResponse
+			return dto2.RelationDescription{}, errors2.ErrMalformedResponse
 		}
 
 		var (
@@ -105,11 +106,11 @@ func Describe(ctx context.Context, table string) (dto2.RelationDescription, erro
 		)
 
 		if strings.Contains(string(val), "Could not find STREAM/TABLE") {
-			return dto2.RelationDescription{}, static.ErrTableDoesNotExist
+			return dto2.RelationDescription{}, errors2.ErrTableDoesNotExist
 		}
 
 		if err = jsoniter.Unmarshal(val, &describe); err != nil {
-			err = errors.Join(static.ErrUnserializableResponse, err)
+			err = errors.Join(errors2.ErrUnserializableResponse, err)
 			return dto2.RelationDescription{}, err
 		}
 
@@ -141,7 +142,7 @@ func Drop(ctx context.Context, name string) error {
 		return ctx.Err()
 	case val, ok := <-pipeline:
 		if !ok {
-			return static.ErrMalformedResponse
+			return errors2.ErrMalformedResponse
 		}
 
 		var (
@@ -180,7 +181,7 @@ func Drop(ctx context.Context, name string) error {
 		return ctx.Err()
 	case val, ok := <-pipeline:
 		if !ok {
-			return static.ErrMalformedResponse
+			return errors2.ErrMalformedResponse
 		}
 
 		slog.Debug("received from pipiline", slog.String("val", string(val)))
@@ -226,7 +227,7 @@ func GetTable[S any](
 	}
 	desc, err := Describe(ctx, table)
 	if err != nil {
-		if errors.Is(err, static.ErrTableDoesNotExist) {
+		if errors.Is(err, errors2.ErrTableDoesNotExist) {
 			return nil, err
 		}
 		return nil, fmt.Errorf("cannot describe table: %w", err)
@@ -293,7 +294,7 @@ func CreateTable[S any](
 		return nil, ctx.Err()
 	case val, ok := <-pipeline:
 		if !ok {
-			return nil, static.ErrMalformedResponse
+			return nil, errors2.ErrMalformedResponse
 		}
 
 		var (
@@ -330,7 +331,7 @@ func CreateTable[S any](
 			return nil, ctx.Err()
 		case val, ok := <-pipeline:
 			if !ok {
-				return nil, static.ErrMalformedResponse
+				return nil, errors2.ErrMalformedResponse
 			}
 
 			var (
