@@ -8,6 +8,7 @@ import (
 )
 
 type (
+	// Conditional - common interface for all conditional expressions
 	Conditional interface {
 		Left() []Field
 		Right() []any
@@ -41,35 +42,50 @@ type (
 		In(val ...any) Conditional
 		NotIn(val ...any) Conditional
 	}
-
+	// Op - represents an operation type for boolean expressions
 	Op int
 )
 
 const (
+	// equal checks if a value is equal to another value
 	equal = Op(iota)
+	// notEqual checks if a value is not equal to another value
 	notEqual
+	// more checks if a value is greater than another value
 	more
+	// less checks if a value is greater than another value
 	less
+	// moreEqual checks if a value is greater than or equal to another value
 	moreEqual
+	// lessEqual checks if a value is less than or equal to another value
 	lessEqual
+	// isNull checks if a value is null
 	isNull
+	// isNotNull checks if a value is not null
 	isNotNull
+	// isTrue checks if a value is true
 	isTrue
+	// isFalse checks if a value is false
 	isFalse
+	// in is used to check if a value is in a set of values
 	in
+	// notIn is used to check if a value is not in a set of values
 	notIn
 )
 
+// booleanExp - represents a boolean expression with a left field, right value, and operation
 type booleanExp struct {
 	left      Field
 	right     any
 	operation Op
 }
 
+// NewBooleanExp - creates a new boolean expression with the given left field, right value, and operation
 func NewBooleanExp(left Field, right any, op Op) Conditional {
 	return &booleanExp{left: left, right: right, operation: op}
 }
 
+// Expression - accumulates all applied settings and build string query
 func (b *booleanExp) Expression() (string, error) {
 	var (
 		operation   string
@@ -172,10 +188,12 @@ func (b *booleanExp) Expression() (string, error) {
 	return fmt.Sprintf("%s %s %s", expression, operation, rightString), nil
 }
 
+// Left - returns left field of the boolean expression
 func (b *booleanExp) Left() []Field {
 	return []Field{b.left}
 }
 
+// Right - returns right value of the boolean expression
 func (b *booleanExp) Right() []any {
 	return []any{b.right}
 }

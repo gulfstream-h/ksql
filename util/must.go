@@ -1,13 +1,7 @@
 package util
 
-func MustTrue[T any](fn func() (T, bool)) T {
-	value, ok := fn()
-	if !ok {
-		panic("must return a true")
-	}
-	return value
-}
-
+// MustNoError - is used in functions where error signals about critical
+// functionality and the program should terminate immediately
 func MustNoError[T any](fn func() (T, error)) T {
 	value, err := fn()
 	if err != nil {

@@ -44,6 +44,8 @@ var (
 	TablesProjections  RelationStorage[shared.TableSettings]
 )
 
+// Get - returns cached settings value
+// with reflection inside
 func (rs *RelationStorage[S]) Get(name string) (S, bool) {
 	var (
 		s S
@@ -62,6 +64,7 @@ func (rs *RelationStorage[S]) Get(name string) (S, bool) {
 	return settings, true
 }
 
+// Set - cache some relation settings with schema inside
 func (rs *RelationStorage[S]) Set(
 	name string,
 	settings S,
@@ -74,7 +77,7 @@ func (rs *RelationStorage[S]) Set(
 }
 
 // Also schemas are required for DDL representation
-// And linter functionality in ksql.Builder & protocol.Unmarshaler
+// And linter functionality in sql builder
 
 // However in-memory relation storage is highly valuable for
 // fast building of streams and topics, reducing propagation

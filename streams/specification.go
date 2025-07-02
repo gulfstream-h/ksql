@@ -6,13 +6,13 @@ import (
 	"fmt"
 	jsoniter "github.com/json-iterator/go"
 	"ksql/consts"
+	"ksql/database"
 	"ksql/kernel/network"
 	"ksql/kernel/protocol/dao"
 	"ksql/kernel/protocol/dto"
 	"ksql/kinds"
 	"ksql/ksql"
 	"ksql/schema"
-	"ksql/schema/netparse"
 	"ksql/schema/report"
 	"ksql/shared"
 	"ksql/static"
@@ -28,14 +28,13 @@ import (
 // via referred to type functions calls
 type Stream[S any] struct {
 	Name         string
-	partitions   uint8
+	partitions   int
 	remoteSchema schema.LintedFields
 	format       kinds.ValueFormat
 }
 
 // ListStreams - responses with all streams list
-// in the current ksqlDB instance. Also it reloads
-// map of available projections
+// in the current ksqlDB instance
 func ListStreams(ctx context.Context) (dto.ShowStreams, error) {
 
 	query := util.MustNoError(ksql.List(ksql.STREAM).Expression)
@@ -76,9 +75,7 @@ func ListStreams(ctx context.Context) (dto.ShowStreams, error) {
 	}
 }
 
-// Describe - responses with stream description.
-// Can be used for table schema and query by which
-// it was created
+// Describe - responses with stream description
 func Describe(ctx context.Context, stream string) (dto.RelationDescription, error) {
 	query := util.MustNoError(ksql.Describe(ksql.STREAM, stream).Expression)
 
@@ -104,6 +101,11 @@ func Describe(ctx context.Context, stream string) (dto.RelationDescription, erro
 		var (
 			describe []dao.DescribeResponse
 		)
+		slog.Info("response", "formatted", string(val))
+
+		if strings.Contains(string(val), "Could not find STREAM/TABLE") {
+			return dto.RelationDescription{}, static.ErrStreamDoesNotExist
+		}
 
 		if err = jsoniter.Unmarshal(val, &describe); err != nil {
 			err = errors.Join(static.ErrUnserializableResponse, err)
@@ -111,7 +113,7 @@ func Describe(ctx context.Context, stream string) (dto.RelationDescription, erro
 		}
 
 		if len(describe) == 0 {
-			return dto.RelationDescription{}, errors.New("stream not found")
+			return dto.RelationDescription{}, static.ErrStreamDoesNotExist
 		}
 
 		return describe[0].DTO(), nil
@@ -119,7 +121,7 @@ func Describe(ctx context.Context, stream string) (dto.RelationDescription, erro
 }
 
 // Drop - drops stream from ksqlDB instance
-// with parent topic. Also deletes projection from list
+// with parent topic
 func Drop(ctx context.Context, stream string) error {
 
 	query := util.MustNoError(ksql.Drop(ksql.STREAM, stream).Expression)
@@ -166,8 +168,9 @@ func Drop(ctx context.Context, stream string) error {
 
 // GetStream - gets table from ksqlDB instance
 // by receiving http description from settings
-// current command return difference between
-// struct tags and remote schema
+// or from cache if reflection mode is enabled
+// if user-provided struct doesn't match
+// with ksql Description - function returns detailed error
 func GetStream[S any](
 	ctx context.Context,
 	stream string) (*Stream[S], error) {
@@ -210,8 +213,6 @@ func GetStream[S any](
 }
 
 // CreateStream - creates stream in ksqlDB instance
-// after creating, user should call
-// select or select with emit to get data from it
 func CreateStream[S any](
 	ctx context.Context,
 	streamName string,
@@ -238,7 +239,7 @@ func CreateStream[S any](
 
 	metadata := ksql.Metadata{
 		Topic:       settings.SourceTopic,
-		Partitions:  int(settings.Partitions),
+		Partitions:  settings.Partitions,
 		ValueFormat: kinds.JSON.String(),
 	}
 
@@ -274,7 +275,7 @@ func CreateStream[S any](
 			slog.String("value", string(val)),
 		)
 
-		if err := jsoniter.Unmarshal(val, &create); err != nil {
+		if err = jsoniter.Unmarshal(val, &create); err != nil {
 			return nil, fmt.Errorf("cannot unmarshal create response: %w", err)
 		}
 
@@ -301,8 +302,6 @@ func CreateStream[S any](
 
 // CreateStreamAsSelect - creates table in ksqlDB instance
 // with user built query
-// after creating, user should call
-// select or select with emit to get data from it
 func CreateStreamAsSelect[S any](
 	ctx context.Context,
 	streamName string,
@@ -510,8 +509,8 @@ func (s *Stream[S]) InsertRow(
 
 }
 
-// InsertAsSelect - provides insertion to stream functionality
-// written fields are pre-fetched from select query, that
+// InsertAs - provides insertion to stream.
+// written fields are pre-fetched from select query, which
 // is built by user
 func (s *Stream[S]) InsertAsSelect(
 	ctx context.Context,
@@ -565,11 +564,17 @@ func (s *Stream[S]) InsertAsSelect(
 		}
 
 		var (
-			insert dao.CreateRelationResponse
+			insert []dao.CreateRelationResponse
 		)
+
+		slog.Info("response", "formatted", string(val))
 
 		if err = jsoniter.Unmarshal(val, &insert); err != nil {
 			return fmt.Errorf("cannot unmarshal insert response: %w", err)
+		}
+
+		if len(insert) == 1 && insert[0].CommandStatus.Status == consts.SUCCESS {
+			return nil
 		}
 
 		return errors.New("unpredictable error occurred while inserting")
@@ -578,7 +583,7 @@ func (s *Stream[S]) InsertAsSelect(
 
 // SelectOnce - performs select query
 // and return only one http answer
-// channel is closed almost immediately
+// After channel closes
 func (s *Stream[S]) SelectOnce(
 	ctx context.Context) (S, error) {
 
@@ -586,8 +591,16 @@ func (s *Stream[S]) SelectOnce(
 		value S
 	)
 
+	var (
+		fields []ksql.Field
+	)
+
+	for _, field := range s.remoteSchema.Array() {
+		fields = append(fields, ksql.F(field.Name))
+	}
+
 	query, err := ksql.
-		SelectAsStruct(s.Name, s.remoteSchema).
+		Select(fields...).
 		From(ksql.Schema(s.Name, ksql.STREAM)).
 		Expression()
 
@@ -595,166 +608,47 @@ func (s *Stream[S]) SelectOnce(
 		return value, fmt.Errorf("build select query: %w", err)
 	}
 
-	pipeline, err := network.Net.PerformSelect(
-		ctx,
-		http.MethodPost,
-		query,
-		&network.LongPolling{},
-	)
+	valuesC, err := database.Select[S](ctx, query)
 	if err != nil {
-		return value, fmt.Errorf("cannot perform request: %w", err)
+		return value, err
 	}
 
-	var (
-		iter    = 0
-		headers dao.Header
-	)
+	value = <-valuesC
 
-	for {
-		select {
-		case <-ctx.Done():
-			return value, ctx.Err()
-		case val, ok := <-pipeline:
-			if !ok {
-				return value, static.ErrMalformedResponse
-			}
-
-			if strings.Contains(string(val), "Query Completed") {
-				return value, nil
-			}
-
-			if iter == 0 {
-				str := val[1 : len(val)-1]
-
-				if err = jsoniter.Unmarshal(str, &headers); err != nil {
-					return value, fmt.Errorf("cannot unmarshal headers: %w", err)
-				}
-
-				iter++
-				continue
-			}
-
-			var (
-				row dao.Row
-			)
-
-			if err = jsoniter.Unmarshal(val[:len(val)-1], &row); err != nil {
-				return value, fmt.Errorf("cannot unmarshal row: %w", err)
-			}
-
-			value, err = netparse.ParseNetResponse[S](headers, row)
-			if err != nil {
-				slog.Error(
-					"parse net response",
-					slog.String("error", err.Error()),
-					slog.Any("headers", headers),
-					slog.Any("row", row),
-				)
-				return value, err
-			}
-			return value, nil
-
-		}
-	}
+	return value, nil
 }
 
 // SelectWithEmit - performs
 // select with emit request
 // answer is received for every new record
 // and propagated to channel
-func (s *Stream[S]) SelectWithEmit(
-	ctx context.Context) (<-chan S, error) {
+func (s *Stream[S]) SelectWithEmit(ctx context.Context) (
+	<-chan S, context.CancelFunc, error,
+) {
+
+	ctx, cancel := context.WithCancel(ctx)
 
 	var (
-		value   S
-		valuesC = make(chan S)
+		fields []ksql.Field
 	)
 
-	query, err := ksql.SelectAsStruct(s.Name, value).
+	for _, field := range s.remoteSchema.Array() {
+		fields = append(fields, ksql.F(field.Name))
+	}
+
+	query, err := ksql.Select(fields...).
 		From(ksql.Schema(s.Name, ksql.STREAM)).
 		EmitChanges().
 		Expression()
 
 	if err != nil {
-		return nil, fmt.Errorf("build select query: %w", err)
+		return nil, cancel, fmt.Errorf("build select query: %w", err)
 	}
 
-	pipeline, err := network.Net.PerformSelect(
-		ctx,
-		http.MethodPost,
-		query,
-		&network.LongPolling{},
-	)
+	valuesC, err := database.Select[S](ctx, query)
 	if err != nil {
-		return nil, fmt.Errorf("cannot perform request: %w", err)
+		return nil, cancel, err
 	}
 
-	go func() {
-
-		var (
-			iter    = 0
-			headers dao.Header
-		)
-
-		for {
-			select {
-			case <-ctx.Done():
-				close(valuesC)
-				return
-			case val, ok := <-pipeline:
-				if !ok {
-					close(valuesC)
-					return
-				}
-
-				if iter == 0 {
-					str := val[1 : len(val)-1]
-
-					if err = jsoniter.Unmarshal(str, &headers); err != nil {
-						slog.Error(
-							"select with emit read loop",
-							slog.String("error", err.Error()),
-							slog.String("headers", string(str)),
-						)
-						return
-					}
-
-					iter++
-					continue
-				}
-
-				var (
-					row dao.Row
-				)
-
-				if err = jsoniter.Unmarshal(val[:len(val)-1], &row); err != nil {
-					slog.Error("select with emit read loop",
-						slog.String("error", err.Error()),
-						slog.String("val", string(val[:len(val)-1])),
-					)
-					continue
-				}
-
-				if len(row.FinalMessage) != 0 {
-					if row.FinalMessage == "Query Completed" {
-						continue
-					}
-				}
-				value, err = netparse.ParseNetResponse[S](headers, row)
-				if err != nil {
-					slog.Error(
-						"parse net response",
-						slog.String("error", err.Error()),
-						slog.Any("headers", headers),
-						slog.Any("row", row),
-					)
-					return
-				}
-
-				valuesC <- value
-			}
-		}
-	}()
-
-	return valuesC, nil
+	return valuesC, cancel, nil
 }

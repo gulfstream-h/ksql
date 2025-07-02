@@ -5,6 +5,8 @@ import (
 	"strings"
 )
 
+// Metadata - represents metadata for a Kafka topic or stream
+// for creation using the WITH clause in KSQL queries
 type Metadata struct {
 	Topic           string
 	ValueFormat     string
@@ -15,6 +17,7 @@ type Metadata struct {
 	KeyFormat       string
 }
 
+// Expression - generates a KSQL expression string for the metadata
 func (m *Metadata) Expression() string {
 	var (
 		str   strings.Builder

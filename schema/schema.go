@@ -11,6 +11,8 @@ import (
 	"strings"
 )
 
+// RemoteFieldsRepresentation - function that parse
+// ksql describe fields into implicit internal representation
 func RemoteFieldsRepresentation(
 	relationName string,
 	remoteFields map[string]string,
@@ -37,6 +39,8 @@ func RemoteFieldsRepresentation(
 	return schemaFields
 }
 
+// NativeStructRepresentation - function, that parse
+// client provided structure into implicit internal representation
 func NativeStructRepresentation(
 	relationName string,
 	structure any,
@@ -92,7 +96,8 @@ func NativeStructRepresentation(
 	return fields, nil
 }
 
+// isPrimary - return field with primary key
+// if field tag contains primary keyword
 func isPrimary(tag string) (string, bool) {
 	return strings.CutSuffix(tag, ", primary")
-
 }

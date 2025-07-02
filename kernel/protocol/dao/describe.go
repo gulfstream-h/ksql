@@ -39,13 +39,6 @@ type SourceDescription struct {
 	ClusterErrorStats    []any       `json:"clusterErrorStats"`
 }
 
-//curl -X POST \
-//-H "Content-Type: application/vnd.ksql.v1+json" \
-//-d '{
-//  "ksql": "DESCRIBE MY_STREAM;"
-//}' \
-//http://localhost:8088/ksql
-
 type DescribeResponse struct {
 	Type              string            `json:"@type"`
 	StatementText     string            `json:"statementText"`

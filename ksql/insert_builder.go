@@ -9,6 +9,7 @@ import (
 )
 
 type (
+	// InsertBuilder - common contract for all INSERT statements
 	InsertBuilder interface {
 		AsSelect(selectBuilder SelectBuilder) InsertBuilder
 		InsertStruct(val any) InsertBuilder
@@ -21,6 +22,7 @@ type (
 	// Row represents a map of column names to their values for an insert operation.
 	Row map[string]any
 
+	// insertBuilder implements the InsertBuilder interface for constructing INSERT statements
 	insertBuilder struct {
 		selectBuilder SelectBuilder
 		schema        string
@@ -33,6 +35,7 @@ type (
 	}
 )
 
+// Insert creates a new InsertBuilder for the specified reference type and schema
 func Insert(ref Reference, schema string) InsertBuilder {
 	return &insertBuilder{
 		schema:              schema,
@@ -43,10 +46,12 @@ func Insert(ref Reference, schema string) InsertBuilder {
 	}
 }
 
+// Reference returns the reference type of the insert operation, such as STREAM or TABLE
 func (i *insertBuilder) Reference() Reference {
 	return i.ref
 }
 
+// Rows adds one or more rows to the insert builder. Each row is a map of column names to values
 func (i *insertBuilder) Rows(rows ...Row) InsertBuilder {
 	for _, row := range rows {
 		if row == nil {
@@ -67,11 +72,13 @@ func (i *insertBuilder) Rows(rows ...Row) InsertBuilder {
 	return i
 }
 
+// AsSelect sets the select builder for the insert operation, allowing the insertion of results from a SELECT statement
 func (i *insertBuilder) AsSelect(selectBuilder SelectBuilder) InsertBuilder {
 	i.selectBuilder = selectBuilder
 	return i
 }
 
+// InsertStruct inserts a struct into the insert builder, converting it to a map of column names to values.
 func (i *insertBuilder) InsertStruct(val any) InsertBuilder {
 	fields, err := schema.NativeStructRepresentation(i.schema, val)
 	if err != nil {
@@ -95,10 +102,12 @@ func (i *insertBuilder) InsertStruct(val any) InsertBuilder {
 	return i
 }
 
+// Schema returns the schema of the insert operation.
 func (i *insertBuilder) Schema() string {
 	return i.schema
 }
 
+// Expression builds the INSERT expression based on the provided schema, columns, and values.
 func (i *insertBuilder) Expression() (string, error) {
 	if len(i.columns) == 0 && i.selectBuilder == nil {
 		return "", errors.New("cannot create INSERT expression with no columns or select statement")

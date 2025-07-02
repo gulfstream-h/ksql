@@ -146,10 +146,13 @@ func InitBase(ctx context.Context, pipe *DataPipeline) error {
 		ctx,
 		bigOrdersStreamName,
 		shared.StreamSettings{Partitions: 1},
-		ksql.SelectAsStruct(ordersStreamName, &Orders{}).
-			Where(ksql.F("quantity").Greater(50)),
+		ksql.SelectAsStruct(ordersStreamName, Orders{}).
+			Where(ksql.F("quantity").Greater(50)).
+			From(ksql.Schema(ordersStreamName, ksql.STREAM)),
 	)
-
+	if err != nil {
+		return fmt.Errorf("create big orders stream: %w", err)
+	}
 	pipe.bigOrders = bigOrders
 
 	enrichedOrders, err := streams.CreateStreamAsSelect[EnrichedOrders](
@@ -157,13 +160,13 @@ func InitBase(ctx context.Context, pipe *DataPipeline) error {
 		enrichedOrdersStreamName,
 		shared.StreamSettings{Partitions: 1},
 		ksql.Select(
-			ksql.F("o.order_id"),
-			ksql.F("o.customer_id"),
-			ksql.F("o.item_id"),
-			ksql.F("o.quantity"),
-			ksql.F("o.price"),
+			ksql.F("o.order_id").As("order_id"),
+			ksql.F("o.customer_id").As("customer_id"),
+			ksql.F("o.item_id").As("item_id"),
+			ksql.F("o.quantity").As("quantity"),
+			ksql.F("o.price").As("price"),
 			//ksql.F("o.order_time").As("order_time"),
-			ksql.F("i.item_name"),
+			ksql.F("i.item_name").As("item_name"),
 			ksql.F("c.name").As("customer_name"),
 		).
 			From(ksql.Schema(ordersStreamName, ksql.STREAM).As("o")).
@@ -178,6 +181,28 @@ func InitBase(ctx context.Context, pipe *DataPipeline) error {
 
 	return nil
 
+}
+
+func dropTableLogged(ctx context.Context, name string) {
+	err := tables.Drop(ctx, name)
+	if err != nil {
+		slog.Error(
+			"DROP TABLE",
+			slog.String("name", name),
+			slog.String("error", err.Error()),
+		)
+	}
+}
+
+func dropStreamLogged(ctx context.Context, name string) {
+	err := streams.Drop(ctx, name)
+	if err != nil {
+		slog.Error(
+			"DROP STREAM",
+			slog.String("name", name),
+			slog.String("error", err.Error()),
+		)
+	}
 }
 
 func produceOrdersLoop(ctx context.Context, stream *streams.Stream[Orders]) {
@@ -261,7 +286,7 @@ func produceCustomersLoop(ctx context.Context, stream *streams.Stream[Customers]
 }
 
 func listenLoop[E any](ctx context.Context, stream *streams.Stream[E]) error {
-	dataChan, err := stream.SelectWithEmit(ctx)
+	dataChan, _, err := stream.SelectWithEmit(ctx)
 	if err != nil {
 		return fmt.Errorf("select with emit: %w", err)
 	}
@@ -295,14 +320,15 @@ func main() {
 		return
 	}
 
-	streams.Drop(ctx, customersStreamName)
-	streams.Drop(ctx, inventoryStreamName)
-	tables.Drop(ctx, "QUERYABLE_CUSTOMERS")
-	tables.Drop(ctx, "QUERYABLE_INVENTORY")
-	streams.Drop(ctx, ordersStreamName)
-	streams.Drop(ctx, bigOrdersStreamName)
-	tables.Drop(ctx, customersTableName)
-	tables.Drop(ctx, inventoryTableName)
+	dropStreamLogged(ctx, bigOrdersStreamName)
+	dropStreamLogged(ctx, enrichedOrdersStreamName)
+	dropStreamLogged(ctx, customersStreamName)
+	dropStreamLogged(ctx, inventoryStreamName)
+	dropStreamLogged(ctx, ordersStreamName)
+	dropTableLogged(ctx, customersTableName)
+	dropTableLogged(ctx, inventoryTableName)
+
+	//<-time.After(time.Minute)
 
 	pipe := &DataPipeline{}
 	err = InitBase(ctx, pipe)

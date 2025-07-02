@@ -6,34 +6,41 @@ import (
 )
 
 type (
+	// WindowExpression - common contract for all window expressions
 	WindowExpression interface {
 		Expression() (string, error)
 		Type() WindowType
 	}
-
-	WindowType         int
+	// WindowType - specific type of the window expression
+	WindowType int
+	// WindowDurationUnit - specific time unit for the window duration
 	WindowDurationUnit int
 
+	// Window - base structure for all window expressions
 	window struct {
 		typ WindowType
 	}
 
+	// TumblingWindow, HoppingWindow, SessionWindow - specific window expressions
 	tumblingWindow struct {
 		window
 		unit TimeUnit
 	}
 
+	// HoppingWindow - represents a window that advances by a specified time unit
 	hoppingWindow struct {
 		window
 		size    TimeUnit
 		advance TimeUnit
 	}
 
+	// SessionWindow - represents a session window with a gap
 	sessionWindow struct {
 		window
 		gap TimeUnit
 	}
 
+	// TimeUnit - represents a time unit with a value and a unit type
 	TimeUnit struct {
 		Val  int64
 		Unit WindowDurationUnit
@@ -54,6 +61,7 @@ const (
 	Days
 )
 
+// NewTumblingWindow creates a new TumblingWindow with the specified time unit
 func NewTumblingWindow(unit TimeUnit) WindowExpression {
 	return &tumblingWindow{
 		window: window{typ: Tumbling},
@@ -61,6 +69,7 @@ func NewTumblingWindow(unit TimeUnit) WindowExpression {
 	}
 }
 
+// NewHoppingWindow creates a new HoppingWindow with the specified size and advance time units
 func NewHoppingWindow(size, advance TimeUnit) WindowExpression {
 	return &hoppingWindow{
 		window:  window{typ: Hopping},
@@ -69,6 +78,7 @@ func NewHoppingWindow(size, advance TimeUnit) WindowExpression {
 	}
 }
 
+// NewSessionWindow creates a new SessionWindow with the specified gap time unit
 func NewSessionWindow(gap TimeUnit) WindowExpression {
 	return &sessionWindow{
 		window: window{typ: Session},
@@ -76,7 +86,10 @@ func NewSessionWindow(gap TimeUnit) WindowExpression {
 	}
 }
 
+// Type returns the type of the window expression
 func (w *window) Type() WindowType { return w.typ }
+
+// serializeTimeUnit converts a WindowDurationUnit to its string representation
 func (w *window) serializeTimeUnit(unit WindowDurationUnit) string {
 	switch unit {
 	case Milliseconds:
@@ -94,6 +107,7 @@ func (w *window) serializeTimeUnit(unit WindowDurationUnit) string {
 	}
 }
 
+// Expression accumulates all applied settings and builds the string query for the tumbling window
 func (sw *tumblingWindow) Expression() (string, error) {
 	if sw.unit.Val <= 0 {
 		return "", errors.New("tumbling window size must be greater than 0")
@@ -108,6 +122,7 @@ func (sw *tumblingWindow) Expression() (string, error) {
 
 }
 
+// Expression accumulates all applied settings and builds the string query for the hopping window
 func (hw *hoppingWindow) Expression() (string, error) {
 	if hw.size.Val <= 0 {
 		return "", errors.New("hopping window size must be greater than 0")
@@ -131,6 +146,7 @@ func (hw *hoppingWindow) Expression() (string, error) {
 		", ADVANCE BY " + strconv.FormatInt(hw.advance.Val, 10) + " " + advanceTimeUnit + ")", nil
 }
 
+// Expression accumulates all applied settings and builds the string query for the session window
 func (sw *sessionWindow) Expression() (string, error) {
 	if sw.gap.Val <= 0 {
 		return "", errors.New("session window gap must be greater than 0")

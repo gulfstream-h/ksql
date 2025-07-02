@@ -220,7 +220,7 @@ func listenLoop[E any](
 	ctx context.Context,
 	stream *streams.Stream[E],
 ) error {
-	dataChan, err := stream.SelectWithEmit(ctx)
+	dataChan, _, err := stream.SelectWithEmit(ctx)
 	if err != nil {
 		return fmt.Errorf("select with emit: %w", err)
 	}

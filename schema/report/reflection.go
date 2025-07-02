@@ -6,6 +6,8 @@ import (
 	"ksql/static"
 )
 
+// ReflectionReportRemote - compares in-cache
+// describe structure with collected fields
 func ReflectionReportRemote(
 	remote string,
 	parsed map[string]schema.SearchField,
@@ -36,6 +38,9 @@ func ReflectionReportRemote(
 	return nil
 }
 
+// ReflectionReportNative - compares custom
+// structure with builder collected fields
+// and returns error on fields mismatch
 func ReflectionReportNative(
 	structure any,
 	parsed schema.LintedFields,

@@ -2,11 +2,14 @@ package netparse
 
 import (
 	"fmt"
+	"ksql/consts"
 	"ksql/kernel/protocol/dao"
 	"ksql/reflector"
 	"strings"
 )
 
+// ParseNetResponse - parses ksql string select row
+// into defined fields of clients generic
 func ParseNetResponse[S any](
 	headers dao.Header,
 	row dao.Row,
@@ -35,7 +38,10 @@ func ParseNetResponse[S any](
 			structField := typ.Field(i)
 			fieldVal := val.Field(i)
 
-			if strings.EqualFold(structField.Tag.Get("ksql"), k) {
+			tag := structField.Tag.Get(consts.KSQL)
+			fieldName, _, _ := strings.Cut(tag, ",")
+
+			if strings.EqualFold(fieldName, k) {
 				if fieldVal.CanSet() && v != nil {
 					val, ok := NormalizeValue(v, fieldVal.Type())
 					if ok {

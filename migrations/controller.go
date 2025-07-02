@@ -8,27 +8,26 @@ import (
 	"ksql/shared"
 	"ksql/static"
 	"ksql/streams"
-	"ksql/tables"
 	"log/slog"
 	"net/http"
 	"time"
 )
 
 const (
-	systemStreamName = "seeker_stream"
-	systemTableName  = "seeker_table"
+	systemStreamName = "seeker_stream" //ksql-system-stream name
 )
 
+// ksqlController - essence that manages
+// iteration with embedded ksql system stream
 type ksqlController struct {
 	host   string
 	stream *streams.Stream[migrationRelation]
-	table  *tables.Table[migrationRelation]
 }
 
 type (
 	migrationRelation struct {
-		Version   string `ksql:"version,primary"`
-		UpdatedAt string `ksql:"updated_at"`
+		Version   string `ksql:"VERSION"`
+		UpdatedAt string `ksql:"UPDATED_AT"`
 	}
 )
 
@@ -39,14 +38,15 @@ func newKsqlController(host string) controller {
 }
 
 func (ctrl *ksqlController) createSystemRelations(
-	ctx context.Context) (*tables.Table[migrationRelation], error) {
+	ctx context.Context) (*streams.Stream[migrationRelation], error) {
 
 	var (
 		topic      = "migrations"
-		partitions = uint8(1)
+		partitions = 1
 	)
 
 	settings := shared.StreamSettings{
+		Name:        systemStreamName,
 		Format:      kinds.JSON,
 		SourceTopic: topic,
 		Partitions:  partitions,
@@ -60,37 +60,27 @@ func (ctrl *ksqlController) createSystemRelations(
 		return nil, err
 	}
 
-	ctrl.stream = migStream
-
-	migTable, err := tables.CreateTable[migrationRelation](ctx, systemTableName, shared.TableSettings{
-		SourceTopic: topic,
-		Format:      kinds.JSON,
-	})
-	if err != nil {
-		return nil, err
-	}
-
 	if err = migStream.InsertRow(ctx, map[string]any{
-		"version":    time.Time{}.Format(time.RFC3339),
-		"updated_at": time.Time{}.Format(time.RFC3339),
+		"VERSION":    time.Time{}.Format(time.RFC3339),
+		"UPDATED_AT": time.Time{}.Format(time.RFC3339),
 	}); err != nil {
 		slog.Debug("cannot insert default values to migration stream")
 
 		return nil, err
 	}
 
-	return migTable, nil
+	return migStream, nil
 }
 
 func (k *ksqlController) GetLatestVersion(ctx context.Context) (time.Time, error) {
-	migrationTable, err := tables.GetTable[migrationRelation](
+	migrationStream, err := streams.GetStream[migrationRelation](
 		ctx,
-		systemTableName,
+		systemStreamName,
 	)
 
-	if errors.Is(err, static.ErrTableDoesNotExist) {
+	if errors.Is(err, static.ErrStreamDoesNotExist) {
 		slog.Debug("migration table doesnt exist")
-		migrationTable, err = k.createSystemRelations(ctx)
+		migrationStream, err = k.createSystemRelations(ctx)
 		return time.Time{}, err
 	}
 
@@ -98,16 +88,16 @@ func (k *ksqlController) GetLatestVersion(ctx context.Context) (time.Time, error
 		return time.Time{}, err
 	}
 
-	k.table = migrationTable
+	k.stream = migrationStream
 
-	message, err := migrationTable.SelectWithEmit(ctx)
+	msg, err := migrationStream.SelectOnce(ctx)
 	if err != nil {
 		return time.Time{}, err
 	}
 
-	msg := <-message
+	slog.Info("selected", "version", msg)
 
-	v, err := time.Parse(time.RFC3339, msg.UpdatedAt)
+	v, err := time.Parse(time.RFC3339, msg.Version)
 	if err != nil {
 		return time.Time{}, err
 	}
@@ -128,17 +118,22 @@ func (k *ksqlController) UpgradeWithMigration(
 		return ErrMigrationServiceNotAvailable
 	}
 
-	if _, err = network.Net.Perform(
+	resp, err := network.Net.Perform(
 		ctx,
 		http.MethodPost,
 		query, network.ShortPolling{},
-	); err != nil {
+	)
+	if err != nil {
 		return errors.Join(ErrMigrationServiceNotAvailable, err)
 	}
 
+	for v := range resp {
+		slog.Info("mig resp", "formatted", string(v))
+	}
+
 	fields := map[string]any{
-		"version":    version.Format(time.RFC3339),
-		"updated_at": time.Now().Format(time.RFC3339),
+		"VERSION":    version.Format(time.RFC3339),
+		"UPDATED_AT": time.Now().Format(time.RFC3339),
 	}
 
 	if err = stream.InsertRow(ctx, fields); err != nil {

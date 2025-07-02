@@ -13,14 +13,22 @@ import (
 )
 
 type (
+	// _NoReflectionMode - applying no-cache mode of application.
+	// There is no query fields check-ups
 	_NoReflectionMode struct{}
-	_ReflectionMode   struct{}
+	// _ReflectionMode - applying relation cache mode.
+	// All existing relations are additionally parsed to internal formats
+	// so query builder matches user-listed fields with cached storage.
+	// if field is not presented in cache or user-provided type mismatch with
+	// cashed value - reflection check will return an error before executing query
+	_ReflectionMode struct{}
 )
 
 func (mode _NoReflectionMode) InitLinter(context.Context) error {
 	return nil
 }
 
+// InitLinter - caches streams & tables. Eventually, it changes global reflection variable
 func (mode _ReflectionMode) InitLinter(ctx context.Context) error {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
@@ -50,14 +58,10 @@ func (mode _ReflectionMode) InitLinter(ctx context.Context) error {
 			responseSchema[field.Name] = field.Kind
 		}
 
-		fields := schema.RemoteFieldsRepresentation(stream.Name, responseSchema)
-		static.StreamsProjections.Set("", shared.StreamSettings{
-			Name:        "",
-			SourceTopic: "",
-			Partitions:  1,
-			Format:      0,
-			DeleteFunc:  nil,
-		}, fields)
+		static.StreamsProjections.Set(stream.Name, shared.StreamSettings{
+			SourceTopic: stream.Topic,
+			Format:      kinds.JSON,
+		}, schema.RemoteFieldsRepresentation(stream.Name, responseSchema))
 	}
 
 	tableList, err := tables.ListTables(ctx)
@@ -82,13 +86,10 @@ func (mode _ReflectionMode) InitLinter(ctx context.Context) error {
 			responseSchema[field.Name] = field.Kind
 		}
 
-		fields := schema.RemoteFieldsRepresentation(table.Name, responseSchema)
-
 		static.StreamsProjections.Set(table.Name, shared.StreamSettings{
-			Name:        table.Name,
 			SourceTopic: table.Topic,
 			Format:      kinds.JSON,
-		}, fields)
+		}, schema.RemoteFieldsRepresentation(table.Name, responseSchema))
 	}
 
 	return nil

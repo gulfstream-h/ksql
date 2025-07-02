@@ -87,7 +87,7 @@ func StreamFromTopic(
 		return fmt.Errorf("create stream: %w", err)
 	}
 
-	readChan, err := stream.SelectWithEmit(ctx)
+	readChan, _, err := stream.SelectWithEmit(ctx)
 	if err != nil {
 		return fmt.Errorf("select with emit: %w", err)
 	}
