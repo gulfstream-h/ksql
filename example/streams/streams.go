@@ -156,7 +156,7 @@ func SelectWithEmit(ctx context.Context) {
 func CreateAsSelect(ctx context.Context) {
 	sql := ksql.Select(ksql.F("ID"), ksql.F("TOKEN")).From(ksql.Schema(streamName, ksql.STREAM))
 	sourceTopic := "examples-topics"
-	dublicateStream, err := streams.CreateStreamAsSelect[ExampleStream](ctx, "dublicateStream", shared.StreamSettings{
+	_, err := streams.CreateStreamAsSelect[ExampleStream](ctx, "dublicateStream", shared.StreamSettings{
 		SourceTopic: sourceTopic,
 		Format:      kinds.JSON,
 	}, sql)
@@ -165,7 +165,7 @@ func CreateAsSelect(ctx context.Context) {
 		return
 	}
 
-	slog.Info("stream created!", dublicateStream.Name)
+	slog.Info("stream created!")
 }
 
 func InsertAsSelect(ctx context.Context) {

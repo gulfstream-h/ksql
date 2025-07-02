@@ -141,7 +141,7 @@ func SelectWithEmit(ctx context.Context) {
 func CreateAsSelect(ctx context.Context) {
 	sql := ksql.Select(ksql.F("ID"), ksql.F("TOKEN")).From(ksql.Schema("EXAMPLETABLE", ksql.TABLE))
 	sourceTopic := "examples-topics"
-	dublicateTable, err := tables.CreateTableAsSelect[ExampleTable](ctx, "dublicate", shared.TableSettings{
+	_, err := tables.CreateTableAsSelect[ExampleTable](ctx, "dublicate", shared.TableSettings{
 		SourceTopic: sourceTopic,
 		Format:      kinds.JSON,
 	}, sql)
@@ -150,5 +150,5 @@ func CreateAsSelect(ctx context.Context) {
 		return
 	}
 
-	slog.Info("table created!", dublicateTable.Name)
+	slog.Info("table created!")
 }
