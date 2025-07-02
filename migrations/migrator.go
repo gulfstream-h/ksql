@@ -6,10 +6,13 @@ import (
 	"log/slog"
 	"math"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
 )
+
+type migrationPath string
 
 // migrator - orchestrate migration actions
 type migrator struct {
@@ -19,10 +22,18 @@ type migrator struct {
 }
 
 // New - creates new migration orchestrator
-func New(host, migrationPath string) Migrator {
+func New(host string, migrationPath migrationPath) Migrator {
 	return &migrator{
-		migrationPath: migrationPath,
+		migrationPath: string(migrationPath),
 		ctrl:          newKsqlController(host),
+	}
+}
+
+// GenPath - returns function for building migration absolute path
+func GenPath() func(relPath string) (migrationPath, error) {
+	return func(relPath string) (migrationPath, error) {
+		absPath, err := filepath.Abs(relPath)
+		return migrationPath(absPath), err
 	}
 }
 
@@ -41,6 +52,7 @@ func (m *migrator) AutoMigrate(ctx context.Context) error {
 	}
 
 	for _, file := range files {
+
 		if file.IsDir() {
 			continue
 		}

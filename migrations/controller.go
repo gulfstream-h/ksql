@@ -46,6 +46,7 @@ func (ctrl *ksqlController) createSystemRelations(
 	)
 
 	settings := shared.StreamSettings{
+		Name:        systemStreamName,
 		Format:      kinds.JSON,
 		SourceTopic: topic,
 		Partitions:  partitions,

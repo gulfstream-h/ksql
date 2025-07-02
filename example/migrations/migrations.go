@@ -9,11 +9,17 @@ import (
 
 const (
 	ksqlURL       = "http://localhost:8088"
-	migrationPath = "/Users/shaya/Mein/ksql/ksqlmig/"
+	migrationPath = "./migrations"
 )
 
 func main() {
-	migration := migrations.New(ksqlURL, migrationPath)
+	path, err := migrations.GenPath()(migrationPath)
+	if err != nil {
+		slog.Error("cannot get migration path", "error", err.Error())
+		return
+	}
+
+	migration := migrations.New(ksqlURL, path)
 	if err := migration.AutoMigrate(context.Background()); err != nil {
 		slog.Error("cannot automigrate", "error", err.Error())
 		return
