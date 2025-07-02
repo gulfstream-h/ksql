@@ -144,15 +144,7 @@ var (
 		description: `Aggregated functions require GROUP BY clause`,
 	}
 
-	// 4. EMIT CHANGES can be used only with streams
-	emitChangesWithStream = selectBuilderRule{
-		ruleFn: func(builder *selectBuilder) (valid bool) {
-			return !(builder.ref != STREAM && builder.emitChanges)
-		},
-		description: `EMIT CHANGES can be used only with streams`,
-	}
-
-	// 5. Windowed expressions are not allowed in TABLE references
+	// 4. Windowed expressions are not allowed in TABLE references
 	windowInTable = selectBuilderRule{
 		ruleFn: func(builder *selectBuilder) (valid bool) {
 			return !(builder.ref == TABLE && builder.windowEx != nil)
@@ -160,7 +152,7 @@ var (
 		description: `Windowed expressions are not allowed in TABLE references`,
 	}
 
-	// 6. EMIT FINAL can be used only with tables
+	// 5. EMIT FINAL can be used only with tables
 	emitFinalWithTable = selectBuilderRule{
 		ruleFn: func(builder *selectBuilder) (valid bool) {
 			return !(builder.ref != TABLE && builder.emitFinal)
@@ -168,7 +160,7 @@ var (
 		description: `EMIT FINAL can be used only with tables`,
 	}
 
-	// 7. EMIT FINAL and EMIT CHANGES cannot be used together
+	// 6. EMIT FINAL and EMIT CHANGES cannot be used together
 	emitFinalAndChanges = selectBuilderRule{
 		ruleFn: func(builder *selectBuilder) (valid bool) {
 			return !(builder.emitFinal && builder.emitChanges)
