@@ -620,8 +620,8 @@ func Test_SelectBuilder(t *testing.T) {
 			selectSQL: Select(F("table.column1")).
 				From(Schema("table", TABLE)).
 				EmitChanges(),
-			expected:  "",
-			expectErr: true,
+			expected:  "SELECT table.column1 FROM table EMIT CHANGES;",
+			expectErr: false,
 		},
 		{
 			name: "SELECT with GROUP BY on stream without WINDOW (invalid)",
