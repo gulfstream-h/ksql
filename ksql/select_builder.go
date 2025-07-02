@@ -710,7 +710,6 @@ func (s *selectBuilder) RelationReport() map[string]schema.LintedFields {
 						s.relationStorage[schemaName].Set(v)
 					}
 					delete(s.relationStorage, alias)
-					fmt.Println(s.relationStorage)
 					continue
 				}
 			}

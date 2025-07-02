@@ -316,13 +316,6 @@ func CreateStreamAsSelect[S any](
 	}
 
 	fields := selectBuilder.Returns()
-	if streamName == "enriched_orders" {
-		fmt.Println("###RETURNS###")
-		fmt.Println(fields.Map())
-
-		fmt.Println("###QUERY###")
-		fmt.Println(selectBuilder.Expression())
-	}
 
 	if len(fields.Map()) == 0 {
 		return nil, errors.New("select builder must return at least one field")
