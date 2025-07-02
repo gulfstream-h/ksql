@@ -15,26 +15,21 @@ const (
 	ksqlURL = "http://localhost:8088"
 )
 
+// Every of the functions below can be uncommented
+// and executed independently (except for create)
+// in testing and debug purposes
+
 func main() {
-	ctx := context.Background()
+	//ctx := context.Background()
 	//List(ctx)
 	//Create(ctx)
 	//Describe(ctx)
 	//Drop(ctx)
-	//t := time.NewTicker(5 * time.Second)
-	//go func() {
-	//	for {
-	//		select {
-	//		case <-t.C:
-	//			Insert(ctx)
-	//		}
-	//	}
-	//}()
 	//Insert(ctx)
 	//Select(ctx)
 	//SelectWithEmit(ctx)
 	//CreateAsSelect(ctx)
-	InsertAsSelect(ctx)
+	//InsertAsSelect(ctx)
 }
 
 func init() {
@@ -140,14 +135,13 @@ func Select(ctx context.Context) {
 }
 
 func SelectWithEmit(ctx context.Context) {
-	// Fix tommorow: invalid select builder: GROUP BY requires WINDOW clause on streams"
 	exampleStream, err := streams.GetStream[ExampleStream](ctx, streamName)
 	if err != nil {
 		slog.Error("cannot get stream", "error", err.Error())
 		return
 	}
 
-	notesStream, err := exampleStream.SelectWithEmit(ctx)
+	notesStream, cancel, err := exampleStream.SelectWithEmit(ctx)
 	if err != nil {
 		slog.Error("error during emit", "error", err.Error())
 		return
@@ -155,13 +149,14 @@ func SelectWithEmit(ctx context.Context) {
 
 	for note := range notesStream {
 		slog.Info("received note", "note", note)
+		cancel()
 	}
 }
 
 func CreateAsSelect(ctx context.Context) {
 	sql := ksql.Select(ksql.F("ID"), ksql.F("TOKEN")).From(ksql.Schema(streamName, ksql.STREAM))
 	sourceTopic := "examples-topics"
-	dublicateStream, err := streams.CreateStreamAsSelect[ExampleStream](ctx, "dublicateStream", shared.StreamSettings{
+	_, err := streams.CreateStreamAsSelect[ExampleStream](ctx, "dublicateStream", shared.StreamSettings{
 		SourceTopic: sourceTopic,
 		Format:      kinds.JSON,
 	}, sql)
@@ -170,7 +165,7 @@ func CreateAsSelect(ctx context.Context) {
 		return
 	}
 
-	slog.Info("stream created!", dublicateStream.Name)
+	slog.Info("stream created!")
 }
 
 func InsertAsSelect(ctx context.Context) {

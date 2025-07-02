@@ -6,6 +6,7 @@ import (
 	"strings"
 )
 
+// WhereExpression - common contract for all WHERE expressions
 type WhereExpression interface {
 	IsEmpty() bool
 	Expression() (string, error)
@@ -13,18 +14,22 @@ type WhereExpression interface {
 	Where(exps ...Conditional) WhereExpression
 }
 
+// where - base implementation of the WhereExpression interface
 type where struct {
 	conditionals []Conditional
 }
 
+// NewWhereExpression creates a new instance of WhereExpression.
 func NewWhereExpression() WhereExpression {
 	return &where{}
 }
 
+// IsEmpty checks if the WHERE clause has no conditionals.
 func (w *where) IsEmpty() bool {
 	return len(w.conditionals) == 0
 }
 
+// Expression builds the WHERE clause expression from the conditionals.
 func (w *where) Expression() (string, error) {
 	if len(w.conditionals) == 0 {
 		return "", errors.New("where expression cannot be empty")
@@ -54,14 +59,15 @@ func (w *where) Expression() (string, error) {
 	return builder.String(), nil
 }
 
+// Conditionals returns a copy of the conditionals in the WHERE clause.
 func (w *where) Conditionals() []Conditional {
 	conditionals := make([]Conditional, len(w.conditionals))
 	copy(conditionals, w.conditionals)
 	return conditionals
 }
 
+// Where adds conditional expressions to the WHERE clause.
 func (w *where) Where(exps ...Conditional) WhereExpression {
 	w.conditionals = append(w.conditionals, exps...)
 	return w
-
 }

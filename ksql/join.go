@@ -6,6 +6,7 @@ import (
 )
 
 type (
+	// JoinExpression - common contract for all JOIN expressions
 	JoinExpression interface {
 		Schema() string
 		On() Conditional
@@ -13,12 +14,13 @@ type (
 		Expression() (string, error)
 	}
 
+	// Conditional - represents a conditional expression used in joins
 	join struct {
 		on        Conditional
 		fromEx    FromExpression
 		operation JoinType
 	}
-
+	// JoinType - represents the type of join merge algorithm
 	JoinType int
 )
 
@@ -30,6 +32,7 @@ const (
 	Cross
 )
 
+// Join creates a new JoinExpression with the specified FROM expression, ON condition, and join type.
 func Join(schema FromExpression, on Conditional, joinType JoinType) JoinExpression {
 	return &join{
 		on:        on,
@@ -38,18 +41,22 @@ func Join(schema FromExpression, on Conditional, joinType JoinType) JoinExpressi
 	}
 }
 
+// Schema returns the schema of the join expression, which is the schema of the FROM expression.
 func (j *join) Schema() string {
 	return j.fromEx.Schema()
 }
 
+// On returns the conditional expression used for the join.
 func (j *join) On() Conditional {
 	return j.on
 }
 
+// Type returns the type of the join operation.
 func (j *join) Type() JoinType {
 	return j.operation
 }
 
+// Expression returns the KSQL expression for the JOIN operation.
 func (j *join) Expression() (string, error) {
 	var (
 		operationString string

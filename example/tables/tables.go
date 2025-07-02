@@ -15,13 +15,17 @@ const (
 	ksqlURL = "http://localhost:8088"
 )
 
+// Every of the functions below can be uncommented
+// and executed independently (except for create)
+// in testing and debug purposes
+
 func main() {
-	ctx := context.Background()
+	//ctx := context.Background()
 	//List(ctx)
 	//Create(ctx)
 	//Describe(ctx)
 	//Drop(ctx)
-	Select(ctx)
+	//Select(ctx)
 	//SelectWithEmit(ctx)
 	//CreateAsSelect(ctx)
 }
@@ -122,7 +126,7 @@ func SelectWithEmit(ctx context.Context) {
 		return
 	}
 
-	notesStream, err := exampleTable.SelectWithEmit(ctx)
+	notesStream, cancel, err := exampleTable.SelectWithEmit(ctx)
 	if err != nil {
 		slog.Error("error during emit", "error", err.Error())
 		return
@@ -130,13 +134,14 @@ func SelectWithEmit(ctx context.Context) {
 
 	for note := range notesStream {
 		slog.Info("received note", "note", note)
+		cancel()
 	}
 }
 
 func CreateAsSelect(ctx context.Context) {
 	sql := ksql.Select(ksql.F("ID"), ksql.F("TOKEN")).From(ksql.Schema("EXAMPLETABLE", ksql.TABLE))
 	sourceTopic := "examples-topics"
-	dublicateTable, err := tables.CreateTableAsSelect[ExampleTable](ctx, "dublicate", shared.TableSettings{
+	_, err := tables.CreateTableAsSelect[ExampleTable](ctx, "dublicate", shared.TableSettings{
 		SourceTopic: sourceTopic,
 		Format:      kinds.JSON,
 	}, sql)
@@ -145,5 +150,5 @@ func CreateAsSelect(ctx context.Context) {
 		return
 	}
 
-	slog.Info("table created!", dublicateTable.Name)
+	slog.Info("table created!")
 }

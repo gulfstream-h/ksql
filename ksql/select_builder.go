@@ -10,6 +10,7 @@ import (
 )
 
 type (
+	// SelectBuilder - common contract for all SELECT statements
 	SelectBuilder interface {
 		Joiner
 		aggregated() bool
@@ -36,6 +37,7 @@ type (
 		Expression() (string, error)
 	}
 
+	// Joiner - common contract for all JOIN operations in SELECT statements
 	Joiner interface {
 		LeftJoin(
 			from FromExpression,
@@ -55,6 +57,7 @@ type (
 		) SelectBuilder
 	}
 
+	// selectBuilder implements the SelectBuilder interface for constructing SELECT statements
 	selectBuilder struct {
 		ctx         selectBuilderCtx
 		ref         Reference
@@ -93,15 +96,16 @@ type (
 		orderByEx OrderByExpression
 	}
 
+	// selectBuilderCtx - context for the select builder
 	selectBuilderCtx struct {
 		err error
 	}
-
+	// selectBuilderRule - defines a rule for validating select statements
 	selectBuilderRule struct {
 		ruleFn      func(builder *selectBuilder) (valid bool)
 		description string
 	}
-
+	// returnNameMeta - metadata for the return type mapper
 	returnNameMeta struct {
 		relation string
 		alias    string
@@ -178,6 +182,7 @@ var (
 	}
 )
 
+// newSelectBuilder initializes a new SelectBuilder with default values
 func newSelectBuilder() SelectBuilder {
 
 	return &selectBuilder{
@@ -196,44 +201,54 @@ func newSelectBuilder() SelectBuilder {
 	}
 }
 
+// Select initializes a new SelectBuilder with the provided fields
 func Select(fields ...Field) SelectBuilder {
 	sb := newSelectBuilder()
 
 	return sb.Select(fields...)
 }
 
+// SelectAsStruct initializes a new SelectBuilder with a struct representation
+// from which fields will be extracted
 func SelectAsStruct(name string, val any) SelectBuilder {
 	sb := newSelectBuilder()
 	return sb.SelectStruct(name, val)
 }
 
+// EmitFinal sets the select builder to emit final results
 func (s *selectBuilder) EmitFinal() SelectBuilder {
 	s.emitFinal = true
 	return s
 }
 
+// aggregated checks if the select builder has aggregated fields or operators
 func (s *selectBuilder) aggregated() bool {
 	return s.withAggregatedFields() || s.withAggregatedOperators() || s.windowed()
 }
 
+// EmitChanges sets the select builder to emit changes
 func (s *selectBuilder) EmitChanges() SelectBuilder {
 	s.emitChanges = true
 	return s
 }
 
+// Ref returns the reference type of the select builder
 func (s *selectBuilder) Ref() Reference {
 	return s.ref
 }
 
+// windowed checks if the select builder has a window expression
 func (s *selectBuilder) windowed() bool {
 	return s.windowEx != nil
 }
 
+// Windowed sets a window expression for the select builder
 func (s *selectBuilder) Windowed(window WindowExpression) SelectBuilder {
 	s.windowEx = window
 	return s
 }
 
+// SelectStruct creates a select builder from a struct representation
 func (s *selectBuilder) SelectStruct(name string, val any) SelectBuilder {
 	relation, err := schema.NativeStructRepresentation(name, val)
 	if err != nil {
@@ -257,15 +272,18 @@ func (s *selectBuilder) SelectStruct(name string, val any) SelectBuilder {
 
 }
 
+// As sets an alias for the select builder
 func (s *selectBuilder) As(alias string) SelectBuilder {
 	s.alias = alias
 	return s
 }
 
+// Alias returns the alias of the select builder
 func (s *selectBuilder) Alias() string {
 	return s.alias
 }
 
+// Select adds fields to the select builder
 func (s *selectBuilder) Select(fields ...Field) SelectBuilder {
 	s.fields = append(s.fields, fields...)
 
@@ -297,6 +315,7 @@ func (s *selectBuilder) Select(fields ...Field) SelectBuilder {
 	return s
 }
 
+// Join adds a JOIN to the select builder
 func (s *selectBuilder) Join(
 	from FromExpression,
 	on Conditional,
@@ -308,6 +327,7 @@ func (s *selectBuilder) Join(
 	return s.join(from, on, Inner)
 }
 
+// LeftJoin adds a LEFT JOIN to the select builder
 func (s *selectBuilder) LeftJoin(
 	from FromExpression,
 	on Conditional,
@@ -319,6 +339,7 @@ func (s *selectBuilder) LeftJoin(
 	return s.join(from, on, Left)
 }
 
+// RightJoin adds a RIGHT JOIN to the select builder
 func (s *selectBuilder) RightJoin(
 	from FromExpression,
 	on Conditional,
@@ -331,6 +352,7 @@ func (s *selectBuilder) RightJoin(
 	return s.join(from, on, Right)
 }
 
+// OuterJoin adds an OUTER JOIN to the select builder
 func (s *selectBuilder) OuterJoin(
 	from FromExpression,
 	on Conditional,
@@ -344,6 +366,7 @@ func (s *selectBuilder) OuterJoin(
 // todo:
 //  make join conditional ?
 
+// add support for join with multiple fields
 func (s *selectBuilder) join(
 	schemaName FromExpression,
 	on Conditional,
@@ -362,6 +385,7 @@ func (s *selectBuilder) join(
 	return s
 }
 
+// From sets the FROM clause for the select builder
 func (s *selectBuilder) From(from FromExpression) SelectBuilder {
 	s.ref = from.Ref()
 	s.fromEx = from
@@ -378,6 +402,7 @@ func (s *selectBuilder) From(from FromExpression) SelectBuilder {
 	return s
 }
 
+// Having adds HAVING expressions to the select builder
 func (s *selectBuilder) Having(expressions ...Conditional) SelectBuilder {
 	if static.ReflectionFlag {
 		// for every expression try parse Field
@@ -393,6 +418,7 @@ func (s *selectBuilder) Having(expressions ...Conditional) SelectBuilder {
 	return s
 }
 
+// GroupBy adds GROUP BY expressions to the select builder
 func (s *selectBuilder) GroupBy(fields ...Field) SelectBuilder {
 	if static.ReflectionFlag {
 		for idx := range fields {
@@ -411,6 +437,7 @@ func (s *selectBuilder) GroupBy(fields ...Field) SelectBuilder {
 	return s
 }
 
+// Where adds WHERE expressions to the select builder
 func (s *selectBuilder) Where(expressions ...Conditional) SelectBuilder {
 	if static.ReflectionFlag {
 		// for every expression try parse Field
@@ -426,6 +453,7 @@ func (s *selectBuilder) Where(expressions ...Conditional) SelectBuilder {
 	return s
 }
 
+// WithCTE adds a Common Table Expression (CTE) to the select builder
 func (s *selectBuilder) WithCTE(
 	inner SelectBuilder,
 ) SelectBuilder {
@@ -433,6 +461,7 @@ func (s *selectBuilder) WithCTE(
 	return s
 }
 
+// WithMeta adds metadata to the select builder
 func (s *selectBuilder) WithMeta(
 	with Metadata,
 ) SelectBuilder {
@@ -440,6 +469,7 @@ func (s *selectBuilder) WithMeta(
 	return s
 }
 
+// OrderBy adds ORDER BY expressions to the select builder
 func (s *selectBuilder) OrderBy(expressions ...OrderedExpression) SelectBuilder {
 	if static.ReflectionFlag {
 		for idx := range expressions {
@@ -462,6 +492,7 @@ func (s *selectBuilder) OrderBy(expressions ...OrderedExpression) SelectBuilder 
 	return s
 }
 
+// Expression generates the SQL expression for the SELECT statement
 func (s *selectBuilder) Expression() (string, error) {
 	var (
 		builder      = new(strings.Builder)
@@ -623,6 +654,8 @@ func (s *selectBuilder) Expression() (string, error) {
 	return builder.String(), nil
 }
 
+// Returns - returns all fields that were selected in the select builder
+// it also checks for fields existence in the relation storage
 func (s *selectBuilder) Returns() schema.LintedFields {
 	result := schema.NewLintedFields()
 
@@ -653,6 +686,8 @@ func (s *selectBuilder) Returns() schema.LintedFields {
 	return result
 }
 
+// RelationReport - sets real relation names to aliased fields
+// if the reflection flag is enabled. Then it returns all processed fields
 func (s *selectBuilder) RelationReport() map[string]schema.LintedFields {
 	if static.ReflectionFlag {
 
@@ -685,6 +720,7 @@ func (s *selectBuilder) RelationReport() map[string]schema.LintedFields {
 	return nil
 }
 
+// withAggregatedFields checks if the select builder has any aggregated fields
 func (s *selectBuilder) withAggregatedFields() bool {
 	for idx := range s.fields {
 		_, ok := s.fields[idx].(*aggregatedField)
@@ -695,6 +731,7 @@ func (s *selectBuilder) withAggregatedFields() bool {
 	return false
 }
 
+// onlyAggregated checks if all fields in the select builder are aggregated fields
 func (s *selectBuilder) onlyAggregated() bool {
 	for idx := range s.fields {
 		if _, ok := s.fields[idx].(*aggregatedField); !ok {
@@ -704,10 +741,12 @@ func (s *selectBuilder) onlyAggregated() bool {
 	return len(s.fields) > 0
 }
 
+// withAggregatedOperators checks if the select builder has aggregated operators
 func (s *selectBuilder) withAggregatedOperators() bool {
 	return s.groupByEx != nil || s.havingEx != nil
 }
 
+// addRelation adds a relation to the relation storage
 func (s *selectBuilder) addRelation(
 	relationName string,
 	relation schema.LintedFields,
@@ -726,6 +765,7 @@ func (s *selectBuilder) addRelation(
 	s.relationStorage[relationName] = relation
 }
 
+// addSearchField adds a search field to the relation storage
 func (s *selectBuilder) addSearchField(
 	field schema.SearchField,
 ) {
@@ -742,6 +782,7 @@ func (s *selectBuilder) addSearchField(
 	s.relationStorage[field.Relation].Set(field)
 }
 
+// parseRelationName parses the relation name from the field
 func (s *selectBuilder) parseRelationName(f Field) string {
 	if len(f.Alias()) > 0 {
 		s.virtualColumns[f.Alias()] = f.Schema()
@@ -763,6 +804,7 @@ func (s *selectBuilder) parseRelationName(f Field) string {
 	return f.Schema()
 }
 
+// parseSearchFieldsFromCond parses search fields from the conditional expression
 func (s *selectBuilder) parseSearchFieldsFromCond(
 	cond Conditional,
 ) []schema.SearchField {
