@@ -3,8 +3,8 @@ package netparse
 import (
 	"fmt"
 	"ksql/consts"
+	"ksql/internal/kernel/protocol/dao"
 	"ksql/internal/reflector"
-	"ksql/kernel/protocol/dao"
 	"strings"
 )
 

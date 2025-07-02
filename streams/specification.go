@@ -7,12 +7,12 @@ import (
 	jsoniter "github.com/json-iterator/go"
 	"ksql/consts"
 	"ksql/database"
+	"ksql/internal/kernel/network"
+	dao2 "ksql/internal/kernel/protocol/dao"
+	dto2 "ksql/internal/kernel/protocol/dto"
 	schema2 "ksql/internal/schema"
 	"ksql/internal/schema/report"
 	util2 "ksql/internal/util"
-	"ksql/kernel/network"
-	"ksql/kernel/protocol/dao"
-	"ksql/kernel/protocol/dto"
 	"ksql/kinds"
 	"ksql/ksql"
 	"ksql/shared"
@@ -35,7 +35,7 @@ type Stream[S any] struct {
 
 // ListStreams - responses with all streams list
 // in the current ksqlDB instance
-func ListStreams(ctx context.Context) (dto.ShowStreams, error) {
+func ListStreams(ctx context.Context) (dto2.ShowStreams, error) {
 
 	query := util2.MustNoError(ksql.List(ksql.STREAM).Expression)
 
@@ -47,28 +47,28 @@ func ListStreams(ctx context.Context) (dto.ShowStreams, error) {
 	)
 	if err != nil {
 		err = fmt.Errorf("cannot perform request: %w", err)
-		return dto.ShowStreams{}, err
+		return dto2.ShowStreams{}, err
 	}
 
 	select {
 	case <-ctx.Done():
-		return dto.ShowStreams{}, ctx.Err()
+		return dto2.ShowStreams{}, ctx.Err()
 	case val, ok := <-pipeline:
 		if !ok {
-			return dto.ShowStreams{}, static.ErrMalformedResponse
+			return dto2.ShowStreams{}, static.ErrMalformedResponse
 		}
 
 		var (
-			streams []dao.StreamsInfo
+			streams []dao2.StreamsInfo
 		)
 
 		if err = jsoniter.Unmarshal(val, &streams); err != nil {
 			err = errors.Join(static.ErrUnserializableResponse, err)
-			return dto.ShowStreams{}, err
+			return dto2.ShowStreams{}, err
 		}
 
 		if len(streams) == 0 {
-			return dto.ShowStreams{}, errors.New("no streams have been found")
+			return dto2.ShowStreams{}, errors.New("no streams have been found")
 		}
 
 		return streams[0].DTO(), nil
@@ -76,7 +76,7 @@ func ListStreams(ctx context.Context) (dto.ShowStreams, error) {
 }
 
 // Describe - responses with stream description
-func Describe(ctx context.Context, stream string) (dto.RelationDescription, error) {
+func Describe(ctx context.Context, stream string) (dto2.RelationDescription, error) {
 	query := util2.MustNoError(ksql.Describe(ksql.STREAM, stream).Expression)
 
 	pipeline, err := network.Net.Perform(
@@ -87,33 +87,33 @@ func Describe(ctx context.Context, stream string) (dto.RelationDescription, erro
 	)
 	if err != nil {
 		err = fmt.Errorf("cannot perform request: %w", err)
-		return dto.RelationDescription{}, err
+		return dto2.RelationDescription{}, err
 	}
 
 	select {
 	case <-ctx.Done():
-		return dto.RelationDescription{}, ctx.Err()
+		return dto2.RelationDescription{}, ctx.Err()
 	case val, ok := <-pipeline:
 		if !ok {
-			return dto.RelationDescription{}, static.ErrMalformedResponse
+			return dto2.RelationDescription{}, static.ErrMalformedResponse
 		}
 
 		var (
-			describe []dao.DescribeResponse
+			describe []dao2.DescribeResponse
 		)
 		slog.Info("response", "formatted", string(val))
 
 		if strings.Contains(string(val), "Could not find STREAM/TABLE") {
-			return dto.RelationDescription{}, static.ErrStreamDoesNotExist
+			return dto2.RelationDescription{}, static.ErrStreamDoesNotExist
 		}
 
 		if err = jsoniter.Unmarshal(val, &describe); err != nil {
 			err = errors.Join(static.ErrUnserializableResponse, err)
-			return dto.RelationDescription{}, err
+			return dto2.RelationDescription{}, err
 		}
 
 		if len(describe) == 0 {
-			return dto.RelationDescription{}, static.ErrStreamDoesNotExist
+			return dto2.RelationDescription{}, static.ErrStreamDoesNotExist
 		}
 
 		return describe[0].DTO(), nil
@@ -145,7 +145,7 @@ func Drop(ctx context.Context, stream string) error {
 		}
 
 		var (
-			drop []dao.DropInfo
+			drop []dao2.DropInfo
 		)
 
 		slog.Debug("received from pipiline", slog.String("val", string(val)))
@@ -267,7 +267,7 @@ func CreateStream[S any](
 		}
 
 		var (
-			create []dao.CreateRelationResponse
+			create []dao2.CreateRelationResponse
 		)
 
 		slog.Debug(
@@ -367,7 +367,7 @@ func CreateStreamAsSelect[S any](
 		}
 
 		var (
-			create []dao.CreateRelationResponse
+			create []dao2.CreateRelationResponse
 		)
 
 		if err := jsoniter.Unmarshal(val, &create); err != nil {
@@ -428,7 +428,7 @@ func (s *Stream[S]) Insert(
 		}
 
 		var (
-			insert []dao.CreateRelationResponse
+			insert []dao2.CreateRelationResponse
 		)
 
 		if err = jsoniter.Unmarshal(val, &insert); err != nil {
@@ -489,7 +489,7 @@ func (s *Stream[S]) InsertRow(
 		}
 
 		var (
-			insert []dao.CreateRelationResponse
+			insert []dao2.CreateRelationResponse
 		)
 
 		if err = jsoniter.Unmarshal(val, &insert); err != nil {
@@ -564,7 +564,7 @@ func (s *Stream[S]) InsertAsSelect(
 		}
 
 		var (
-			insert []dao.CreateRelationResponse
+			insert []dao2.CreateRelationResponse
 		)
 
 		slog.Info("response", "formatted", string(val))

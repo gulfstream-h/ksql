@@ -3,7 +3,7 @@ package migrations
 import (
 	"context"
 	"errors"
-	"ksql/kernel/network"
+	"ksql/internal/kernel/network"
 	"ksql/kinds"
 	"ksql/shared"
 	"ksql/static"

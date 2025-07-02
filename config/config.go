@@ -3,7 +3,7 @@ package config
 import (
 	"context"
 	"fmt"
-	"ksql/kernel/network"
+	"ksql/internal/kernel/network"
 	"ksql/shared"
 	"ksql/static"
 	"sync"
