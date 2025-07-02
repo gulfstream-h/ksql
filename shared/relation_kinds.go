@@ -23,11 +23,11 @@ type Settings struct {
 // StreamSettings - describes the settings of stream
 // it's not bound to any specific structure
 // so can be easily called from any space
-type StreamSettings Settings
+type StreamSettings = Settings
 
 // Validate - primary checks settings
 // to avoid malformed relation creation
-func (s *StreamSettings) Validate() error {
+func (s *Settings) Validate() error {
 	s.Name = strings.TrimSpace(s.Name)
 
 	if len(s.Name) == 0 {
@@ -45,24 +45,24 @@ func (s *StreamSettings) Validate() error {
 // TableSettings - describes the settings of a table
 // it's not bound to any specific structure
 // so can be easily called from any space
-type TableSettings Settings
+type TableSettings = Settings
 
 // Validate - primary checks settings
 // to avoid malformed relation creation
-func (s *TableSettings) Validate() error {
-	s.Name = strings.TrimSpace(s.Name)
-
-	if len(s.Name) == 0 {
-		return errors.New("invalid topic name")
-	}
-
-	s.SourceTopic = strings.TrimSpace(s.SourceTopic)
-	if len(s.SourceTopic) == 0 {
-		return fmt.Errorf("souce topic cannot be blank")
-	}
-
-	return nil
-}
+//func (s *TableSettings) Validate() error {
+//	s.Name = strings.TrimSpace(s.Name)
+//
+//	if len(s.Name) == 0 {
+//		return errors.New("invalid topic name")
+//	}
+//
+//	s.SourceTopic = strings.TrimSpace(s.SourceTopic)
+//	if len(s.SourceTopic) == 0 {
+//		return fmt.Errorf("souce topic cannot be blank")
+//	}
+//
+//	return nil
+//}
 
 // RelationSettings - is generic constraint
 // it allows using both methods on certain struct

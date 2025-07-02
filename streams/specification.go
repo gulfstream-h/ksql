@@ -239,7 +239,7 @@ func CreateStream[S any](
 
 	metadata := ksql.Metadata{
 		Topic:       settings.SourceTopic,
-		Partitions:  int(settings.Partitions),
+		Partitions:  settings.Partitions,
 		ValueFormat: kinds.JSON.String(),
 	}
 
@@ -316,6 +316,13 @@ func CreateStreamAsSelect[S any](
 	}
 
 	fields := selectBuilder.Returns()
+	if streamName == "enriched_orders" {
+		fmt.Println("###RETURNS###")
+		fmt.Println(fields.Map())
+
+		fmt.Println("###QUERY###")
+		fmt.Println(selectBuilder.Expression())
+	}
 
 	if len(fields.Map()) == 0 {
 		return nil, errors.New("select builder must return at least one field")
@@ -637,7 +644,8 @@ func (s *Stream[S]) SelectWithEmit(ctx context.Context) (
 	}
 
 	query, err := ksql.Select(fields...).
-		From(ksql.Schema(s.Name, ksql.STREAM)).EmitChanges().
+		From(ksql.Schema(s.Name, ksql.STREAM)).
+		EmitChanges().
 		Expression()
 
 	if err != nil {
