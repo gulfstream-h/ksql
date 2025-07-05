@@ -7,13 +7,13 @@ import (
 	jsoniter "github.com/json-iterator/go"
 	"ksql/consts"
 	"ksql/database"
-	errors2 "ksql/errors"
+	libErrors "ksql/errors"
 	"ksql/internal/kernel/network"
-	dao2 "ksql/internal/kernel/protocol/dao"
-	dto2 "ksql/internal/kernel/protocol/dto"
-	schema2 "ksql/internal/schema"
+	"ksql/internal/kernel/protocol/dao"
+	"ksql/internal/kernel/protocol/dto"
+	"ksql/internal/schema"
 	"ksql/internal/schema/report"
-	util2 "ksql/internal/util"
+	"ksql/internal/util"
 	"ksql/kinds"
 	"ksql/ksql"
 	"ksql/shared"
@@ -30,15 +30,15 @@ import (
 type Stream[S any] struct {
 	Name         string
 	partitions   int
-	remoteSchema schema2.LintedFields
+	remoteSchema schema.LintedFields
 	format       kinds.ValueFormat
 }
 
 // ListStreams - responses with all streams list
 // in the current ksqlDB instance
-func ListStreams(ctx context.Context) (dto2.ShowStreams, error) {
+func ListStreams(ctx context.Context) (dto.ShowStreams, error) {
 
-	query := util2.MustNoError(ksql.List(ksql.STREAM).Expression)
+	query := util.MustNoError(ksql.List(ksql.STREAM).Expression)
 
 	pipeline, err := network.Net.Perform(
 		ctx,
@@ -48,28 +48,28 @@ func ListStreams(ctx context.Context) (dto2.ShowStreams, error) {
 	)
 	if err != nil {
 		err = fmt.Errorf("cannot perform request: %w", err)
-		return dto2.ShowStreams{}, err
+		return dto.ShowStreams{}, err
 	}
 
 	select {
 	case <-ctx.Done():
-		return dto2.ShowStreams{}, ctx.Err()
+		return dto.ShowStreams{}, ctx.Err()
 	case val, ok := <-pipeline:
 		if !ok {
-			return dto2.ShowStreams{}, errors2.ErrMalformedResponse
+			return dto.ShowStreams{}, libErrors.ErrMalformedResponse
 		}
 
 		var (
-			streams []dao2.StreamsInfo
+			streams []dao.StreamsInfo
 		)
 
 		if err = jsoniter.Unmarshal(val, &streams); err != nil {
-			err = errors.Join(errors2.ErrUnserializableResponse, err)
-			return dto2.ShowStreams{}, err
+			err = errors.Join(libErrors.ErrUnserializableResponse, err)
+			return dto.ShowStreams{}, err
 		}
 
 		if len(streams) == 0 {
-			return dto2.ShowStreams{}, errors.New("no streams have been found")
+			return dto.ShowStreams{}, errors.New("no streams have been found")
 		}
 
 		return streams[0].DTO(), nil
@@ -77,8 +77,8 @@ func ListStreams(ctx context.Context) (dto2.ShowStreams, error) {
 }
 
 // Describe - responses with stream description
-func Describe(ctx context.Context, stream string) (dto2.RelationDescription, error) {
-	query := util2.MustNoError(ksql.Describe(ksql.STREAM, stream).Expression)
+func Describe(ctx context.Context, stream string) (dto.RelationDescription, error) {
+	query := util.MustNoError(ksql.Describe(ksql.STREAM, stream).Expression)
 
 	pipeline, err := network.Net.Perform(
 		ctx,
@@ -88,33 +88,33 @@ func Describe(ctx context.Context, stream string) (dto2.RelationDescription, err
 	)
 	if err != nil {
 		err = fmt.Errorf("cannot perform request: %w", err)
-		return dto2.RelationDescription{}, err
+		return dto.RelationDescription{}, err
 	}
 
 	select {
 	case <-ctx.Done():
-		return dto2.RelationDescription{}, ctx.Err()
+		return dto.RelationDescription{}, ctx.Err()
 	case val, ok := <-pipeline:
 		if !ok {
-			return dto2.RelationDescription{}, errors2.ErrMalformedResponse
+			return dto.RelationDescription{}, libErrors.ErrMalformedResponse
 		}
 
 		var (
-			describe []dao2.DescribeResponse
+			describe []dao.DescribeResponse
 		)
 		slog.Info("response", "formatted", string(val))
 
 		if strings.Contains(string(val), "Could not find STREAM/TABLE") {
-			return dto2.RelationDescription{}, errors2.ErrStreamDoesNotExist
+			return dto.RelationDescription{}, libErrors.ErrStreamDoesNotExist
 		}
 
 		if err = jsoniter.Unmarshal(val, &describe); err != nil {
-			err = errors.Join(errors2.ErrUnserializableResponse, err)
-			return dto2.RelationDescription{}, err
+			err = errors.Join(libErrors.ErrUnserializableResponse, err)
+			return dto.RelationDescription{}, err
 		}
 
 		if len(describe) == 0 {
-			return dto2.RelationDescription{}, errors2.ErrStreamDoesNotExist
+			return dto.RelationDescription{}, libErrors.ErrStreamDoesNotExist
 		}
 
 		return describe[0].DTO(), nil
@@ -125,7 +125,7 @@ func Describe(ctx context.Context, stream string) (dto2.RelationDescription, err
 // with parent topic
 func Drop(ctx context.Context, stream string) error {
 
-	query := util2.MustNoError(ksql.Drop(ksql.STREAM, stream).Expression)
+	query := util.MustNoError(ksql.Drop(ksql.STREAM, stream).Expression)
 
 	pipeline, err := network.Net.Perform(
 		ctx,
@@ -142,11 +142,11 @@ func Drop(ctx context.Context, stream string) error {
 		return ctx.Err()
 	case val, ok := <-pipeline:
 		if !ok {
-			return errors2.ErrMalformedResponse
+			return libErrors.ErrMalformedResponse
 		}
 
 		var (
-			drop []dao2.DropInfo
+			drop []dao.DropInfo
 		)
 
 		slog.Debug("received from pipiline", slog.String("val", string(val)))
@@ -180,7 +180,7 @@ func GetStream[S any](
 		s S
 	)
 
-	scheme, err := schema2.NativeStructRepresentation(stream, s)
+	scheme, err := schema.NativeStructRepresentation(stream, s)
 	if err != nil {
 		return nil, err
 	}
@@ -191,7 +191,7 @@ func GetStream[S any](
 	}
 	desc, err := Describe(ctx, stream)
 	if err != nil {
-		if errors.Is(err, errors2.ErrStreamDoesNotExist) || len(desc.Fields) == 0 {
+		if errors.Is(err, libErrors.ErrStreamDoesNotExist) || len(desc.Fields) == 0 {
 			return nil, err
 		}
 		return nil, fmt.Errorf("cannot get stream description: %w", err)
@@ -205,7 +205,7 @@ func GetStream[S any](
 		responseSchema[field.Name] = field.Kind
 	}
 
-	remoteSchema := schema2.RemoteFieldsRepresentation(stream, responseSchema)
+	remoteSchema := schema.RemoteFieldsRepresentation(stream, responseSchema)
 	if err = remoteSchema.CompareWithFields(scheme.Array()); err != nil {
 		return nil, fmt.Errorf("reflection check failed: %w", err)
 	}
@@ -229,7 +229,7 @@ func CreateStream[S any](
 		return nil, fmt.Errorf("validate settings: %w", err)
 	}
 
-	rmSchema, err := schema2.NativeStructRepresentation(streamName, s)
+	rmSchema, err := schema.NativeStructRepresentation(streamName, s)
 	if err != nil {
 		return nil, err
 	}
@@ -264,11 +264,11 @@ func CreateStream[S any](
 		return nil, ctx.Err()
 	case val, ok := <-pipeline:
 		if !ok {
-			return nil, errors2.ErrMalformedResponse
+			return nil, libErrors.ErrMalformedResponse
 		}
 
 		var (
-			create []dao2.CreateRelationResponse
+			create []dao.CreateRelationResponse
 		)
 
 		slog.Debug(
@@ -368,7 +368,7 @@ func CreateStreamAsSelect[S any](
 		}
 
 		var (
-			create []dao2.CreateRelationResponse
+			create []dao.CreateRelationResponse
 		)
 
 		if err := jsoniter.Unmarshal(val, &create); err != nil {
@@ -425,11 +425,11 @@ func (s *Stream[S]) Insert(
 		return ctx.Err()
 	case val, ok := <-pipeline:
 		if !ok {
-			return errors2.ErrMalformedResponse
+			return libErrors.ErrMalformedResponse
 		}
 
 		var (
-			insert []dao2.CreateRelationResponse
+			insert []dao.CreateRelationResponse
 		)
 
 		if err = jsoniter.Unmarshal(val, &insert); err != nil {
@@ -460,7 +460,7 @@ func (s *Stream[S]) InsertRow(
 				return fmt.Errorf("field %s is not represented in remote schema", field.Name)
 			}
 
-			val := util2.Serialize(value)
+			val := util.Serialize(value)
 			field.Value = &val
 
 		}
@@ -486,11 +486,11 @@ func (s *Stream[S]) InsertRow(
 		return ctx.Err()
 	case val, ok := <-pipeline:
 		if !ok {
-			return errors2.ErrMalformedResponse
+			return libErrors.ErrMalformedResponse
 		}
 
 		var (
-			insert []dao2.CreateRelationResponse
+			insert []dao.CreateRelationResponse
 		)
 
 		if err = jsoniter.Unmarshal(val, &insert); err != nil {
@@ -510,7 +510,7 @@ func (s *Stream[S]) InsertRow(
 
 }
 
-// InsertAs - provides insertion to stream.
+// InsertAsSelect - provides insertion to stream.
 // written fields are pre-fetched from select query, which
 // is built by user
 func (s *Stream[S]) InsertAsSelect(
@@ -565,7 +565,7 @@ func (s *Stream[S]) InsertAsSelect(
 		}
 
 		var (
-			insert []dao2.CreateRelationResponse
+			insert []dao.CreateRelationResponse
 		)
 
 		slog.Info("response", "formatted", string(val))

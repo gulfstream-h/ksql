@@ -9,17 +9,17 @@ import (
 const (
 	// COUNT - aggregate function that returns quantity of all grouped rows
 	COUNT = `COUNT`
-	// Sum - aggregate function summarizing all grouped rows
+	// SUM - aggregate function summarizing all grouped rows
 	SUM = `SUM`
-	// AVG - aggragate function that returns average value of grouped fields
+	// AVG - aggregate function that returns average value of grouped fields
 	AVG = `AVG`
-	// MIN - aggragate function that returns minimal value in set of grouped fields
+	// MIN - aggregate function that returns minimal value in set of grouped fields
 	MIN = `MIN`
-	// MAX - aggragate function that returns maximal value in set of grouped fields
+	// MAX - aggregate function that returns maximal value in set of grouped fields
 	MAX = `MAX`
 	// COLLECT_LIST - aggregate grouped fields into set
 	COLLECT_LIST = `COLLECT_LIST`
-	// COLLECT_SET - aggegate grouped fields in set
+	// COLLECT_SET - aggregate grouped fields in set
 	COLLECT_SET = `COLLECT_SET`
 	// LATEST_BY_OFFSET - aggregate by the latest offset
 	LATEST_BY_OFFSET = `LATEST_BY_OFFSET`

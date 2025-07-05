@@ -7,11 +7,11 @@ import (
 	jsoniter "github.com/json-iterator/go"
 	"ksql/consts"
 	"ksql/database"
-	errors2 "ksql/errors"
+	libErrors "ksql/errors"
 	"ksql/internal/kernel/network"
-	dao2 "ksql/internal/kernel/protocol/dao"
-	dto2 "ksql/internal/kernel/protocol/dto"
-	schema2 "ksql/internal/schema"
+	"ksql/internal/kernel/protocol/dao"
+	"ksql/internal/kernel/protocol/dto"
+	"ksql/internal/schema"
 	"ksql/internal/schema/report"
 	"ksql/internal/util"
 	"ksql/kinds"
@@ -30,14 +30,14 @@ type Table[S any] struct {
 	Name         string
 	sourceTopic  string
 	partitions   int
-	remoteSchema schema2.LintedFields
+	remoteSchema schema.LintedFields
 	format       kinds.ValueFormat
 }
 
 // ListTables - responses with all tables list
 // in the current ksqlDB instance
 func ListTables(ctx context.Context) (
-	dto2.ShowTables, error,
+	dto.ShowTables, error,
 ) {
 
 	query := util.MustNoError(ksql.List(ksql.TABLE).Expression)
@@ -50,28 +50,28 @@ func ListTables(ctx context.Context) (
 	)
 	if err != nil {
 		err = fmt.Errorf("cannot perform request: %w", err)
-		return dto2.ShowTables{}, err
+		return dto.ShowTables{}, err
 	}
 
 	select {
 	case <-ctx.Done():
-		return dto2.ShowTables{}, ctx.Err()
+		return dto.ShowTables{}, ctx.Err()
 	case val, ok := <-pipeline:
 		if !ok {
-			return dto2.ShowTables{}, errors2.ErrMalformedResponse
+			return dto.ShowTables{}, libErrors.ErrMalformedResponse
 		}
 
 		var (
-			tables []dao2.ShowTables
+			tables []dao.ShowTables
 		)
 
 		if err = jsoniter.Unmarshal(val, &tables); err != nil {
-			err = errors.Join(errors2.ErrUnserializableResponse, err)
-			return dto2.ShowTables{}, err
+			err = errors.Join(libErrors.ErrUnserializableResponse, err)
+			return dto.ShowTables{}, err
 		}
 
 		if len(tables) == 0 {
-			return dto2.ShowTables{}, errors.New("no tables have been found")
+			return dto.ShowTables{}, errors.New("no tables have been found")
 		}
 
 		return tables[0].DTO(), nil
@@ -79,7 +79,7 @@ func ListTables(ctx context.Context) (
 }
 
 // Describe - responses with table description
-func Describe(ctx context.Context, table string) (dto2.RelationDescription, error) {
+func Describe(ctx context.Context, table string) (dto.RelationDescription, error) {
 	query := util.MustNoError(ksql.Describe(ksql.TABLE, table).Expression)
 
 	pipeline, err := network.Net.Perform(
@@ -90,32 +90,32 @@ func Describe(ctx context.Context, table string) (dto2.RelationDescription, erro
 	)
 	if err != nil {
 		err = fmt.Errorf("cannot perform request: %w", err)
-		return dto2.RelationDescription{}, err
+		return dto.RelationDescription{}, err
 	}
 
 	select {
 	case <-ctx.Done():
-		return dto2.RelationDescription{}, ctx.Err()
+		return dto.RelationDescription{}, ctx.Err()
 	case val, ok := <-pipeline:
 		if !ok {
-			return dto2.RelationDescription{}, errors2.ErrMalformedResponse
+			return dto.RelationDescription{}, libErrors.ErrMalformedResponse
 		}
 
 		var (
-			describe []dao2.DescribeResponse
+			describe []dao.DescribeResponse
 		)
 
 		if strings.Contains(string(val), "Could not find STREAM/TABLE") {
-			return dto2.RelationDescription{}, errors2.ErrTableDoesNotExist
+			return dto.RelationDescription{}, libErrors.ErrTableDoesNotExist
 		}
 
 		if err = jsoniter.Unmarshal(val, &describe); err != nil {
-			err = errors.Join(errors2.ErrUnserializableResponse, err)
-			return dto2.RelationDescription{}, err
+			err = errors.Join(libErrors.ErrUnserializableResponse, err)
+			return dto.RelationDescription{}, err
 		}
 
 		if len(describe) == 0 {
-			return dto2.RelationDescription{}, errors.New("table not found")
+			return dto.RelationDescription{}, errors.New("table not found")
 		}
 
 		return describe[0].DTO(), nil
@@ -142,14 +142,14 @@ func Drop(ctx context.Context, name string) error {
 		return ctx.Err()
 	case val, ok := <-pipeline:
 		if !ok {
-			return errors2.ErrMalformedResponse
+			return libErrors.ErrMalformedResponse
 		}
 
 		var (
-			drop []dao2.DropInfo
+			drop []dao.DropInfo
 		)
 
-		slog.Debug("received from pipiline", slog.String("val", string(val)))
+		slog.Debug("received from pipeline", slog.String("val", string(val)))
 
 		if err = jsoniter.Unmarshal(val, &drop); err != nil {
 			return fmt.Errorf("cannot unmarshal drop response: %w", err)
@@ -181,12 +181,12 @@ func Drop(ctx context.Context, name string) error {
 		return ctx.Err()
 	case val, ok := <-pipeline:
 		if !ok {
-			return errors2.ErrMalformedResponse
+			return libErrors.ErrMalformedResponse
 		}
 
-		slog.Debug("received from pipiline", slog.String("val", string(val)))
+		slog.Debug("received from pipeline", slog.String("val", string(val)))
 
-		var drop []dao2.DropInfo
+		var drop []dao.DropInfo
 
 		if err = jsoniter.Unmarshal(val, &drop); err != nil {
 			return fmt.Errorf("cannot unmarshal drop response: %w", err)
@@ -216,7 +216,7 @@ func GetTable[S any](
 		s S
 	)
 
-	scheme, err := schema2.NativeStructRepresentation(table, s)
+	scheme, err := schema.NativeStructRepresentation(table, s)
 	if err != nil {
 		return nil, err
 	}
@@ -227,7 +227,7 @@ func GetTable[S any](
 	}
 	desc, err := Describe(ctx, table)
 	if err != nil {
-		if errors.Is(err, errors2.ErrTableDoesNotExist) {
+		if errors.Is(err, libErrors.ErrTableDoesNotExist) {
 			return nil, err
 		}
 		return nil, fmt.Errorf("cannot describe table: %w", err)
@@ -241,7 +241,7 @@ func GetTable[S any](
 		responseSchema[field.Name] = field.Kind
 	}
 
-	remoteSchema := schema2.RemoteFieldsRepresentation(table, responseSchema)
+	remoteSchema := schema.RemoteFieldsRepresentation(table, responseSchema)
 	if err = remoteSchema.CompareWithFields(scheme.Array()); err != nil {
 		return nil, fmt.Errorf("reflection error %w", err)
 	}
@@ -259,7 +259,7 @@ func CreateTable[S any](
 		s S
 	)
 
-	rmSchema, err := schema2.NativeStructRepresentation(tableName, s)
+	rmSchema, err := schema.NativeStructRepresentation(tableName, s)
 	if err != nil {
 		return nil, err
 	}
@@ -294,11 +294,11 @@ func CreateTable[S any](
 		return nil, ctx.Err()
 	case val, ok := <-pipeline:
 		if !ok {
-			return nil, errors2.ErrMalformedResponse
+			return nil, libErrors.ErrMalformedResponse
 		}
 
 		var (
-			create []dao2.CreateRelationResponse
+			create []dao.CreateRelationResponse
 		)
 
 		slog.Debug("ksql response", "raw", string(val))
@@ -331,11 +331,11 @@ func CreateTable[S any](
 			return nil, ctx.Err()
 		case val, ok := <-pipeline:
 			if !ok {
-				return nil, errors2.ErrMalformedResponse
+				return nil, libErrors.ErrMalformedResponse
 			}
 
 			var (
-				create []dao2.CreateRelationResponse
+				create []dao.CreateRelationResponse
 			)
 
 			if err = jsoniter.Unmarshal(val, &create); err != nil {
@@ -433,7 +433,7 @@ func CreateTableAsSelect[S any](
 		}
 
 		var (
-			create []dao2.CreateRelationResponse
+			create []dao.CreateRelationResponse
 		)
 
 		if err = jsoniter.Unmarshal(val, &create); err != nil {
