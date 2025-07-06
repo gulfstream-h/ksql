@@ -1,4 +1,4 @@
-module ksql
+module github.com/gulfstream-h/ksql
 
 go 1.24.0
 
