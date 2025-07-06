@@ -33,6 +33,6 @@ jobs:
           distribution: goreleaser
           # 'latest', 'nightly', or a semver
           version: "~> v2"
-          args: -builds=cmd/cli/main ${{ github.ref_type == 'tag' && '--clean' || '--clean --snapshot' }}
+          args: --id=cli ${{ github.ref_type == 'tag' && '--clean' || '--clean --snapshot' }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
