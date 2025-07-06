@@ -2,9 +2,9 @@ package ksql
 
 import (
 	"fmt"
+	"github.com/gulfstream-h/ksql/internal/schema"
+	"github.com/gulfstream-h/ksql/static"
 	"github.com/stretchr/testify/assert"
-	"ksql/internal/schema"
-	"ksql/static"
 	"regexp"
 	"sort"
 	"strings"

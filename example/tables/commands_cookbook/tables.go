@@ -3,11 +3,11 @@ package main
 import (
 	"context"
 	"fmt"
-	"ksql/config"
-	"ksql/kinds"
-	"ksql/ksql"
-	"ksql/shared"
-	"ksql/tables"
+	"github.com/gulfstream-h/ksql/config"
+	"github.com/gulfstream-h/ksql/kinds"
+	"github.com/gulfstream-h/ksql/ksql"
+	"github.com/gulfstream-h/ksql/shared"
+	"github.com/gulfstream-h/ksql/tables"
 	"log/slog"
 )
 

@@ -2,8 +2,8 @@ package report
 
 import (
 	"fmt"
-	"ksql/internal/schema"
-	"ksql/static"
+	"github.com/gulfstream-h/ksql/internal/schema"
+	"github.com/gulfstream-h/ksql/static"
 )
 
 // ReflectionReportRemote - compares in-cache

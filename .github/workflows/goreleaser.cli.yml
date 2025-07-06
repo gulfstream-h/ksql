@@ -1,0 +1,8 @@
+builds:
+  - id: cli
+    main: ./cmd/cli/main/main.go
+    goos: [linux, darwin, windows]
+    goarch: [amd64, arm64]
+    ldflags:
+      - "-s -w"
+    binary: cli

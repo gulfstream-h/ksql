@@ -3,8 +3,8 @@ package ksql
 import (
 	"errors"
 	"fmt"
-	"ksql/internal/schema"
-	"ksql/internal/util"
+	"github.com/gulfstream-h/ksql/internal/schema"
+	"github.com/gulfstream-h/ksql/internal/util"
 	"strings"
 )
 

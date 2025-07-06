@@ -3,11 +3,11 @@ package migrations
 import (
 	"context"
 	"errors"
-	errors2 "ksql/errors"
-	"ksql/internal/kernel/network"
-	"ksql/kinds"
-	"ksql/shared"
-	"ksql/streams"
+	libErrors "github.com/gulfstream-h/ksql/errors"
+	"github.com/gulfstream-h/ksql/internal/kernel/network"
+	"github.com/gulfstream-h/ksql/kinds"
+	"github.com/gulfstream-h/ksql/shared"
+	"github.com/gulfstream-h/ksql/streams"
 	"log/slog"
 	"net/http"
 	"time"
@@ -78,7 +78,7 @@ func (k *ksqlController) GetLatestVersion(ctx context.Context) (time.Time, error
 		systemStreamName,
 	)
 
-	if errors.Is(err, errors2.ErrStreamDoesNotExist) {
+	if errors.Is(err, libErrors.ErrStreamDoesNotExist) {
 		slog.Debug("migration table doesnt exist")
 		migrationStream, err = k.createSystemRelations(ctx)
 		return time.Time{}, err

@@ -2,8 +2,8 @@ package main
 
 import (
 	"context"
-	"ksql/config"
-	"ksql/migrations"
+	"github.com/gulfstream-h/ksql/config"
+	"github.com/gulfstream-h/ksql/migrations"
 	"log/slog"
 )
 

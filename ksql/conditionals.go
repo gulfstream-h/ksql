@@ -2,7 +2,7 @@ package ksql
 
 import (
 	"fmt"
-	"ksql/internal/util"
+	"github.com/gulfstream-h/ksql/internal/util"
 	"strconv"
 	"strings"
 )

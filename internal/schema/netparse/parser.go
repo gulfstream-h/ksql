@@ -2,9 +2,9 @@ package netparse
 
 import (
 	"fmt"
-	"ksql/consts"
-	"ksql/internal/kernel/protocol/dao"
-	"ksql/internal/reflector"
+	"github.com/gulfstream-h/ksql/consts"
+	"github.com/gulfstream-h/ksql/internal/kernel/protocol/dao"
+	"github.com/gulfstream-h/ksql/internal/reflector"
 	"strings"
 )
 

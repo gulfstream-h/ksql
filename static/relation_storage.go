@@ -2,8 +2,8 @@ package static
 
 import (
 	"errors"
-	"ksql/internal/schema"
-	"ksql/shared"
+	"github.com/gulfstream-h/ksql/internal/schema"
+	"github.com/gulfstream-h/ksql/shared"
 	"sync"
 )
 

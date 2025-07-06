@@ -2,10 +2,10 @@ package database
 
 import (
 	"context"
+	"github.com/gulfstream-h/ksql/internal/kernel/network"
+	"github.com/gulfstream-h/ksql/internal/kernel/protocol/dao"
+	"github.com/gulfstream-h/ksql/internal/schema/netparse"
 	jsoniter "github.com/json-iterator/go"
-	"ksql/internal/kernel/network"
-	"ksql/internal/kernel/protocol/dao"
-	"ksql/internal/schema/netparse"
 	"log/slog"
 	"net/http"
 	"strings"

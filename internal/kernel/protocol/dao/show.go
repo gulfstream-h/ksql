@@ -1,7 +1,7 @@
 package dao
 
 import (
-	"ksql/internal/kernel/protocol/dto"
+	"github.com/gulfstream-h/ksql/internal/kernel/protocol/dto"
 )
 
 type Topic struct {

@@ -3,12 +3,12 @@ package config
 import (
 	"context"
 	"fmt"
-	"ksql/internal/schema"
-	"ksql/kinds"
-	"ksql/shared"
-	"ksql/static"
-	"ksql/streams"
-	"ksql/tables"
+	"github.com/gulfstream-h/ksql/internal/schema"
+	"github.com/gulfstream-h/ksql/kinds"
+	"github.com/gulfstream-h/ksql/shared"
+	"github.com/gulfstream-h/ksql/static"
+	"github.com/gulfstream-h/ksql/streams"
+	"github.com/gulfstream-h/ksql/tables"
 	"log/slog"
 )
 
