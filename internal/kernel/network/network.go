@@ -5,9 +5,9 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"github.com/gulfstream-h/ksql/consts"
 	jsoniter "github.com/json-iterator/go"
 	"io"
-	"ksql/consts"
 	"net/http"
 	"time"
 )

@@ -3,10 +3,10 @@ package config
 import (
 	"context"
 	"fmt"
-	"ksql/errors"
-	"ksql/internal/kernel/network"
-	"ksql/shared"
-	"ksql/static"
+	"github.com/gulfstream-h/ksql/errors"
+	"github.com/gulfstream-h/ksql/internal/kernel/network"
+	"github.com/gulfstream-h/ksql/shared"
+	"github.com/gulfstream-h/ksql/static"
 	"sync"
 	"time"
 )

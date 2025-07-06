@@ -2,9 +2,9 @@ package cmd
 
 import (
 	"context"
+	"github.com/gulfstream-h/ksql/config"
+	"github.com/gulfstream-h/ksql/migrations"
 	"github.com/spf13/cobra"
-	"ksql/config"
-	"ksql/migrations"
 	"log/slog"
 )
 

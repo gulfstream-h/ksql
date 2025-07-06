@@ -3,10 +3,10 @@ package schema
 import (
 	"errors"
 	"fmt"
-	"ksql/consts"
-	"ksql/internal/reflector"
-	"ksql/internal/util"
-	"ksql/kinds"
+	"github.com/gulfstream-h/ksql/consts"
+	"github.com/gulfstream-h/ksql/internal/reflector"
+	"github.com/gulfstream-h/ksql/internal/util"
+	"github.com/gulfstream-h/ksql/kinds"
 	"log/slog"
 	"strings"
 )

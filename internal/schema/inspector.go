@@ -2,7 +2,7 @@ package schema
 
 import (
 	"fmt"
-	"ksql/kinds"
+	"github.com/gulfstream-h/ksql/kinds"
 )
 
 type (

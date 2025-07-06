@@ -4,8 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"ksql/internal/schema"
-	"ksql/kinds"
+	"github.com/gulfstream-h/ksql/internal/schema"
+	"github.com/gulfstream-h/ksql/kinds"
 	"strings"
 )
 

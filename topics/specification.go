@@ -4,12 +4,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	libErrors "github.com/gulfstream-h/ksql/errors"
+	"github.com/gulfstream-h/ksql/internal/kernel/network"
+	"github.com/gulfstream-h/ksql/internal/kernel/protocol/dao"
+	"github.com/gulfstream-h/ksql/internal/kernel/protocol/dto"
+	"github.com/gulfstream-h/ksql/ksql"
 	jsoniter "github.com/json-iterator/go"
-	libErrors "ksql/errors"
-	"ksql/internal/kernel/network"
-	"ksql/internal/kernel/protocol/dao"
-	"ksql/internal/kernel/protocol/dto"
-	"ksql/ksql"
 	"net/http"
 )
 

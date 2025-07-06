@@ -1,9 +1,9 @@
 package ksql
 
 import (
+	"github.com/gulfstream-h/ksql/internal/schema"
+	"github.com/gulfstream-h/ksql/kinds"
 	"github.com/stretchr/testify/assert"
-	"ksql/internal/schema"
-	"ksql/kinds"
 	"regexp"
 	"sort"
 	"strings"
