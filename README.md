@@ -799,8 +799,12 @@ Although the library allows creating tables through the package's code, we recom
 
 
 ## Roadmap:
+To See features in progress or planned in future releases, see our issues [board](https://github.com/gulfstream-h/ksql/issues?q=is%3Aissue%20state%3Aopen%20%20type%3AFeature%20has%3Amilestone)
+Al features has special type `Feature` and orchestrated by `milestone` label.
 
 ## Contributing
+See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines on contributing to the project.
+
 
 
 
