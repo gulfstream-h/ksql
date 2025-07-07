@@ -1,7 +1,3 @@
-Конечно, вот версия `CONTRIBUTING.md` без эмодзи:
-
----
-
 # Contributing to `ksql`
 
 Thank you for your interest in contributing to `ksql`. This guide outlines how to get started and the conventions to follow when contributing code, tests, or documentation.
@@ -94,6 +90,4 @@ go test ./ksql -run Test_AggregateFn
 
 If you encounter issues or have suggestions, feel free to open an issue. For broader discussions, use [GitHub Discussions](https://github.com/your-org/ksql/discussions).
 
----
 
-Хочешь адаптировать это под монорепу или добавить секцию про релизы/ветвление?
