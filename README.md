@@ -189,7 +189,6 @@ slog.Info("table created!")
 ```
 
 
-Для более сложных запросов ksql библиотека предоставляет удобный ORM формат описания c помощью golang структур с тэгом ksql 
 For more complex queries **ksql** library provides a convenient ORM format description using Go structures with the `ksql` tag.
 
 ```go
@@ -381,8 +380,6 @@ if err = exampleStream.InsertRow(ctx, ksql.Row{
 slog.Info("successfully inserted")
 ```
 
-InsertAsSelect - искусственно добавляет значения полей, полученных в результате построенного пользователем sql запроса. Данный фукнционал требует включенной фичи sql-builder
-Добавляет записи, являющиеся результатом вложенного запроса, написанным пользователем
 
 **InsertAsSelect** - adds records that are the result of a nested query written by the user. Query should be built by ksql builder feature
 ```go
