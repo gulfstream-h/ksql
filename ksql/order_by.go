@@ -16,17 +16,19 @@ const (
 type (
 	// OrderByExpression - common contract for all ORDER BY expressions
 	OrderByExpression interface {
+		Expression
+
 		OrderBy(expressions ...OrderedExpression) OrderByExpression
 		OrderedExpressions() []OrderedExpression
 		IsEmpty() bool
-		Expression() (string, error)
 	}
 
 	// OrderedExpression - represents an expression for ordering results in a query
 	OrderedExpression interface {
+		Expression
+
 		Field() Field
 		Direction() OrderDirection
-		Expression() (string, error)
 	}
 
 	// OrderDirection - represents the direction of ordering

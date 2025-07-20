@@ -10,9 +10,10 @@ import (
 type (
 	// Conditional - common interface for all conditional expressions
 	Conditional interface {
+		Expression
+
 		Left() []Field
 		Right() []any
-		Expression() (string, error)
 	}
 
 	Expression interface {
@@ -42,13 +43,24 @@ type (
 		In(val ...any) Conditional
 		NotIn(val ...any) Conditional
 	}
-	// Op - represents an operation type for boolean expressions
-	Op int
+	// BooleanOperation - represents an operation type for boolean expressions
+	BooleanOperation int
+
+	// ArithmeticOperation - represents an operation type for arithmetic expressions
+	ArithmeticOperation int
+)
+
+const (
+	plus = ArithmeticOperation(iota)
+	minus
+	multiply
+	divide
+	modulo
 )
 
 const (
 	// equal checks if a value is equal to another value
-	equal = Op(iota)
+	equal = BooleanOperation(iota)
 	// notEqual checks if a value is not equal to another value
 	notEqual
 	// more checks if a value is greater than another value
@@ -77,11 +89,11 @@ const (
 type booleanExp struct {
 	left      Field
 	right     any
-	operation Op
+	operation BooleanOperation
 }
 
 // NewBooleanExp - creates a new boolean expression with the given left field, right value, and operation
-func NewBooleanExp(left Field, right any, op Op) Conditional {
+func NewBooleanExp(left Field, right any, op BooleanOperation) Conditional {
 	return &booleanExp{left: left, right: right, operation: op}
 }
 

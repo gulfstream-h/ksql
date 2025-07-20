@@ -12,7 +12,9 @@ import (
 type (
 	// SelectBuilder - common contract for all SELECT statements
 	SelectBuilder interface {
+		Expression
 		Joiner
+
 		aggregated() bool
 		windowed() bool
 
@@ -34,7 +36,6 @@ type (
 		OrderBy(expressions ...OrderedExpression) SelectBuilder
 		EmitChanges() SelectBuilder
 		EmitFinal() SelectBuilder
-		Expression() (string, error)
 	}
 
 	// Joiner - common contract for all JOIN operations in SELECT statements

@@ -36,8 +36,9 @@ const (
 // AggregateFunction - common contract for introspecting fields
 // that must be aggregated
 type AggregateFunction interface {
-	Expression() (string, error)
+	Expression
 	Field
+
 	Name() string
 }
 
