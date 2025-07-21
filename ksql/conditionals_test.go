@@ -11,7 +11,7 @@ func TestBooleanExpression(t *testing.T) {
 		name      string
 		left      Field
 		right     any
-		op        Op
+		op        BooleanOperation
 		wantExpr  string
 		expectErr bool
 	}{

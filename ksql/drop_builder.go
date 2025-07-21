@@ -5,7 +5,8 @@ import "fmt"
 type (
 	// DropBuilder - common contract for all DROP expressions
 	DropBuilder interface {
-		Expression() (string, error)
+		Expression
+
 		Schema() string
 	}
 

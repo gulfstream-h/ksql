@@ -8,8 +8,9 @@ import (
 
 // WhereExpression - common contract for all WHERE expressions
 type WhereExpression interface {
+	Expression
+
 	IsEmpty() bool
-	Expression() (string, error)
 	Conditionals() []Conditional
 	Where(exps ...Conditional) WhereExpression
 }

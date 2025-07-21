@@ -11,12 +11,13 @@ import (
 type (
 	// InsertBuilder - common contract for all INSERT statements
 	InsertBuilder interface {
+		Expression
+
 		AsSelect(selectBuilder SelectBuilder) InsertBuilder
 		InsertStruct(val any) InsertBuilder
 		Rows(rows ...Row) InsertBuilder
 		Schema() string
 		Reference() Reference
-		Expression() (string, error)
 	}
 
 	// Row represents a map of column names to their values for an insert operation.

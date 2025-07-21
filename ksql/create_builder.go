@@ -10,7 +10,8 @@ import (
 type (
 	// CreateBuilder - contract for building CREATE statements in KSQL
 	CreateBuilder interface {
-		Expression() (string, error)
+		Expression
+
 		AsSelect(builder SelectBuilder) CreateBuilder
 		SchemaFields(fields ...schema.SearchField) CreateBuilder
 		SchemaFromStruct(schemaStruct any) CreateBuilder
