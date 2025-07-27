@@ -1,0 +1,72 @@
+[
+  {
+    "id": "prod001",
+    "name": "Smartphone X1",
+    "description": "A high-end smartphone with a stunning display.",
+    "price": 999.99,
+    "category": "Electronics"
+  },
+  {
+    "id": "prod002",
+    "name": "Wireless Headphones",
+    "description": "Noise-canceling over-ear headphones.",
+    "price": 124.99,
+    "category": "Electronics"
+  },
+  {
+    "id": "prod003",
+    "name": "Mystery Novel - The Lost Key",
+    "description": "A thrilling mystery novel with unexpected twists.",
+    "price": 709.99,
+    "category": "Books"
+  },
+  {
+    "id": "prod004",
+    "name": "Running Shoes",
+    "description": "Lightweight and durable running shoes.",
+    "price": 978.99,
+    "category": "Footwear"
+  },
+  {
+    "id": "prod005",
+    "name": "Office Chair",
+    "description": "Ergonomic chair for maximum comfort.",
+    "price": 59.99,
+    "category": "Furniture"
+  },
+  {
+    "id": "prod006",
+    "name": "Organic Green Tea",
+    "description": "Premium loose leaf green tea.",
+    "price": 15.99,
+    "category": "Groceries"
+  },
+  {
+    "id": "prod007",
+    "name": "Stainless Steel Cookware Set",
+    "description": "10-piece non-stick cookware set.",
+    "price": 249.99,
+    "category": "Kitchen"
+  },
+  {
+    "id": "prod008",
+    "name": "Action Figure - SuperBot",
+    "description": "Poseable action figure with accessories.",
+    "price": 19.99,
+    "category": "Toys"
+  },
+  {
+    "id": "prod009",
+    "name": "Yoga Mat",
+    "description": "Non-slip yoga mat for fitness routines.",
+    "price": 29.99,
+    "category": "Fitness"
+  },
+  {
+    "id": "prod010",
+    "name": "Bluetooth Speaker",
+    "description": "Portable speaker with deep bass and long battery life.",
+    "price": 89.99,
+    "category": "Electronics"
+  }
+]
