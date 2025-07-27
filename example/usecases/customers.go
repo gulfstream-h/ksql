@@ -328,8 +328,6 @@ func main() {
 	dropTableLogged(ctx, customersTableName)
 	dropTableLogged(ctx, inventoryTableName)
 
-	//<-time.After(time.Minute)
-
 	pipe := &DataPipeline{}
 	err = InitBase(ctx, pipe)
 	if err != nil {
