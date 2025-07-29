@@ -13,7 +13,6 @@ type (
 		Nullable
 		ComparableArray
 		Expression
-		Arithmetic
 
 		Schema() string
 		Column() string
@@ -188,26 +187,6 @@ func (f *field) parse(s string) {
 	}
 }
 
-func (f *field) Add(val any) Field {
-	return newArithmetic(f.Copy(), val, plus)
-}
-
-func (f *field) Sub(val any) Field {
-	return newArithmetic(f.Copy(), val, minus)
-}
-
-func (f *field) Mul(val any) Field {
-	return newArithmetic(f.Copy(), val, multiply)
-}
-
-func (f *field) Div(val any) Field {
-	return newArithmetic(f.Copy(), val, divide)
-}
-
-func (f *field) Mod(val any) Field {
-	return newArithmetic(f.Copy(), val, modulo)
-}
-
 // NewAggregatedField creates a new aggregated field using the provided AggregateFunction
 func NewAggregatedField(fn AggregateFunction) Field {
 	if fn == nil {
@@ -218,26 +197,6 @@ func NewAggregatedField(fn AggregateFunction) Field {
 		fn:    fn,
 		Field: fn,
 	}
-}
-
-func (af *aggregatedField) Add(val any) Field {
-	return af.Field.Add(val)
-}
-
-func (af *aggregatedField) Sub(val any) Field {
-	return af.Field.Sub(val)
-}
-
-func (af *aggregatedField) Mul(val any) Field {
-	return af.Field.Mul(val)
-}
-
-func (af *aggregatedField) Div(val any) Field {
-	return af.Field.Div(val)
-}
-
-func (af *aggregatedField) Mod(val any) Field {
-	return af.Field.Mod(val)
 }
 
 // Greater returns a Conditional expression for greater than comparison

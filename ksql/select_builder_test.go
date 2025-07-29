@@ -667,12 +667,12 @@ func Test_SelectBuilder(t *testing.T) {
 			name: "SELECT WITH aliased arithmetic operation",
 			selectSQL: Select(
 				F("seller_id").As("seller_id"),
-				Sum(F("price").Mul(F("quantity"))).Mul(0.05).As("salary"),
+				Mul(Mul(Sum(F("price")), F("quantity")), 0.05).As("salary"),
 			).
 				From(Schema("purchases_stream", STREAM)).
 				GroupBy(F("seller_id")).
 				EmitChanges(),
-			expected:  "SELECT seller_id AS seller_id, ( SUM(price * quantity) * 0.05 ) AS salary FROM purchases_stream GROUP BY seller_id EMIT CHANGES;",
+			expected:  "SELECT seller_id AS seller_id, ( ( SUM(price) * quantity ) * 0.05 ) AS salary FROM purchases_stream GROUP BY seller_id EMIT CHANGES;",
 			expectErr: false,
 		},
 	}

@@ -192,7 +192,7 @@ func NewPipeline(ctx context.Context) (*PurchasesPipeline, error) {
 		ksql.Select(
 			ksql.F("id").As("payment_id"),
 			ksql.F("customer_id").As("customer_id"),
-			ksql.F("quantity").Mul("price").Mul(0.1).As("amount"),
+			ksql.Mul(ksql.Mul(ksql.F("quantity"), ksql.F("price")), 0.1).As("amount"),
 		).From(ksql.Schema(PurchasesStreamName, ksql.STREAM)),
 	)
 	if err != nil {
@@ -263,7 +263,7 @@ func NewPipeline(ctx context.Context) (*PurchasesPipeline, error) {
 		},
 		ksql.Select(
 			ksql.F("shop_id").As("region"),
-			ksql.Sum(ksql.F("price").Mul(ksql.F("quantity"))).As("total_sales"),
+			ksql.Mul(ksql.Sum(ksql.F("price")), ksql.F("quantity")).As("total_sales"),
 			ksql.Count(ksql.F("id")).As("purchase_count"),
 		).
 			Windowed(
@@ -294,7 +294,7 @@ func NewPipeline(ctx context.Context) (*PurchasesPipeline, error) {
 		ksql.Select(
 			ksql.F("seller_id").As("seller_id"),
 			ksql.Count(ksql.F("id")).As("total_sales"),
-			ksql.Sum(ksql.F("price").Mul(ksql.F("quantity"))).As("total_revenue"),
+			ksql.Mul(ksql.Sum(ksql.F("price")), ksql.F("quantity")).As("total_revenue"),
 		).
 			From(ksql.Schema(PurchasesStreamName, ksql.STREAM)).
 			GroupBy(ksql.F("seller_id")).
@@ -317,7 +317,7 @@ func NewPipeline(ctx context.Context) (*PurchasesPipeline, error) {
 		},
 		ksql.Select(
 			ksql.F("seller_id").As("seller_id"),
-			ksql.Sum(ksql.F("price").Mul(ksql.F("quantity"))).Mul(0.05).As("salary"),
+			ksql.Mul(ksql.Mul(ksql.Sum(ksql.F("price")), ksql.F("quantity")), 0.05),
 		).
 			From(ksql.Schema(PurchasesStreamName, ksql.STREAM)).
 			GroupBy(ksql.F("seller_id")).

@@ -10,6 +10,7 @@ import (
 type (
 	arithmeticExpr struct {
 		Field
+		left      any
 		right     any
 		operation ArithmeticOperation
 
@@ -21,19 +22,32 @@ type (
 		Operation() ArithmeticOperation
 		Right() any
 	}
-
-	Arithmetic interface {
-		Add(val any) Field
-		Sub(val any) Field
-		Mul(val any) Field
-		Div(val any) Field
-		Mod(val any) Field
-	}
 )
 
-func newArithmetic(left Field, right any, op ArithmeticOperation) ArithmeticFunc {
+func Add(left any, right any) ArithmeticFunc {
+	return newArithmetic(left, right, plus)
+}
+
+func Sub(left any, right any) ArithmeticFunc {
+	return newArithmetic(left, right, minus)
+}
+
+func Mul(left any, right any) ArithmeticFunc {
+	return newArithmetic(left, right, multiply)
+}
+
+func Div(left any, right any) ArithmeticFunc {
+	return newArithmetic(left, right, divide)
+}
+
+func Mod(left any, right any) ArithmeticFunc {
+	return newArithmetic(left, right, modulo)
+}
+
+func newArithmetic(left any, right any, op ArithmeticOperation) ArithmeticFunc {
 	return &arithmeticExpr{
-		Field:     left,
+		Field:     new(field),
+		left:      left,
 		right:     right,
 		operation: op,
 	}
@@ -68,6 +82,8 @@ func (a *arithmeticExpr) Expression() (string, error) {
 	var (
 		operation       string
 		rightExpression string
+		leftExpression  string
+		err             error
 	)
 
 	switch a.operation {
@@ -85,9 +101,16 @@ func (a *arithmeticExpr) Expression() (string, error) {
 		return "", errors.New("invalid operation type")
 	}
 
-	leftExpression, err := a.Field.Expression()
-	if err != nil {
-		return "", fmt.Errorf("left exression: %w", err)
+	if val, ok := a.left.(Expression); ok {
+		leftExpression, err = val.Expression()
+		if err != nil {
+			return "", fmt.Errorf("left expression: %w", err)
+		}
+	} else {
+		leftExpression = util.Serialize(a.left)
+		if len(leftExpression) == 0 {
+			return "", errors.New("serialize left error")
+		}
 	}
 
 	if val, ok := a.right.(Expression); ok {
@@ -102,5 +125,11 @@ func (a *arithmeticExpr) Expression() (string, error) {
 		}
 	}
 
-	return strings.Join([]string{"(", leftExpression, operation, rightExpression, ")"}, " "), nil
+	result := []string{"(", leftExpression, operation, rightExpression, ")"}
+
+	if len(a.alias) != 0 {
+		result = append(result, "AS "+a.alias)
+	}
+
+	return strings.Join(result, " "), nil
 }
