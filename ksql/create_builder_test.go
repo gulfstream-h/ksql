@@ -223,7 +223,7 @@ func Test_CreateAsSelectExpression(t *testing.T) {
 						Having(Avg(F("table3.column3")).Greater(50)).
 						OrderBy(F("avg_column3").Desc()),
 				),
-			expected:  "CREATE STREAM stream_name AS SELECT table1.column1, table2.column2, AVG(table3.column3) AS avg_column3 FROM table1 JOIN table2 ON table1.id = table2.id LEFT JOIN table3 ON table2.id = table3.id WHERE table1.column1 > 10 GROUP BY table1.column1 WINDOW HOPPING (SIZE 30 SECONDS, ADVANCE BY 15 SECONDS) HAVING AVG(table3.column3) > 50 ORDER BY avg_column3 DESC;",
+			expected:  "CREATE STREAM stream_name AS SELECT table1.column1, table2.column2, AVG(table3.column3) AS avg_column3 FROM table1 JOIN table2 ON table1.id = table2.id LEFT JOIN table3 ON table2.id = table3.id WHERE table1.column1 > 10 WINDOW HOPPING (SIZE 30 SECONDS, ADVANCE BY 15 SECONDS) GROUP BY table1.column1 HAVING AVG(table3.column3) > 50 ORDER BY avg_column3 DESC;",
 			expectErr: false,
 		},
 	}

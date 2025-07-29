@@ -62,8 +62,10 @@ func Test_arithmeticExpr_Expression(t *testing.T) {
 			want:    "",
 		},
 		{
-			name:    "nested expression: (a + b) * c",
-			expr:    F("a").Add(F("b")).Mul(F("c")),
+			name: "nested expression: (a + b) * c",
+			//expr: F("a").Add(F("b").Mul(F("c"))),
+			//expr:    F("c").Mul(F("a").Add(F("b"))),
+			expr:    F("a").Add(F("b")).Mul("c"),
 			wantErr: false,
 			want:    `( ( a + b ) * c )`,
 		},
@@ -91,14 +93,18 @@ func Test_arithmeticExpr_Expression(t *testing.T) {
 			wantErr: false,
 			want:    `( ( ( x + 1 ) * ( y - 2 ) ) / 3 )`,
 		},
+		{
+			name:    "arithmetic with aggregate func",
+			expr:    Sum(F("col1")).Mul(F("col2")).Mul(0.005),
+			wantErr: false,
+			want:    `( ( SUM( col1 ) * col2 ) * 0.005 )`,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			expression, err := tt.expr.Expression()
 			assert.Equal(t, tt.wantErr, err != nil)
-			if err != nil {
-				assert.Equal(t, tt.want, expression)
-			}
+			assert.Equal(t, tt.want, expression)
 		})
 	}
 }

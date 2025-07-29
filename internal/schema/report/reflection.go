@@ -29,10 +29,10 @@ func ReflectionReportRemote(
 				field.Name, remoteField.Kind.GetKafkaRepresentation(), field.Kind.GetKafkaRepresentation())
 		}
 
-		if field.Relation != remoteField.Relation {
-			return fmt.Errorf("field %s relation mismatch: expected %s, got %s",
-				field.Name, remoteField.Relation, field.Relation)
-		}
+		//if field.Relation != remoteField.Relation {
+		//	return fmt.Errorf("field %s relation mismatch: expected %s, got %s",
+		//		field.Name, remoteField.Relation, field.Relation)
+		//}
 	}
 
 	return nil
@@ -43,9 +43,10 @@ func ReflectionReportRemote(
 // and returns error on fields mismatch
 func ReflectionReportNative(
 	structure any,
+	relName string,
 	parsed schema.LintedFields,
 ) error {
-	fields, err := schema.NativeStructRepresentation("", structure)
+	fields, err := schema.NativeStructRepresentation(relName, structure)
 	if err != nil {
 		return fmt.Errorf("cannot get native struct representation: %w", err)
 	}

@@ -12,6 +12,14 @@ type (
 		Field
 		right     any
 		operation ArithmeticOperation
+
+		alias string
+	}
+
+	ArithmeticFunc interface {
+		Field
+		Operation() ArithmeticOperation
+		Right() any
 	}
 
 	Arithmetic interface {
@@ -23,12 +31,29 @@ type (
 	}
 )
 
-func newArithmetic(left Field, right any, op ArithmeticOperation) Field {
+func newArithmetic(left Field, right any, op ArithmeticOperation) ArithmeticFunc {
 	return &arithmeticExpr{
 		Field:     left,
 		right:     right,
 		operation: op,
 	}
+}
+
+func (a *arithmeticExpr) As(alias string) Field {
+	a.alias = alias
+	return a
+}
+
+func (a *arithmeticExpr) Alias() string {
+	return a.alias
+}
+
+func (a *arithmeticExpr) Operation() ArithmeticOperation {
+	return a.operation
+}
+
+func (a *arithmeticExpr) Right() any {
+	return a.right
 }
 
 func (a *arithmeticExpr) Expression() (string, error) {
@@ -65,7 +90,7 @@ func (a *arithmeticExpr) Expression() (string, error) {
 		return "", fmt.Errorf("left exression: %w", err)
 	}
 
-	if val, ok := a.right.(Field); ok {
+	if val, ok := a.right.(Expression); ok {
 		rightExpression, err = val.Expression()
 		if err != nil {
 			return "", fmt.Errorf("right expression: %w", err)

@@ -36,10 +36,13 @@ type (
 	}
 )
 
-func Case(conds ...CaseConditional) CaseField {
+func Case(alias string, conds ...CaseConditional) CaseField {
 	c := new(caseExpression)
-	c.Field = new(field)
+	ff := new(field)
+	ff.col = "CASE"
+	c.Field = ff
 	c.conds = append(c.conds, conds...)
+	c.alias = alias
 	return c
 }
 
@@ -59,11 +62,6 @@ func (c *caseExpression) Alias() string {
 
 func (c *caseExpression) Conditionals() []CaseConditional {
 	return c.conds
-}
-
-func (c *caseExpression) As(alias string) Field {
-	c.alias = alias
-	return c
 }
 
 func (c *caseExpression) Else(val any) CaseField {

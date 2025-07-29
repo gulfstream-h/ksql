@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"github.com/gulfstream-h/ksql/config"
 	"github.com/gulfstream-h/ksql/example/usecases/purchases_flow/dtypes"
 	"github.com/gulfstream-h/ksql/example/usecases/purchases_flow/utils"
 	"github.com/gulfstream-h/ksql/ksql"
@@ -10,6 +11,35 @@ import (
 	"github.com/gulfstream-h/ksql/streams"
 	"github.com/gulfstream-h/ksql/tables"
 	"log/slog"
+)
+
+const (
+	// Stream names
+
+	ProductsStreamName      = "products_stream"
+	ShopsStreamName         = "shops_stream"
+	EmployeesStreamName     = "employees_stream"
+	CustomersStreamName     = "customers_stream"
+	PurchasesStreamName     = "purchases_stream"
+	BonusInvoicesStreamName = "bonus_invoices_stream"
+
+	// Table names
+
+	ProductsTableName           = "products_table"
+	ShopsTableName              = "shops_table"
+	EmployeesTableName          = "employees_table"
+	CustomersTableName          = "customers_table"
+	BonusBalancesTableName      = "bonus_balances_table"
+	BonusLevelsTableName        = "bonus_levels_table"
+	RegionAnalyticsTableName    = "region_analytics_table"
+	SellerKPITableName          = "seller_kpi_table"
+	SellerSalaryTableName       = "seller_salary_table"
+	FavoriteCategoriesTableName = "favorite_categories_table"
+	NotificationsTableName      = "notifications_table"
+
+	// Topics
+
+	PurchasesTopic = "purchases_topic"
 )
 
 type (
@@ -47,32 +77,49 @@ func NewPipeline(ctx context.Context) (*PurchasesPipeline, error) {
 	*/
 
 	// Products input stream
-	productsInputStream, err := streams.CreateStream[dtypes.Product](ctx, "products_stream", shared.StreamSettings{Partitions: 1})
+	productsInputStream, err := streams.CreateStream[dtypes.Product](ctx, ProductsStreamName, shared.StreamSettings{
+		Name:        ProductsStreamName,
+		SourceTopic: "products_topic",
+		Partitions:  1,
+	})
 	if err != nil {
 		return nil, fmt.Errorf("create products stream: %w", err)
 	}
 
 	// Shops input stream
-	shopsInputStream, err := streams.CreateStream[dtypes.Shop](ctx, "shops_stream", shared.StreamSettings{Partitions: 1})
+	shopsInputStream, err := streams.CreateStream[dtypes.Shop](ctx, ShopsStreamName, shared.StreamSettings{
+		Name:        ShopsStreamName,
+		SourceTopic: "shops_topic",
+		Partitions:  1,
+	})
 	if err != nil {
 		return nil, fmt.Errorf("create shops stream: %w", err)
 	}
 
 	// Employees input stream
-	employeesInputStream, err := streams.CreateStream[dtypes.Employee](ctx, "employees_stream", shared.StreamSettings{Partitions: 1})
+	employeesInputStream, err := streams.CreateStream[dtypes.Employee](ctx, EmployeesStreamName, shared.StreamSettings{
+		Name:        EmployeesStreamName,
+		SourceTopic: "employees_topic",
+		Partitions:  1,
+	})
 	if err != nil {
 		return nil, fmt.Errorf("create employees stream: %w", err)
 	}
 
 	// Customers input stream
-	customersInputStream, err := streams.CreateStream[dtypes.Customer](ctx, "customers_stream", shared.StreamSettings{Partitions: 1})
+	customersInputStream, err := streams.CreateStream[dtypes.Customer](ctx, CustomersStreamName, shared.StreamSettings{
+		Name:        CustomersStreamName,
+		SourceTopic: "customers_topic",
+		Partitions:  1,
+	})
 	if err != nil {
 		return nil, fmt.Errorf("create customers stream: %w", err)
 	}
 
 	// Shops dictionary
-	shopsTable, err := tables.CreateTable[dtypes.Shop](ctx, "shops_table", shared.TableSettings{
-		SourceTopic: "shops_stream",
+	shopsTable, err := tables.CreateTable[dtypes.Shop](ctx, ShopsTableName, shared.TableSettings{
+		Name:        ShopsTableName,
+		SourceTopic: ShopsStreamName,
 		Partitions:  1,
 	})
 	if err != nil {
@@ -80,27 +127,30 @@ func NewPipeline(ctx context.Context) (*PurchasesPipeline, error) {
 	}
 
 	// Products dictionary
-	productsTable, err := tables.CreateTable[dtypes.Product](ctx, "products_table", shared.TableSettings{
+	productsTable, err := tables.CreateTable[dtypes.Product](ctx, ProductsTableName, shared.TableSettings{
+		Name:        ProductsTableName,
+		SourceTopic: ProductsStreamName,
 		Partitions:  1,
-		SourceTopic: "products_stream",
 	})
 	if err != nil {
 		return nil, fmt.Errorf("create products table: %w", err)
 	}
 
 	// Employees dictionary
-	employeesTable, err := tables.CreateTable[dtypes.Employee](ctx, "employees_table", shared.TableSettings{
+	employeesTable, err := tables.CreateTable[dtypes.Employee](ctx, EmployeesTableName, shared.TableSettings{
+		Name:        EmployeesTableName,
+		SourceTopic: EmployeesStreamName,
 		Partitions:  1,
-		SourceTopic: "employees_stream",
 	})
 	if err != nil {
 		return nil, fmt.Errorf("create employees table: %w", err)
 	}
 
 	// Customers dictionary
-	customersTable, err := tables.CreateTable[dtypes.Customer](ctx, "customers_table", shared.TableSettings{
+	customersTable, err := tables.CreateTable[dtypes.Customer](ctx, CustomersTableName, shared.TableSettings{
+		Name:        CustomersTableName,
+		SourceTopic: CustomersStreamName,
 		Partitions:  1,
-		SourceTopic: "customers_stream",
 	})
 	if err != nil {
 		return nil, fmt.Errorf("create customers table: %w", err)
@@ -119,29 +169,31 @@ func NewPipeline(ctx context.Context) (*PurchasesPipeline, error) {
 
 	// Events input stream
 	// This stream will be used as source for all further processing
-	purchasesStream, err := streams.CreateStream[dtypes.Purchase](ctx, "purchases_stream", shared.StreamSettings{
-		SourceTopic: "purchases_topic",
+	purchasesStream, err := streams.CreateStream[dtypes.Purchase](ctx, PurchasesStreamName, shared.StreamSettings{
+		Name:        PurchasesStreamName,
+		SourceTopic: PurchasesTopic,
 		Partitions:  1,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("create purchases stream: %w", err)
 	}
-
 	pipe.purchases = purchasesStream
 
 	// Bonus invoices stream representing bonus payments for purchases
 	// it calculates as 10% of the total dtypes.Purchase amount
 	bonusInvoices, err := streams.CreateStreamAsSelect[dtypes.BonusInvoice](
 		ctx,
-		"bonus_invoices_stream",
-		shared.StreamSettings{SourceTopic: "purchases_stream", Partitions: 1},
-		ksql.
-			Select(
-				ksql.F("id").As("payment_id"),
-				ksql.F("customer_id").As("customer_id"),
-				ksql.F("quantity").Mul("price").Mul(0.1).As("amount"),
-			).
-			From(ksql.Schema("purchases_stream", ksql.STREAM)),
+		BonusInvoicesStreamName,
+		shared.StreamSettings{
+			Name:        BonusInvoicesStreamName,
+			SourceTopic: PurchasesStreamName,
+			Partitions:  1,
+		},
+		ksql.Select(
+			ksql.F("id").As("payment_id"),
+			ksql.F("customer_id").As("customer_id"),
+			ksql.F("quantity").Mul("price").Mul(0.1).As("amount"),
+		).From(ksql.Schema(PurchasesStreamName, ksql.STREAM)),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("create bonus invoices stream: %w", err)
@@ -152,15 +204,20 @@ func NewPipeline(ctx context.Context) (*PurchasesPipeline, error) {
 	// it calculates the total bonus balance for each dtypes.Customer
 	bonusBalances, err := tables.CreateTableAsSelect[dtypes.BonusBalance](
 		ctx,
-		"bonus_balances_table",
-		shared.TableSettings{SourceTopic: "bonus_invoices_stream", Partitions: 1},
+		BonusBalancesTableName,
+		shared.TableSettings{
+			Name:        BonusBalancesTableName,
+			SourceTopic: BonusInvoicesStreamName,
+			Partitions:  1,
+		},
 		ksql.
 			Select(
 				ksql.F("customer_id").As("customer_id"),
 				ksql.Sum(ksql.F("amount")).As("balance"),
 			).
-			From(ksql.Schema("bonus_invoices_stream", ksql.STREAM)).
-			GroupBy(ksql.F("customer_id")),
+			From(ksql.Schema(BonusInvoicesStreamName, ksql.STREAM)).
+			GroupBy(ksql.F("customer_id")).
+			EmitChanges(),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("create bonus balances table: %w", err)
@@ -171,16 +228,23 @@ func NewPipeline(ctx context.Context) (*PurchasesPipeline, error) {
 	// it assigns levels: bronze, silver, gold based on balance thresholds
 	bonusLevels, err := tables.CreateTableAsSelect[dtypes.BonusLevel](
 		ctx,
-		"bonus_levels_table",
-		shared.TableSettings{SourceTopic: "bonus_balances_table", Partitions: 1},
+		BonusLevelsTableName,
+		shared.TableSettings{
+			Name:        BonusLevelsTableName,
+			SourceTopic: BonusBalancesTableName,
+			Partitions:  1,
+		},
 		ksql.Select(
 			ksql.F("customer_id"),
 			ksql.Case(
+				"level",
 				ksql.CaseWhen(ksql.F("balance").Less(10_000), "bronze"),
 				ksql.CaseWhen(ksql.And(ksql.F("balance").Greater(10_000), ksql.F("balance").Less(100_000)), "silver"),
 				ksql.CaseWhen(ksql.F("balance").Greater(100_000), "gold"),
 			),
-		).EmitChanges(),
+		).
+			From(ksql.Schema(BonusBalancesTableName, ksql.TABLE)).
+			EmitChanges(),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("create bonus levels table: %w", err)
@@ -191,16 +255,26 @@ func NewPipeline(ctx context.Context) (*PurchasesPipeline, error) {
 	// it calculates total sales and dtypes.Purchase count for each dtypes.Shop region
 	regionAnalytics, err := tables.CreateTableAsSelect[dtypes.RegionAnalytics](
 		ctx,
-		"region_analytics_table",
-		shared.TableSettings{SourceTopic: "purchases_stream", Partitions: 1},
-		ksql.
-			Select(
-				ksql.F("shop_id").As("region"),
-				ksql.Sum(ksql.F("price").Mul("quantity")).As("total_sales"),
-				ksql.Count(ksql.F("id")).As("purchase_count"),
+		RegionAnalyticsTableName,
+		shared.TableSettings{
+			Name:        RegionAnalyticsTableName,
+			SourceTopic: PurchasesStreamName,
+			Partitions:  1,
+		},
+		ksql.Select(
+			ksql.F("shop_id").As("region"),
+			ksql.Sum(ksql.F("price").Mul(ksql.F("quantity"))).As("total_sales"),
+			ksql.Count(ksql.F("id")).As("purchase_count"),
+		).
+			Windowed(
+				ksql.NewTumblingWindow(
+					ksql.TimeUnit{
+						Val:  1,
+						Unit: ksql.Days,
+					},
+				),
 			).
-			From(ksql.Schema("purchases_stream", ksql.STREAM)).
-			GroupBy(ksql.F("shop_id")),
+			From(ksql.Schema(PurchasesStreamName, ksql.STREAM)).GroupBy(ksql.F("shop_id")),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("create region analytics table: %w", err)
@@ -211,19 +285,23 @@ func NewPipeline(ctx context.Context) (*PurchasesPipeline, error) {
 	// it calculates total revenue and total sales for each seller
 	sellerKPI, err := tables.CreateTableAsSelect[dtypes.SellerKPI](
 		ctx,
-		"seller_kpi_table",
-		shared.TableSettings{SourceTopic: "purchases_stream", Partitions: 1},
-		ksql.
-			Select(
-				ksql.F("seller_id"),
-				ksql.Count(ksql.F("id")).As("total_sales"),
-				ksql.Sum(ksql.F("price").Mul("quantity")).As("total_revenue"),
-			).
-			From(ksql.Schema("purchases_stream", ksql.STREAM)).
-			GroupBy(ksql.F("seller_id")),
+		SellerKPITableName,
+		shared.TableSettings{
+			Name:        SellerKPITableName,
+			SourceTopic: PurchasesStreamName,
+			Partitions:  1,
+		},
+		ksql.Select(
+			ksql.F("seller_id").As("seller_id"),
+			ksql.Count(ksql.F("id")).As("total_sales"),
+			ksql.Sum(ksql.F("price").Mul(ksql.F("quantity"))).As("total_revenue"),
+		).
+			From(ksql.Schema(PurchasesStreamName, ksql.STREAM)).
+			GroupBy(ksql.F("seller_id")).
+			EmitChanges(),
 	)
 	if err != nil {
-		return nil, fmt.Errorf("create seller kpi table: %w", err)
+		return nil, fmt.Errorf("create seller KPI table: %w", err)
 	}
 	pipe.sellerKPI = sellerKPI
 
@@ -231,15 +309,19 @@ func NewPipeline(ctx context.Context) (*PurchasesPipeline, error) {
 	// it calculates 5% of the total sales amount for each seller
 	sellerSalary, err := tables.CreateTableAsSelect[dtypes.SellerSalary](
 		ctx,
-		"seller_salary_table",
-		shared.TableSettings{SourceTopic: "purchases_stream", Partitions: 1},
-		ksql.
-			Select(
-				ksql.F("seller_id"),
-				ksql.Sum(ksql.F("price").Mul("quantity")).Mul(0.05).As("salary"),
-			).
-			From(ksql.Schema("purchases_stream", ksql.STREAM)).
-			GroupBy(ksql.F("seller_id")),
+		SellerSalaryTableName,
+		shared.TableSettings{
+			Name:        SellerSalaryTableName,
+			SourceTopic: PurchasesStreamName,
+			Partitions:  1,
+		},
+		ksql.Select(
+			ksql.F("seller_id").As("seller_id"),
+			ksql.Sum(ksql.F("price").Mul(ksql.F("quantity"))).Mul(0.05).As("salary"),
+		).
+			From(ksql.Schema(PurchasesStreamName, ksql.STREAM)).
+			GroupBy(ksql.F("seller_id")).
+			EmitChanges(),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("create seller salary table: %w", err)
@@ -250,16 +332,21 @@ func NewPipeline(ctx context.Context) (*PurchasesPipeline, error) {
 	// it calculates the most purchased category for each dtypes.Customer
 	favoriteCategories, err := tables.CreateTableAsSelect[dtypes.FavoriteCategory](
 		ctx,
-		"favorite_categories_table",
-		shared.TableSettings{SourceTopic: "purchases_stream", Partitions: 1},
+		FavoriteCategoriesTableName,
+		shared.TableSettings{
+			Name:        FavoriteCategoriesTableName,
+			SourceTopic: PurchasesStreamName,
+			Partitions:  1,
+		},
 		ksql.
 			Select(
-				ksql.F("customer_id"),
+				ksql.F("customer_id").As("customer_id"),
 				ksql.F("product_id").As("category"),
 				ksql.Count(ksql.F("id")).As("count"),
 			).
-			From(ksql.Schema("purchases_stream", ksql.STREAM)).
-			GroupBy(ksql.F("customer_id"), ksql.F("product_id")),
+			From(ksql.Schema(PurchasesStreamName, ksql.STREAM)).
+			GroupBy(ksql.F("customer_id"), ksql.F("product_id")).
+			EmitChanges(),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("create favorite categories table: %w", err)
@@ -269,15 +356,16 @@ func NewPipeline(ctx context.Context) (*PurchasesPipeline, error) {
 	// User notifications table that aggregates dtypes.Purchase counts for each dtypes.Customer
 	notifications, err := tables.CreateTableAsSelect[dtypes.UserNotification](
 		ctx,
-		"notifications_table",
-		shared.TableSettings{SourceTopic: "purchases_stream", Partitions: 1},
-		ksql.
-			Select(
-				ksql.F("customer_id"),
-				ksql.Count(ksql.F("id")).As("purchase_count"),
-			).
-			From(ksql.Schema("purchases_stream", ksql.STREAM)).
-			GroupBy(ksql.F("customer_id")),
+		NotificationsTableName,
+		shared.TableSettings{
+			Name:        NotificationsTableName,
+			SourceTopic: PurchasesStreamName,
+			Partitions:  1,
+		},
+		ksql.Select(
+			ksql.F("customer_id"),
+			ksql.Count(ksql.F("id")).As("purchase_count"),
+		).From(ksql.Schema(PurchasesStreamName, ksql.STREAM)).GroupBy(ksql.F("customer_id")),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("create notifications table: %w", err)
@@ -285,6 +373,126 @@ func NewPipeline(ctx context.Context) (*PurchasesPipeline, error) {
 	pipe.notifications = notifications
 
 	return pipe, nil
+}
+
+func Cleanup(ctx context.Context) {
+	slog.Info("Starting to drop streams and tables...")
+
+	// Drop dependent tables first (most downstream)
+	slog.Info("Dropping dependent tables...")
+
+	if err := tables.Drop(ctx, NotificationsTableName); err != nil {
+		slog.Error("Failed to drop notifications table", "err", err)
+	} else {
+		slog.Info("Dropped notifications table")
+	}
+
+	if err := tables.Drop(ctx, FavoriteCategoriesTableName); err != nil {
+		slog.Error("Failed to drop favorite categories table", "err", err)
+	} else {
+		slog.Info("Dropped favorite categories table")
+	}
+
+	if err := tables.Drop(ctx, SellerSalaryTableName); err != nil {
+		slog.Error("Failed to drop seller salary table", "err", err)
+	} else {
+		slog.Info("Dropped seller salary table")
+	}
+
+	if err := tables.Drop(ctx, SellerKPITableName); err != nil {
+		slog.Error("Failed to drop seller KPI table", "err", err)
+	} else {
+		slog.Info("Dropped seller KPI table")
+	}
+
+	if err := tables.Drop(ctx, RegionAnalyticsTableName); err != nil {
+		slog.Error("Failed to drop region analytics table", "err", err)
+	} else {
+		slog.Info("Dropped region analytics table")
+	}
+
+	if err := tables.Drop(ctx, BonusLevelsTableName); err != nil {
+		slog.Error("Failed to drop bonus levels table", "err", err)
+	} else {
+		slog.Info("Dropped bonus levels table")
+	}
+
+	if err := tables.Drop(ctx, BonusBalancesTableName); err != nil {
+		slog.Error("Failed to drop bonus balances table", "err", err)
+	} else {
+		slog.Info("Dropped bonus balances table")
+	}
+
+	// Drop intermediate streams (used as input for tables above)
+	slog.Info("Dropping intermediate streams...")
+
+	if err := streams.Drop(ctx, BonusInvoicesStreamName); err != nil {
+		slog.Error("Failed to drop bonus invoices stream", "err", err)
+	} else {
+		slog.Info("Dropped bonus invoices stream")
+	}
+
+	if err := streams.Drop(ctx, PurchasesStreamName); err != nil {
+		slog.Error("Failed to drop purchases stream", "err", err)
+	} else {
+		slog.Info("Dropped purchases stream")
+	}
+
+	// Drop dictionary tables
+	slog.Info("Dropping dictionary tables...")
+
+	if err := tables.Drop(ctx, ProductsTableName); err != nil {
+		slog.Error("Failed to drop products table", "err", err)
+	} else {
+		slog.Info("Dropped products table")
+	}
+
+	if err := tables.Drop(ctx, ShopsTableName); err != nil {
+		slog.Error("Failed to drop shops table", "err", err)
+	} else {
+		slog.Info("Dropped shops table")
+	}
+
+	if err := tables.Drop(ctx, EmployeesTableName); err != nil {
+		slog.Error("Failed to drop employees table", "err", err)
+	} else {
+		slog.Info("Dropped employees table")
+	}
+
+	if err := tables.Drop(ctx, CustomersTableName); err != nil {
+		slog.Error("Failed to drop customers table", "err", err)
+	} else {
+		slog.Info("Dropped customers table")
+	}
+
+	// Drop input streams (raw data sources)
+	slog.Info("Dropping input streams...")
+
+	if err := streams.Drop(ctx, ProductsStreamName); err != nil {
+		slog.Error("Failed to drop products input stream", "err", err)
+	} else {
+		slog.Info("Dropped products input stream")
+	}
+
+	if err := streams.Drop(ctx, ShopsStreamName); err != nil {
+		slog.Error("Failed to drop shops input stream", "err", err)
+	} else {
+		slog.Info("Dropped shops input stream")
+	}
+
+	if err := streams.Drop(ctx, EmployeesStreamName); err != nil {
+		slog.Error("Failed to drop employees input stream", "err", err)
+	} else {
+		slog.Info("Dropped employees input stream")
+	}
+
+	if err := streams.Drop(ctx, CustomersStreamName); err != nil {
+		slog.Error("Failed to drop customers input stream", "err", err)
+	} else {
+		slog.Info("Dropped customers input stream")
+	}
+
+	slog.Info("All streams and tables dropped (or attempted).")
 }
 
 func dataInit() (*utils.Data, error) {
@@ -368,6 +576,20 @@ func producePurchaseEvents(
 func main() {
 	ctx := context.Background()
 	slog.SetLogLoggerLevel(slog.LevelDebug)
+
+	err := config.
+		New("http://localhost:8088", 600, true).
+		Configure(ctx)
+
+	if err != nil {
+		fmt.Printf("Failed to configure ksql: %v\n", err)
+		return
+	}
+
+	// special cleanup function to drop all streams and tables using in this example
+	// that was created in previous run
+	Cleanup(ctx)
+	Cleanup(ctx)
 
 	// Initialize the purchases pipeline
 	pipeline, err := NewPipeline(ctx)

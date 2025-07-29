@@ -636,7 +636,7 @@ func Test_SelectBuilder(t *testing.T) {
 				From(Schema("stream", STREAM)).
 				GroupBy(F("stream.column1")).
 				Windowed(NewTumblingWindow(TimeUnit{Val: 10, Unit: Seconds})),
-			expected:  "SELECT stream.column1 FROM stream GROUP BY stream.column1 WINDOW TUMBLING (SIZE 10 SECONDS);",
+			expected:  "SELECT stream.column1 FROM stream WINDOW TUMBLING (SIZE 10 SECONDS) GROUP BY stream.column1;",
 			expectErr: false,
 		},
 		{
@@ -646,6 +646,34 @@ func Test_SelectBuilder(t *testing.T) {
 				Having(F("table.column1").Greater(1)),
 			expected:  "",
 			expectErr: true,
+		},
+		{
+			name: "SELECT WITH CASE WHEN",
+			selectSQL: Select(
+				F("customer_id"),
+				Case(
+					"level",
+					CaseWhen(F("balance").Less(10_000), "bronze"),
+					CaseWhen(And(F("balance").Greater(10_000), F("balance").Less(100_000)), "silver"),
+					CaseWhen(F("balance").Greater(100_000), "gold"),
+				),
+			).
+				From(Schema("bonus_balances", TABLE)).
+				EmitChanges(),
+			expected:  "SELECT customer_id, CASE WHEN balance < 10000 THEN 'bronze' WHEN ( balance > 10000 AND balance < 100000 ) THEN 'silver' WHEN balance > 100000 THEN 'gold' ELSE NULL END AS level FROM bonus_balances EMIT CHANGES;",
+			expectErr: false,
+		},
+		{
+			name: "SELECT WITH aliased arithmetic operation",
+			selectSQL: Select(
+				F("seller_id").As("seller_id"),
+				Sum(F("price").Mul(F("quantity"))).Mul(0.05).As("salary"),
+			).
+				From(Schema("purchases_stream", STREAM)).
+				GroupBy(F("seller_id")).
+				EmitChanges(),
+			expected:  "SELECT seller_id AS seller_id, ( SUM(price * quantity) * 0.05 ) AS salary FROM purchases_stream GROUP BY seller_id EMIT CHANGES;",
+			expectErr: false,
 		},
 	}
 
@@ -857,7 +885,7 @@ func Test_SelectBuilderRelationStorage(t *testing.T) {
 				},
 				"count_column3": {
 					Name:     "count_column3",
-					Relation: "",
+					Relation: "table3",
 				},
 			},
 		},
@@ -888,7 +916,7 @@ func Test_SelectBuilderRelationStorage(t *testing.T) {
 				},
 				"count_column2": {
 					Name:     "count_column2",
-					Relation: "",
+					Relation: "stream",
 				},
 			},
 		},
@@ -958,10 +986,10 @@ func Test_SelectBuilderRelationStorage(t *testing.T) {
 			},
 			expectedReturn: map[string]schema.SearchField{
 				"region":            {Name: "region", Relation: "sales"},
-				"total_amount":      {Name: "total_amount"},
-				"transaction_count": {Name: "transaction_count"},
-				"avg_discount":      {Name: "avg_discount"},
-				"max_amount":        {Name: "max_amount"},
+				"total_amount":      {Name: "total_amount", Relation: "sales"},
+				"transaction_count": {Name: "transaction_count", Relation: "sales"},
+				"avg_discount":      {Name: "avg_discount", Relation: "sales"},
+				"max_amount":        {Name: "max_amount", Relation: "sales"},
 			},
 		},
 	}

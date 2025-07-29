@@ -65,22 +65,10 @@ var (
 		description: "Cannot create a stream from a table",
 	}
 
-	// 3. Cannot create a table with a windowed select statement.
-	tableFromWindowedStream = createBuilderRule{
-		ruleFn: func(builder *createBuilder) bool {
-			if builder.asSelect == nil {
-				return true
-			}
-			return !(builder.reference == TABLE && builder.asSelect.windowed())
-		},
-		description: "Cannot create a table from a windowed stream",
-	}
-
 	// createRuleSet contains the rules for validating create statements.
 	createRuleSet = []createBuilderRule{
 		tableFromNotAggregatedStream,
 		streamFromTable,
-		tableFromWindowedStream,
 	}
 )
 

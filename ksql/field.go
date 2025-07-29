@@ -68,15 +68,23 @@ func (f *field) Alias() string {
 
 // Expression returns the KSQL query for the field
 func (f *field) Expression() (string, error) {
+	var (
+		strs []string
+	)
 	if len(f.col) == 0 && len(f.schema) == 0 {
 		return "", fmt.Errorf("field is not defined")
 	}
 
 	if len(f.schema) != 0 {
-		return fmt.Sprintf("%s.%s", f.schema, f.col), nil
+		strs = append(strs, fmt.Sprintf("%s.%s", f.schema, f.col))
+	} else {
+		strs = append(strs, f.col)
+	}
+	if len(f.alias) > 0 {
+		strs = append(strs, fmt.Sprintf("AS %s", f.alias))
 	}
 
-	return f.col, nil
+	return strings.Join(strs, " "), nil
 }
 
 // Equal returns a Conditional expression for equality comparison
@@ -317,5 +325,12 @@ func (af *aggregatedField) Expression() (string, error) {
 		return "", fmt.Errorf("aggregate function is not defined")
 	}
 
-	return af.fn.Expression()
+	expression, err := af.fn.Expression()
+	if err != nil {
+		return "", fmt.Errorf("aggregate function expression: %w", err)
+	}
+	if len(af.alias) > 0 {
+		return fmt.Sprintf("%s AS %s", expression, af.alias), nil
+	}
+	return expression, nil
 }
