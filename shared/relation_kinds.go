@@ -36,7 +36,7 @@ func (s *Settings) Validate() error {
 
 	s.SourceTopic = strings.TrimSpace(s.SourceTopic)
 	if len(s.SourceTopic) == 0 {
-		return fmt.Errorf("souce topic cannot be blank")
+		return fmt.Errorf("source topic cannot be blank")
 	}
 
 	return nil

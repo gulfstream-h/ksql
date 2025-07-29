@@ -1,0 +1,72 @@
+[
+  {
+    "id": "shop001",
+    "name": "Gadget World",
+    "description": "A leading store for electronic gadgets.",
+    "region": "Northwest",
+    "address": "123 Tech Avenue, Silicon City"
+  },
+  {
+    "id": "shop002",
+    "name": "Book Haven",
+    "description": "Your go-to place for books and stationery.",
+    "region": "Southeast",
+    "address": "456 Read Lane, Booktown"
+  },
+  {
+    "id": "shop003",
+    "name": "Fashion Hub",
+    "description": "Trendy clothing and accessories for all ages.",
+    "region": "Central",
+    "address": "789 Style Street, Modaville"
+  },
+  {
+    "id": "shop004",
+    "name": "Home Essentials",
+    "description": "Everything you need for a cozy home.",
+    "region": "Westside",
+    "address": "321 Comfort Rd, Homestead"
+  },
+  {
+    "id": "shop005",
+    "name": "Pet Paradise",
+    "description": "Supplies and treats for your furry friends.",
+    "region": "Eastside",
+    "address": "654 Paws Blvd, Petville"
+  },
+  {
+    "id": "shop006",
+    "name": "Tech Stop",
+    "description": "Latest gadgets and tech repairs.",
+    "region": "Northwest",
+    "address": "987 Circuit Dr, Silicon City"
+  },
+  {
+    "id": "shop007",
+    "name": "Green Grocer",
+    "description": "Fresh produce and organic foods.",
+    "region": "Southwest",
+    "address": "159 Orchard Way, Greentown"
+  },
+  {
+    "id": "shop008",
+    "name": "Toy Castle",
+    "description": "Toys and games for all ages.",
+    "region": "Northeast",
+    "address": "753 Fun Street, Toyland"
+  },
+  {
+    "id": "shop009",
+    "name": "Fitness First",
+    "description": "Workout gear and supplements.",
+    "region": "Central",
+    "address": "852 Fit Ave, Muscle City"
+  },
+  {
+    "id": "shop010",
+    "name": "Bake House",
+    "description": "Freshly baked bread and pastries.",
+    "region": "Downtown",
+    "address": "951 Crust Lane, Bakersfield"
+  }
+]

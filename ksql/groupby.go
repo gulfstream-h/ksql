@@ -8,7 +8,8 @@ import (
 
 // GroupExpression - common contract for all GROUP BY expressions
 type GroupExpression interface {
-	Expression() (string, error)
+	Expression
+
 	GroupedFields() []Field
 	IsEmpty() bool
 	GroupBy(fields ...Field) GroupExpression

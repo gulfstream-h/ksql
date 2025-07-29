@@ -323,7 +323,7 @@ func CreateStreamAsSelect[S any](
 	}
 
 	if static.ReflectionFlag {
-		err := report.ReflectionReportNative(s, fields)
+		err := report.ReflectionReportNative(s, streamName, fields)
 		if err != nil {
 			return nil, fmt.Errorf("reflection report native: %w", err)
 		}
@@ -331,7 +331,7 @@ func CreateStreamAsSelect[S any](
 		for relName, rel := range selectBuilder.RelationReport() {
 			err = report.ReflectionReportRemote(relName, rel.Map())
 			if err != nil {
-				return nil, fmt.Errorf("reflection report remote: %w", err)
+				return nil, fmt.Errorf("reflection report remote (name: %s, relation: %s): %w", relName, rel, err)
 			}
 		}
 	}
@@ -528,7 +528,7 @@ func (s *Stream[S]) InsertAsSelect(
 	if static.ReflectionFlag {
 		fields := selectBuilder.Returns()
 
-		err := report.ReflectionReportNative(stream, fields)
+		err := report.ReflectionReportNative(stream, s.Name, fields)
 		if err != nil {
 			return fmt.Errorf("reflection report native: %w", err)
 		}

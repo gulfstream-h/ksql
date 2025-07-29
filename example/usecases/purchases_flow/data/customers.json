@@ -1,0 +1,72 @@
+[
+  {
+    "id": "cust001",
+    "name": "Alice Johnson",
+    "email": "alice.johnson@example.com",
+    "phone": "+1-555-1234",
+    "address": "101 Maple Street, Springfield"
+  },
+  {
+    "id": "cust002",
+    "name": "Bob Smith",
+    "email": "bob.smith@example.com",
+    "phone": "+1-555-2345",
+    "address": "202 Oak Avenue, Centerville"
+  },
+  {
+    "id": "cust003",
+    "name": "Carla Diaz",
+    "email": "carla.diaz@example.com",
+    "phone": "+1-555-3456",
+    "address": "303 Pine Road, Lakeview"
+  },
+  {
+    "id": "cust004",
+    "name": "David Lee",
+    "email": "david.lee@example.com",
+    "phone": "+1-555-4567",
+    "address": "404 Birch Lane, Mountainview"
+  },
+  {
+    "id": "cust005",
+    "name": "Eva Müller",
+    "email": "eva.muller@example.com",
+    "phone": "+1-555-5678",
+    "address": "505 Cedar Street, Rivertown"
+  },
+  {
+    "id": "cust006",
+    "name": "Frank Williams",
+    "email": "frank.williams@example.com",
+    "phone": "+1-555-6789",
+    "address": "606 Elm Drive, Hillcrest"
+  },
+  {
+    "id": "cust007",
+    "name": "Grace Kim",
+    "email": "grace.kim@example.com",
+    "phone": "+1-555-7890",
+    "address": "707 Spruce Blvd, Eastwood"
+  },
+  {
+    "id": "cust008",
+    "name": "Hassan Ali",
+    "email": "hassan.ali@example.com",
+    "phone": "+1-555-8901",
+    "address": "808 Walnut Way, Brookside"
+  },
+  {
+    "id": "cust009",
+    "name": "Isabella Rossi",
+    "email": "isabella.rossi@example.com",
+    "phone": "+1-555-9012",
+    "address": "909 Chestnut Street, Sunnyvale"
+  },
+  {
+    "id": "cust010",
+    "name": "Jake Peterson",
+    "email": "jake.peterson@example.com",
+    "phone": "+1-555-0123",
+    "address": "1001 Willow Road, Lakeside"
+  }
+]

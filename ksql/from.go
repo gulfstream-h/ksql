@@ -4,12 +4,13 @@ import "fmt"
 
 // FromExpression - common contract for all FROM expressions
 type FromExpression interface {
+	Expression
+
 	Schema() string
 	From(string) FromExpression
 	As(alias string) FromExpression
 	Ref() Reference
 	Alias() string
-	Expression() (string, error)
 }
 
 // from implements the FromExpression interface, representing a FROM clause in KSQL

@@ -8,7 +8,8 @@ import (
 
 // HavingExpression - common contract for all HAVING expressions
 type HavingExpression interface {
-	Expression() (string, error)
+	Expression
+
 	Conditionals() []Conditional
 	IsEmpty() bool
 	Having(exps ...Conditional) HavingExpression

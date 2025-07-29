@@ -1,0 +1,82 @@
+[
+  {
+    "id": "emp001",
+    "name": "Liam Walker",
+    "email": "liam.walker@gadgetworld.com",
+    "phone": "+1-555-1001",
+    "shop_id": "shop001",
+    "position": "Store Manager"
+  },
+  {
+    "id": "emp002",
+    "name": "Mia Thompson",
+    "email": "mia.thompson@bookhaven.com",
+    "phone": "+1-555-1002",
+    "shop_id": "shop002",
+    "position": "Sales Associate"
+  },
+  {
+    "id": "emp003",
+    "name": "Noah Patel",
+    "email": "noah.patel@fashionhub.com",
+    "phone": "+1-555-1003",
+    "shop_id": "shop003",
+    "position": "Inventory Manager"
+  },
+  {
+    "id": "emp004",
+    "name": "Sophia Nguyen",
+    "email": "sophia.nguyen@homeessentials.com",
+    "phone": "+1-555-1004",
+    "shop_id": "shop004",
+    "position": "Cashier"
+  },
+  {
+    "id": "emp005",
+    "name": "Ethan Brown",
+    "email": "ethan.brown@petparadise.com",
+    "phone": "+1-555-1005",
+    "shop_id": "shop005",
+    "position": "Animal Care Specialist"
+  },
+  {
+    "id": "emp006",
+    "name": "Olivia Davis",
+    "email": "olivia.davis@techstop.com",
+    "phone": "+1-555-1006",
+    "shop_id": "shop006",
+    "position": "Tech Support"
+  },
+  {
+    "id": "emp007",
+    "name": "James Chen",
+    "email": "james.chen@greengrocer.com",
+    "phone": "+1-555-1007",
+    "shop_id": "shop007",
+    "position": "Produce Manager"
+  },
+  {
+    "id": "emp008",
+    "name": "Amelia Garcia",
+    "email": "amelia.garcia@toycastle.com",
+    "phone": "+1-555-1008",
+    "shop_id": "shop008",
+    "position": "Customer Service Rep"
+  },
+  {
+    "id": "emp009",
+    "name": "William Lee",
+    "email": "william.lee@fitnessfirst.com",
+    "phone": "+1-555-1009",
+    "shop_id": "shop009",
+    "position": "Personal Trainer"
+  },
+  {
+    "id": "emp010",
+    "name": "Charlotte Evans",
+    "email": "charlotte.evans@bakehouse.com",
+    "phone": "+1-555-1010",
+    "shop_id": "shop010",
+    "position": "Baker"
+  }
+]
