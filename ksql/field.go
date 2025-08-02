@@ -6,6 +6,12 @@ import (
 )
 
 type (
+	Relational interface {
+		Schema() string
+		Column() string
+		Alias() string
+	}
+
 	// Field - common contract for all fields in KSQL
 	Field interface {
 		Comparable
@@ -13,10 +19,8 @@ type (
 		Nullable
 		ComparableArray
 		Expression
+		Relational
 
-		Schema() string
-		Column() string
-		Alias() string
 		As(alias string) Field
 		Copy() Field
 	}

@@ -13,6 +13,8 @@ func ReflectionReportRemote(
 	parsed map[string]schema.SearchField,
 ) error {
 	remoteRelation, err := static.FindRelationFields(remote)
+	fmt.Println("remoteRelation", remoteRelation, err)
+	fmt.Println("parsed", parsed)
 	if err != nil {
 		return fmt.Errorf("cannot find remote relation %s: %w", remote, err)
 	}

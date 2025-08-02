@@ -263,7 +263,7 @@ func NewPipeline(ctx context.Context) (*PurchasesPipeline, error) {
 		},
 		ksql.Select(
 			ksql.F("shop_id").As("region"),
-			ksql.Mul(ksql.Sum(ksql.F("price")), ksql.F("quantity")).As("total_sales"),
+			ksql.Sum(ksql.Mul(ksql.F("price"), ksql.F("quantity"))).As("total_sales"),
 			ksql.Count(ksql.F("id")).As("purchase_count"),
 		).
 			Windowed(
@@ -274,7 +274,8 @@ func NewPipeline(ctx context.Context) (*PurchasesPipeline, error) {
 					},
 				),
 			).
-			From(ksql.Schema(PurchasesStreamName, ksql.STREAM)).GroupBy(ksql.F("shop_id")),
+			From(ksql.Schema(PurchasesStreamName, ksql.STREAM)).
+			GroupBy(ksql.F("shop_id")),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("create region analytics table: %w", err)

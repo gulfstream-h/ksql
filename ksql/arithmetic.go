@@ -21,6 +21,7 @@ type (
 		Field
 		Operation() ArithmeticOperation
 		Right() any
+		Fields() []Field
 	}
 )
 
@@ -68,6 +69,30 @@ func (a *arithmeticExpr) Operation() ArithmeticOperation {
 
 func (a *arithmeticExpr) Right() any {
 	return a.right
+}
+
+func (a *arithmeticExpr) Fields() []Field {
+	var (
+		fields []Field
+	)
+
+	if f, ok := a.left.(Field); ok {
+		if exr, ok := f.(ArithmeticFunc); ok {
+			fields = append(fields, exr.Fields()...)
+		} else {
+			fields = append(fields, f)
+		}
+
+	}
+
+	if f, ok := a.right.(Field); ok {
+		if exr, ok := f.(ArithmeticFunc); ok {
+			fields = append(fields, exr.Fields()...)
+		} else {
+			fields = append(fields, f)
+		}
+	}
+	return fields
 }
 
 func (a *arithmeticExpr) Expression() (string, error) {

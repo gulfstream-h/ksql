@@ -298,6 +298,45 @@ func (s *selectBuilder) Select(fields ...Field) SelectBuilder {
 
 	if static.ReflectionFlag {
 		for idx := range fields {
+
+			ariphmeticField, ok := fields[idx].(*arithmeticExpr)
+			if ok {
+				ff := ariphmeticField.Fields()
+				for j := range ff {
+					inner := ff[j]
+					if _, ok := reserved[inner.Column()]; ok {
+						// if the field is already reserved, we should skip it
+						continue
+					}
+					f := schema.SearchField{
+						Name:     inner.Column(),
+						Relation: s.parseRelationName(inner),
+					}
+					fmt.Println("added relation: ", f.Relation, f.Name)
+					s.addSearchField(f)
+				}
+
+				f := schema.SearchField{
+					Name:     fields[idx].Alias(),
+					Relation: s.parseRelationName(fields[idx]),
+				}
+
+				meta := returnNameMeta{
+					relation: f.Relation,
+					alias:    fields[idx].Alias(),
+				}
+
+				if len(fields[idx].Alias()) > 0 {
+					meta.alias = fields[idx].Alias()
+				}
+
+				sl, _ := s.returnTypeMapper[f.Name]
+				fmt.Println("return type mapper: ", f.Name, "->", meta.relation, meta.alias)
+				sl = append(sl, meta)
+				s.returnTypeMapper[f.Name] = sl
+				continue
+			}
+
 			// if the field is already reserved, we should skip it
 			if _, ok := reserved[fields[idx].Column()]; ok {
 				continue
@@ -307,6 +346,7 @@ func (s *selectBuilder) Select(fields ...Field) SelectBuilder {
 				Relation: s.parseRelationName(fields[idx]),
 			}
 
+			fmt.Println("added relation: ", f.Relation, f.Name)
 			s.addSearchField(f)
 
 			meta := returnNameMeta{
@@ -319,6 +359,7 @@ func (s *selectBuilder) Select(fields ...Field) SelectBuilder {
 			}
 
 			sl, _ := s.returnTypeMapper[f.Name]
+			fmt.Println("return type mapper: ", f.Name, "->", meta.relation, meta.alias)
 			sl = append(sl, meta)
 			s.returnTypeMapper[f.Name] = sl
 		}
@@ -667,6 +708,23 @@ func (s *selectBuilder) Returns() schema.LintedFields {
 	result := schema.NewLintedFields()
 
 	s.buildRelationReport()
+
+	fmt.Println("####### RETURNS #######")
+	fmt.Println("##  relation storage ##")
+	for relName, rel := range s.relationStorage {
+		fmt.Printf("## %s: %d fields\n", relName, len(rel.Map()))
+		for _, field := range rel.Map() {
+			fmt.Printf("## - %s.%s\n", field.Relation, field.Name)
+		}
+	}
+	fmt.Println("########################")
+	fmt.Println("## return type mapper ##")
+	for fieldName, metaSlice := range s.returnTypeMapper {
+		fmt.Printf("## %s: %d metas\n", fieldName, len(metaSlice))
+		for _, meta := range metaSlice {
+			fmt.Printf("## - %s.%s\n", meta.relation, meta.alias)
+		}
+	}
 
 	for fieldName, metaSlice := range s.returnTypeMapper {
 		for _, meta := range metaSlice {
