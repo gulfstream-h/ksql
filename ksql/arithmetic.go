@@ -21,7 +21,6 @@ type (
 		Field
 		Operation() ArithmeticOperation
 		Right() any
-		Fields() []Field
 	}
 )
 
@@ -71,28 +70,31 @@ func (a *arithmeticExpr) Right() any {
 	return a.right
 }
 
-func (a *arithmeticExpr) Fields() []Field {
+func (a *arithmeticExpr) InnerRelations() []Relational {
+
 	var (
-		fields []Field
+		relations []Relational
 	)
 
 	if f, ok := a.left.(Field); ok {
-		if exr, ok := f.(ArithmeticFunc); ok {
-			fields = append(fields, exr.Fields()...)
-		} else {
-			fields = append(fields, f)
+		relations = append(relations, f.InnerRelations()...)
+		if !f.derived() {
+			relations = append(relations, f)
 		}
-
 	}
 
 	if f, ok := a.right.(Field); ok {
-		if exr, ok := f.(ArithmeticFunc); ok {
-			fields = append(fields, exr.Fields()...)
-		} else {
-			fields = append(fields, f)
+		relations = append(relations, f.InnerRelations()...)
+		if !f.derived() {
+			relations = append(relations, f)
 		}
 	}
-	return fields
+
+	return relations
+}
+
+func (a *arithmeticExpr) derived() bool {
+	return true
 }
 
 func (a *arithmeticExpr) Expression() (string, error) {

@@ -6,11 +6,14 @@ import (
 	"github.com/gulfstream-h/ksql/config"
 	"github.com/gulfstream-h/ksql/example/usecases/purchases_flow/dtypes"
 	"github.com/gulfstream-h/ksql/example/usecases/purchases_flow/utils"
+	"github.com/gulfstream-h/ksql/kinds"
 	"github.com/gulfstream-h/ksql/ksql"
 	"github.com/gulfstream-h/ksql/shared"
 	"github.com/gulfstream-h/ksql/streams"
 	"github.com/gulfstream-h/ksql/tables"
+	"log"
 	"log/slog"
+	"os"
 )
 
 const (
@@ -295,7 +298,7 @@ func NewPipeline(ctx context.Context) (*PurchasesPipeline, error) {
 		ksql.Select(
 			ksql.F("seller_id").As("seller_id"),
 			ksql.Count(ksql.F("id")).As("total_sales"),
-			ksql.Mul(ksql.Sum(ksql.F("price")), ksql.F("quantity")).As("total_revenue"),
+			ksql.Sum(ksql.Mul(ksql.F("price"), ksql.F("quantity"))).As("total_revenue"),
 		).
 			From(ksql.Schema(PurchasesStreamName, ksql.STREAM)).
 			GroupBy(ksql.F("seller_id")).
@@ -318,7 +321,10 @@ func NewPipeline(ctx context.Context) (*PurchasesPipeline, error) {
 		},
 		ksql.Select(
 			ksql.F("seller_id").As("seller_id"),
-			ksql.Mul(ksql.Mul(ksql.Sum(ksql.F("price")), ksql.F("quantity")), 0.05),
+			ksql.Mul(
+				ksql.Sum(ksql.Mul(ksql.F("price"), ksql.F("quantity"))),
+				0.05,
+			).As("salary"),
 		).
 			From(ksql.Schema(PurchasesStreamName, ksql.STREAM)).
 			GroupBy(ksql.F("seller_id")).
@@ -338,6 +344,7 @@ func NewPipeline(ctx context.Context) (*PurchasesPipeline, error) {
 			Name:        FavoriteCategoriesTableName,
 			SourceTopic: PurchasesStreamName,
 			Partitions:  1,
+			KeyFormat:   kinds.JSON,
 		},
 		ksql.
 			Select(
@@ -363,10 +370,18 @@ func NewPipeline(ctx context.Context) (*PurchasesPipeline, error) {
 			SourceTopic: PurchasesStreamName,
 			Partitions:  1,
 		},
-		ksql.Select(
-			ksql.F("customer_id"),
-			ksql.Count(ksql.F("id")).As("purchase_count"),
-		).From(ksql.Schema(PurchasesStreamName, ksql.STREAM)).GroupBy(ksql.F("customer_id")),
+		ksql.
+			Select(
+				ksql.F("customer_id"),
+				ksql.Count(ksql.F("id")).As("purchase_count"),
+			).
+			From(ksql.Schema(PurchasesStreamName, ksql.STREAM)).
+			Windowed(
+				ksql.NewTumblingWindow(
+					ksql.TimeUnit{Val: 10, Unit: ksql.Minutes},
+				),
+			).
+			GroupBy(ksql.F("customer_id")),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("create notifications table: %w", err)
@@ -499,26 +514,31 @@ func Cleanup(ctx context.Context) {
 func dataInit() (*utils.Data, error) {
 	data := utils.NewData()
 
-	err := data.LoadCustomers("/data/customers.json")
+	wd, err := os.Getwd()
+	if err != nil {
+		log.Fatalf("cannot get working directory: %v", err)
+	}
+	log.Printf("Working directory: %s", wd)
+
+	err = data.LoadCustomers("example/usecases/purchases_flow/data/customers.json")
 	if err != nil {
 		return nil, fmt.Errorf("failed to load customers: %w", err)
 	}
-	err = data.LoadShops("/data/shops.json")
+	err = data.LoadShops("example/usecases/purchases_flow/data/shops.json")
 	if err != nil {
 		return nil, fmt.Errorf("failed to load shops: %w", err)
 	}
 
-	err = data.LoadProducts("/data/products.json")
+	err = data.LoadProducts("example/usecases/purchases_flow/data/products.json")
 	if err != nil {
 		return nil, fmt.Errorf("failed to load products: %w", err)
 	}
 
-	err = data.LoadEmployees("/data/employees.json")
+	err = data.LoadEmployees("example/usecases/purchases_flow/data/employees.json")
 	if err != nil {
 		return nil, fmt.Errorf("failed to load employees: %w", err)
 	}
 
-	// Generate purchases according to existing data (to save relations)
 	err = data.GeneratePurchases(100)
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate purchases: %w", err)

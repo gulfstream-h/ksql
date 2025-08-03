@@ -79,7 +79,7 @@ type SellerSalary struct {
 
 type FavoriteCategory struct {
 	CustomerID string `ksql:"customer_id, primary"`
-	Category   string `ksql:"category, primary"`
+	Category   string `ksql:"category"`
 	Count      int    `ksql:"count"`
 }
 

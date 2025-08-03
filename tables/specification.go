@@ -359,7 +359,7 @@ func CreateTable[S any](
 			sourceTopic:  settings.SourceTopic,
 			partitions:   settings.Partitions,
 			remoteSchema: rmSchema,
-			format:       settings.Format,
+			format:       settings.ValueFormat,
 		}, nil
 	}
 }
@@ -404,6 +404,7 @@ func CreateTableAsSelect[S any](
 	meta := ksql.Metadata{
 		Topic:       settings.SourceTopic,
 		ValueFormat: kinds.JSON.String(),
+		KeyFormat:   settings.KeyFormat.String(),
 	}
 
 	query, err := ksql.Create(ksql.TABLE, tableName).
@@ -458,7 +459,7 @@ func CreateTableAsSelect[S any](
 			sourceTopic:  settings.SourceTopic,
 			partitions:   settings.Partitions,
 			remoteSchema: fields,
-			format:       settings.Format,
+			format:       settings.ValueFormat,
 		}, nil
 	}
 }

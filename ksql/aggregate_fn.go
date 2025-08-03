@@ -66,6 +66,10 @@ func (a *aggregateFunction) Expression() (string, error) {
 	return a.name + "(" + expr + ")", nil
 }
 
+func (a *aggregateFunction) derived() bool {
+	return true
+}
+
 // Name - returns function name of aggregate field. Like MAX, MIN, AVG etc...
 func (a *aggregateFunction) Name() string {
 	return a.name

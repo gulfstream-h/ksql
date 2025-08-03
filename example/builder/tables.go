@@ -58,7 +58,7 @@ func createExperimentalTable(ctx context.Context) (*tables.Table[ExpTable], erro
 	return tables.CreateTable[ExpTable](ctx, table, shared.TableSettings{
 		SourceTopic: topic,
 		Partitions:  partitions,
-		Format:      kinds.JSON,
+		ValueFormat: kinds.JSON,
 	})
 }
 
@@ -69,7 +69,7 @@ func createAdditionalTable(ctx context.Context) (*tables.Table[AdditionalTable],
 	return tables.CreateTable[AdditionalTable](ctx, additionalTable, shared.TableSettings{
 		SourceTopic: topic,
 		Partitions:  partitions,
-		Format:      kinds.JSON,
+		ValueFormat: kinds.JSON,
 	})
 }
 

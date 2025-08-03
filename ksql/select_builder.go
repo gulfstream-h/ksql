@@ -297,71 +297,24 @@ func (s *selectBuilder) Select(fields ...Field) SelectBuilder {
 	s.fields = append(s.fields, fields...)
 
 	if static.ReflectionFlag {
+		var (
+			rels []Relational
+			// slice of relation that parsed from derived fields (see Relation interface derived method)
+			// inner relations participate only in reflection report
+			// and do not in return schema reflection check
+			innerRels []Relational
+		)
+
 		for idx := range fields {
+			rels = append(rels, fields[idx])
+			innerRels = append(innerRels, fields[idx].InnerRelations()...)
+		}
 
-			ariphmeticField, ok := fields[idx].(*arithmeticExpr)
-			if ok {
-				ff := ariphmeticField.Fields()
-				for j := range ff {
-					inner := ff[j]
-					if _, ok := reserved[inner.Column()]; ok {
-						// if the field is already reserved, we should skip it
-						continue
-					}
-					f := schema.SearchField{
-						Name:     inner.Column(),
-						Relation: s.parseRelationName(inner),
-					}
-					fmt.Println("added relation: ", f.Relation, f.Name)
-					s.addSearchField(f)
-				}
-
-				f := schema.SearchField{
-					Name:     fields[idx].Alias(),
-					Relation: s.parseRelationName(fields[idx]),
-				}
-
-				meta := returnNameMeta{
-					relation: f.Relation,
-					alias:    fields[idx].Alias(),
-				}
-
-				if len(fields[idx].Alias()) > 0 {
-					meta.alias = fields[idx].Alias()
-				}
-
-				sl, _ := s.returnTypeMapper[f.Name]
-				fmt.Println("return type mapper: ", f.Name, "->", meta.relation, meta.alias)
-				sl = append(sl, meta)
-				s.returnTypeMapper[f.Name] = sl
-				continue
-			}
-
-			// if the field is already reserved, we should skip it
-			if _, ok := reserved[fields[idx].Column()]; ok {
-				continue
-			}
-			f := schema.SearchField{
-				Name:     fields[idx].Column(),
-				Relation: s.parseRelationName(fields[idx]),
-			}
-
-			fmt.Println("added relation: ", f.Relation, f.Name)
-			s.addSearchField(f)
-
-			meta := returnNameMeta{
-				relation: f.Relation,
-				alias:    fields[idx].Alias(),
-			}
-
-			if len(fields[idx].Alias()) > 0 {
-				meta.alias = fields[idx].Alias()
-			}
-
-			sl, _ := s.returnTypeMapper[f.Name]
-			fmt.Println("return type mapper: ", f.Name, "->", meta.relation, meta.alias)
-			sl = append(sl, meta)
-			s.returnTypeMapper[f.Name] = sl
+		for idx := range rels {
+			s.processRelation(rels[idx], true)
+		}
+		for idx := range innerRels {
+			s.processRelation(rels[idx], false)
 		}
 
 	}
@@ -702,29 +655,12 @@ func (s *selectBuilder) Expression() (string, error) {
 	return builder.String(), nil
 }
 
-// Returns - returns all fields that were selected in the select builder
+// Returns - function that returns all fields that were selected in the select builder
 // it also checks for fields existence in the relation storage
 func (s *selectBuilder) Returns() schema.LintedFields {
 	result := schema.NewLintedFields()
 
 	s.buildRelationReport()
-
-	fmt.Println("####### RETURNS #######")
-	fmt.Println("##  relation storage ##")
-	for relName, rel := range s.relationStorage {
-		fmt.Printf("## %s: %d fields\n", relName, len(rel.Map()))
-		for _, field := range rel.Map() {
-			fmt.Printf("## - %s.%s\n", field.Relation, field.Name)
-		}
-	}
-	fmt.Println("########################")
-	fmt.Println("## return type mapper ##")
-	for fieldName, metaSlice := range s.returnTypeMapper {
-		fmt.Printf("## %s: %d metas\n", fieldName, len(metaSlice))
-		for _, meta := range metaSlice {
-			fmt.Printf("## - %s.%s\n", meta.relation, meta.alias)
-		}
-	}
 
 	for fieldName, metaSlice := range s.returnTypeMapper {
 		for _, meta := range metaSlice {
@@ -743,7 +679,6 @@ func (s *selectBuilder) Returns() schema.LintedFields {
 
 			if len(meta.alias) != 0 {
 				v.Name = meta.alias
-				//v.Relation = ""
 			}
 
 			if realRel, ok := s.virtualSchemas[meta.relation]; ok {
@@ -819,6 +754,53 @@ func (s *selectBuilder) withAggregatedOperators() bool {
 	return s.groupByEx != nil || s.havingEx != nil
 }
 
+func (s *selectBuilder) processRelation(rel Relational, returnCheck bool) {
+	// if the field is already reserved, we should skip it
+	if _, ok := reserved[rel.Column()]; ok {
+		return
+	}
+
+	// if relation is computing during query
+	// it should be added just for return schema
+	// and ignored in relation report
+	if rel.derived() {
+		/*
+			TODO:
+				make special schema for computed objects
+				now it is not participates in return schema
+				reflection check
+		*/
+		return
+	}
+
+	f := schema.SearchField{
+		Name:     rel.Column(),
+		Relation: s.parseRelationName(rel),
+	}
+
+	s.addSearchField(f)
+
+	// if field participates in query as a parameter for
+	// aggregated function, conditional, etc.,
+	// it's not necessary to add it to return schema reflection check
+	if !returnCheck {
+		return
+	}
+
+	meta := returnNameMeta{
+		relation: f.Relation,
+		alias:    rel.Alias(),
+	}
+
+	if len(rel.Alias()) > 0 {
+		meta.alias = rel.Alias()
+	}
+
+	sl, _ := s.returnTypeMapper[f.Name]
+	sl = append(sl, meta)
+	s.returnTypeMapper[f.Name] = sl
+}
+
 // addRelation adds a relation to the relation storage
 func (s *selectBuilder) addRelation(
 	relationName string,
@@ -853,7 +835,7 @@ func (s *selectBuilder) addSearchField(
 }
 
 // parseRelationName parses the relation name from the field
-func (s *selectBuilder) parseRelationName(f Field) string {
+func (s *selectBuilder) parseRelationName(f Relational) string {
 
 	if len(f.Schema()) == 0 {
 		// check column is already an alias

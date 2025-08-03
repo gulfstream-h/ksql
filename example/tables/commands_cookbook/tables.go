@@ -66,7 +66,7 @@ func Create(ctx context.Context) {
 			Name:        tableName,
 			SourceTopic: sourceTopic,
 			Partitions:  partitions,
-			Format:      kinds.JSON,
+			ValueFormat: kinds.JSON,
 		})
 
 	if err != nil {
@@ -143,7 +143,7 @@ func CreateAsSelect(ctx context.Context) {
 	sourceTopic := "examples-topics"
 	_, err := tables.CreateTableAsSelect[ExampleTable](ctx, "dublicate", shared.TableSettings{
 		SourceTopic: sourceTopic,
-		Format:      kinds.JSON,
+		ValueFormat: kinds.JSON,
 	}, sql)
 	if err != nil {
 		slog.Error("cannot create table as select", "error", err.Error())

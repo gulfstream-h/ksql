@@ -296,7 +296,7 @@ func CreateStream[S any](
 			Name:         streamName,
 			partitions:   settings.Partitions,
 			remoteSchema: rmSchema,
-			format:       settings.Format,
+			format:       settings.ValueFormat,
 		}, nil
 	}
 }
@@ -392,7 +392,7 @@ func CreateStreamAsSelect[S any](
 			partitions:   settings.Partitions,
 			Name:         streamName,
 			remoteSchema: fields,
-			format:       settings.Format,
+			format:       settings.ValueFormat,
 		}, nil
 	}
 }

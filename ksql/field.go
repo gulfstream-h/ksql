@@ -10,6 +10,11 @@ type (
 		Schema() string
 		Column() string
 		Alias() string
+
+		// derived is a special flag that signals
+		// to builder that field is doesn't exist
+		// outside the builder context
+		derived() bool
 	}
 
 	// Field - common contract for all fields in KSQL
@@ -21,6 +26,9 @@ type (
 		Expression
 		Relational
 
+		// InnerRelations is a method for extracting relations from
+		// complex fields like arithmetic expressions or functions
+		InnerRelations() []Relational
 		As(alias string) Field
 		Copy() Field
 	}
@@ -68,6 +76,14 @@ func (f *field) As(alias string) Field {
 func (f *field) Alias() string {
 	return f.alias
 }
+
+// InnerRelations
+// field doesn't have any inner relations. Other implementations should
+// shadow this method
+func (f *field) InnerRelations() []Relational { return nil }
+
+// field contains data itself, it cannot be derived
+func (f *field) derived() bool { return false }
 
 // Expression returns the KSQL query for the field
 func (f *field) Expression() (string, error) {

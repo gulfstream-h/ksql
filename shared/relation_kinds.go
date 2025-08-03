@@ -17,7 +17,8 @@ type Settings struct {
 	SourceTopic string
 	Partitions  int
 	Schema      schema.LintedFields
-	Format      kinds.ValueFormat
+	ValueFormat kinds.ValueFormat
+	KeyFormat   kinds.ValueFormat
 }
 
 // StreamSettings - describes the settings of stream
@@ -73,7 +74,8 @@ type RelationSettings interface {
 		SourceTopic string
 		Partitions  int
 		Schema      schema.LintedFields
-		Format      kinds.ValueFormat
+		ValueFormat kinds.ValueFormat
+		KeyFormat   kinds.ValueFormat
 	}
 }
 

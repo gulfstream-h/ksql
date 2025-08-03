@@ -67,7 +67,7 @@ func Create(ctx context.Context) {
 			Name:        streamName,
 			SourceTopic: sourceTopic,
 			Partitions:  partitions,
-			Format:      kinds.JSON,
+			ValueFormat: kinds.JSON,
 		})
 
 	if err != nil {
@@ -158,7 +158,7 @@ func CreateAsSelect(ctx context.Context) {
 	sourceTopic := "examples-topics"
 	_, err := streams.CreateStreamAsSelect[ExampleStream](ctx, "dublicateStream", shared.StreamSettings{
 		SourceTopic: sourceTopic,
-		Format:      kinds.JSON,
+		ValueFormat: kinds.JSON,
 	}, sql)
 	if err != nil {
 		slog.Error("cannot create stream as select", "error", err.Error())
