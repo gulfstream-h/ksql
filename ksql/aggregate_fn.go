@@ -66,6 +66,10 @@ func (a *aggregateFunction) Expression() (string, error) {
 	return a.name + "(" + expr + ")", nil
 }
 
+// aggregateFunction contains fields that participates in query schema
+// reflection check and doesn't require return schema check.
+// But it's construct a new field that does not exist in the original schema.
+// so we signal that this is a derived field.
 func (a *aggregateFunction) derived() bool {
 	return true
 }

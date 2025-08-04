@@ -43,6 +43,13 @@ const (
 	// Topics
 
 	PurchasesTopic = "purchases_topic"
+
+	// Ksql client parameters
+
+	ksqlServerURL              = "http://localhost:8088"
+	ksqlHttpRequestTimeoutSecs = 600  // 10 minutes
+	reflectionModeEnabled      = true // Enable reflection mode for query schema relations lintering
+
 )
 
 type (
@@ -72,7 +79,6 @@ type (
 )
 
 func NewPipeline(ctx context.Context) (*PurchasesPipeline, error) {
-	pipe := new(PurchasesPipeline)
 
 	/*
 		At first, we should create all necessary tables and streams
@@ -159,17 +165,6 @@ func NewPipeline(ctx context.Context) (*PurchasesPipeline, error) {
 		return nil, fmt.Errorf("create customers table: %w", err)
 	}
 
-	pipe.dictionary = &Dictionary{
-		Products:       productsTable,
-		ProductsInput:  productsInputStream,
-		Shops:          shopsTable,
-		ShopsInput:     shopsInputStream,
-		Employees:      employeesTable,
-		EmployeesInput: employeesInputStream,
-		Customers:      customersTable,
-		CustomersInput: customersInputStream,
-	}
-
 	// Events input stream
 	// This stream will be used as source for all further processing
 	purchasesStream, err := streams.CreateStream[dtypes.Purchase](ctx, PurchasesStreamName, shared.StreamSettings{
@@ -180,7 +175,6 @@ func NewPipeline(ctx context.Context) (*PurchasesPipeline, error) {
 	if err != nil {
 		return nil, fmt.Errorf("create purchases stream: %w", err)
 	}
-	pipe.purchases = purchasesStream
 
 	// Bonus invoices stream representing bonus payments for purchases
 	// it calculates as 10% of the total dtypes.Purchase amount
@@ -201,7 +195,6 @@ func NewPipeline(ctx context.Context) (*PurchasesPipeline, error) {
 	if err != nil {
 		return nil, fmt.Errorf("create bonus invoices stream: %w", err)
 	}
-	pipe.bonusInvoices = bonusInvoices
 
 	// Bonus balances table that aggregates bonus invoices
 	// it calculates the total bonus balance for each dtypes.Customer
@@ -225,7 +218,6 @@ func NewPipeline(ctx context.Context) (*PurchasesPipeline, error) {
 	if err != nil {
 		return nil, fmt.Errorf("create bonus balances table: %w", err)
 	}
-	pipe.bonusBalances = bonusBalances
 
 	// Bonus levels table that categorizes customers based on their bonus balance
 	// it assigns levels: bronze, silver, gold based on balance thresholds
@@ -252,7 +244,6 @@ func NewPipeline(ctx context.Context) (*PurchasesPipeline, error) {
 	if err != nil {
 		return nil, fmt.Errorf("create bonus levels table: %w", err)
 	}
-	pipe.bonusLevels = bonusLevels
 
 	// Region analytics table that aggregates sales data by dtypes.Shop region
 	// it calculates total sales and dtypes.Purchase count for each dtypes.Shop region
@@ -283,7 +274,6 @@ func NewPipeline(ctx context.Context) (*PurchasesPipeline, error) {
 	if err != nil {
 		return nil, fmt.Errorf("create region analytics table: %w", err)
 	}
-	pipe.regionAnalytics = regionAnalytics
 
 	// Seller KPI table that aggregates sales data for each seller
 	// it calculates total revenue and total sales for each seller
@@ -307,7 +297,6 @@ func NewPipeline(ctx context.Context) (*PurchasesPipeline, error) {
 	if err != nil {
 		return nil, fmt.Errorf("create seller KPI table: %w", err)
 	}
-	pipe.sellerKPI = sellerKPI
 
 	// Seller salary table that calculates seller salaries based on their sales
 	// it calculates 5% of the total sales amount for each seller
@@ -333,7 +322,6 @@ func NewPipeline(ctx context.Context) (*PurchasesPipeline, error) {
 	if err != nil {
 		return nil, fmt.Errorf("create seller salary table: %w", err)
 	}
-	pipe.sellerSalary = sellerSalary
 
 	// Favorite categories table that aggregates dtypes.Customer purchases by category
 	// it calculates the most purchased category for each dtypes.Customer
@@ -359,7 +347,6 @@ func NewPipeline(ctx context.Context) (*PurchasesPipeline, error) {
 	if err != nil {
 		return nil, fmt.Errorf("create favorite categories table: %w", err)
 	}
-	pipe.favoriteCategories = favoriteCategories
 
 	// User notifications table that aggregates dtypes.Purchase counts for each dtypes.Customer
 	notifications, err := tables.CreateTableAsSelect[dtypes.UserNotification](
@@ -386,9 +373,28 @@ func NewPipeline(ctx context.Context) (*PurchasesPipeline, error) {
 	if err != nil {
 		return nil, fmt.Errorf("create notifications table: %w", err)
 	}
-	pipe.notifications = notifications
 
-	return pipe, nil
+	return &PurchasesPipeline{
+		dictionary: &Dictionary{
+			ProductsInput:  productsInputStream,
+			Products:       productsTable,
+			ShopsInput:     shopsInputStream,
+			Shops:          shopsTable,
+			EmployeesInput: employeesInputStream,
+			Employees:      employeesTable,
+			CustomersInput: customersInputStream,
+			Customers:      customersTable,
+		},
+		purchases:          purchasesStream,
+		bonusInvoices:      bonusInvoices,
+		bonusBalances:      bonusBalances,
+		bonusLevels:        bonusLevels,
+		regionAnalytics:    regionAnalytics,
+		sellerKPI:          sellerKPI,
+		sellerSalary:       sellerSalary,
+		favoriteCategories: favoriteCategories,
+		notifications:      notifications,
+	}, nil
 }
 
 func Cleanup(ctx context.Context) {
@@ -599,7 +605,7 @@ func main() {
 	slog.SetLogLoggerLevel(slog.LevelDebug)
 
 	err := config.
-		New("http://localhost:8088", 600, true).
+		New(ksqlServerURL, ksqlHttpRequestTimeoutSecs, reflectionModeEnabled).
 		Configure(ctx)
 
 	if err != nil {
@@ -609,7 +615,6 @@ func main() {
 
 	// special cleanup function to drop all streams and tables using in this example
 	// that was created in previous run
-	Cleanup(ctx)
 	Cleanup(ctx)
 
 	// Initialize the purchases pipeline
