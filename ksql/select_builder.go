@@ -118,6 +118,9 @@ const (
 	// before the From() method call without any schema or schema alias provided
 	// once RelationReport() is called, the schema name will be replaced with the actual schema name
 	defaultSchemaName = "from.ksql"
+
+	derivedSchemaName = "derived.ksql" // special schema name for derived fields
+
 )
 
 var (
@@ -314,7 +317,7 @@ func (s *selectBuilder) Select(fields ...Field) SelectBuilder {
 			s.processRelation(rels[idx], true)
 		}
 		for idx := range innerRels {
-			s.processRelation(rels[idx], false)
+			s.processRelation(innerRels[idx], false)
 		}
 
 	}
@@ -668,6 +671,14 @@ func (s *selectBuilder) Returns() schema.LintedFields {
 				// if the relation is aliased, we should use the real schema name
 				meta.relation = realRel
 			}
+
+			if meta.relation == derivedSchemaName {
+				result.Set(schema.SearchField{
+					Name:     meta.alias,
+					Relation: "",
+				})
+			}
+
 			rel, ok := s.relationStorage[meta.relation]
 			if !ok {
 				// if relation is gone
@@ -764,12 +775,21 @@ func (s *selectBuilder) processRelation(rel Relational, returnCheck bool) {
 	// it should be added just for return schema
 	// and ignored in relation report
 	if rel.derived() {
-		/*
-			TODO:
-				make special schema for computed objects
-				now it is not participates in return schema
-				reflection check
-		*/
+
+		if len(rel.Alias()) == 0 {
+			s.ctx.err = fmt.Errorf("derived field should have an alias")
+			return
+		}
+
+		meta := returnNameMeta{
+			relation: derivedSchemaName,
+			alias:    rel.Alias(),
+		}
+
+		sl, _ := s.returnTypeMapper[meta.alias]
+		sl = append(sl, meta)
+		s.returnTypeMapper[meta.alias] = sl
+
 		return
 	}
 

@@ -885,7 +885,7 @@ func Test_SelectBuilderRelationStorage(t *testing.T) {
 				},
 				"count_column3": {
 					Name:     "count_column3",
-					Relation: "table3",
+					Relation: "",
 				},
 			},
 		},
@@ -916,7 +916,7 @@ func Test_SelectBuilderRelationStorage(t *testing.T) {
 				},
 				"count_column2": {
 					Name:     "count_column2",
-					Relation: "stream",
+					Relation: "",
 				},
 			},
 		},
@@ -986,10 +986,10 @@ func Test_SelectBuilderRelationStorage(t *testing.T) {
 			},
 			expectedReturn: map[string]schema.SearchField{
 				"region":            {Name: "region", Relation: "sales"},
-				"total_amount":      {Name: "total_amount", Relation: "sales"},
-				"transaction_count": {Name: "transaction_count", Relation: "sales"},
-				"avg_discount":      {Name: "avg_discount", Relation: "sales"},
-				"max_amount":        {Name: "max_amount", Relation: "sales"},
+				"total_amount":      {Name: "total_amount", Relation: ""},
+				"transaction_count": {Name: "transaction_count", Relation: ""},
+				"avg_discount":      {Name: "avg_discount", Relation: ""},
+				"max_amount":        {Name: "max_amount", Relation: ""},
 			},
 		},
 	}

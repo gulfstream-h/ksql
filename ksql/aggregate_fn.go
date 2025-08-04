@@ -74,6 +74,10 @@ func (a *aggregateFunction) derived() bool {
 	return true
 }
 
+func (a *aggregatedField) InnerRelations() []Relational {
+	return []Relational{a.Field.Copy()}
+}
+
 // Name - returns function name of aggregate field. Like MAX, MIN, AVG etc...
 func (a *aggregateFunction) Name() string {
 	return a.name
@@ -157,6 +161,10 @@ type topKFunction struct {
 	k int
 }
 
+func (t *topKFunction) InnerRelations() []Relational {
+	return []Relational{t.Field}
+}
+
 // Expression - accumulates all applied settings and build string query
 func (t *topKFunction) Expression() (string, error) {
 	if t.aggregateFunction.Field == nil {
@@ -193,6 +201,10 @@ type topKDistinct struct {
 	k int
 }
 
+func (t *topKDistinct) InnerRelations() []Relational {
+	return []Relational{t.Field}
+}
+
 // Expression - accumulates all applied settings and build string query
 func (t *topKDistinct) Expression() (string, error) {
 	if t.aggregateFunction.Field == nil {
@@ -226,6 +238,10 @@ func TopKDistinct(f Field, k int) Field {
 type histogramFunction struct {
 	aggregateFunction
 	buckets int
+}
+
+func (h *histogramFunction) InnerRelations() []Relational {
+	return []Relational{h.Field}
 }
 
 // Expression - accumulates all applied settings and build string query
