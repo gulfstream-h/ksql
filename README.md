@@ -10,6 +10,9 @@ A key feature of the library is schema reflection — it analyzes the structure 
 go get github.com/gulfstream-h/ksql
 ```
 
+## Examples 
+All examples of library usage are located in [ksql-examples](https://github.com/gulfstream-h/ksql-examples) repository.
+
 ## Configuration 
 To initialize a library instance, you need to provide the URL of the KSQL server,
 the timeout for requests, and whether to enable reflection for automatic schema generation.
