@@ -60,7 +60,7 @@ func (mode _ReflectionMode) InitLinter(ctx context.Context) error {
 
 		static.StreamsProjections.Set(stream.Name, shared.StreamSettings{
 			SourceTopic: stream.Topic,
-			Format:      kinds.JSON,
+			ValueFormat: kinds.JSON,
 		}, schema.RemoteFieldsRepresentation(stream.Name, responseSchema))
 	}
 
@@ -88,7 +88,7 @@ func (mode _ReflectionMode) InitLinter(ctx context.Context) error {
 
 		static.StreamsProjections.Set(table.Name, shared.StreamSettings{
 			SourceTopic: table.Topic,
-			Format:      kinds.JSON,
+			ValueFormat: kinds.JSON,
 		}, schema.RemoteFieldsRepresentation(table.Name, responseSchema))
 	}
 

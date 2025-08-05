@@ -5,7 +5,8 @@ import "errors"
 type (
 	// ListBuilder - common contract for all LIST expressions
 	ListBuilder interface {
-		Expression() (string, error)
+		Expression
+
 		Type() Reference
 	}
 	// list - base implementation of the ListBuilder interface

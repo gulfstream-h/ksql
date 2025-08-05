@@ -8,10 +8,11 @@ import (
 type (
 	// JoinExpression - common contract for all JOIN expressions
 	JoinExpression interface {
+		Expression
+
 		Schema() string
 		On() Conditional
 		Type() JoinType
-		Expression() (string, error)
 	}
 
 	// Conditional - represents a conditional expression used in joins

@@ -8,7 +8,8 @@ import (
 type (
 	// WindowExpression - common contract for all window expressions
 	WindowExpression interface {
-		Expression() (string, error)
+		Expression
+
 		Type() WindowType
 	}
 	// WindowType - specific type of the window expression

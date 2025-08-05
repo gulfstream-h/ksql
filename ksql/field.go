@@ -6,19 +6,31 @@ import (
 )
 
 type (
+	Relational interface {
+		Schema() string
+		Column() string
+		Alias() string
+
+		// derived is a special flag that signals
+		// to builder that field is doesn't exist
+		// outside the builder context
+		derived() bool
+	}
+
 	// Field - common contract for all fields in KSQL
 	Field interface {
 		Comparable
 		Ordered
 		Nullable
 		ComparableArray
+		Expression
+		Relational
 
-		Schema() string
-		Column() string
-		Alias() string
+		// InnerRelations is a method for extracting relations from
+		// complex fields like arithmetic expressions or functions
+		InnerRelations() []Relational
 		As(alias string) Field
 		Copy() Field
-		Expression() (string, error)
 	}
 
 	// field - base implementation of the Field interface
@@ -65,17 +77,33 @@ func (f *field) Alias() string {
 	return f.alias
 }
 
+// InnerRelations
+// field doesn't have any inner relations. Other implementations should
+// shadow this method
+func (f *field) InnerRelations() []Relational { return nil }
+
+// field contains data itself, it cannot be derived
+func (f *field) derived() bool { return false }
+
 // Expression returns the KSQL query for the field
 func (f *field) Expression() (string, error) {
+	var (
+		strs []string
+	)
 	if len(f.col) == 0 && len(f.schema) == 0 {
 		return "", fmt.Errorf("field is not defined")
 	}
 
 	if len(f.schema) != 0 {
-		return fmt.Sprintf("%s.%s", f.schema, f.col), nil
+		strs = append(strs, fmt.Sprintf("%s.%s", f.schema, f.col))
+	} else {
+		strs = append(strs, f.col)
+	}
+	if len(f.alias) > 0 {
+		strs = append(strs, fmt.Sprintf("AS %s", f.alias))
 	}
 
-	return f.col, nil
+	return strings.Join(strs, " "), nil
 }
 
 // Equal returns a Conditional expression for equality comparison
@@ -276,5 +304,12 @@ func (af *aggregatedField) Expression() (string, error) {
 		return "", fmt.Errorf("aggregate function is not defined")
 	}
 
-	return af.fn.Expression()
+	expression, err := af.fn.Expression()
+	if err != nil {
+		return "", fmt.Errorf("aggregate function expression: %w", err)
+	}
+	if len(af.alias) > 0 {
+		return fmt.Sprintf("%s AS %s", expression, af.alias), nil
+	}
+	return expression, nil
 }

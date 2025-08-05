@@ -7,7 +7,8 @@ import (
 type (
 	// DescribeBuilder - common contract for all DESCRIBE expressions
 	DescribeBuilder interface {
-		Expression() (string, error)
+		Expression
+
 		Type() Reference
 		Schema() string
 	}

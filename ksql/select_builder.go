@@ -12,7 +12,9 @@ import (
 type (
 	// SelectBuilder - common contract for all SELECT statements
 	SelectBuilder interface {
+		Expression
 		Joiner
+
 		aggregated() bool
 		windowed() bool
 
@@ -34,7 +36,6 @@ type (
 		OrderBy(expressions ...OrderedExpression) SelectBuilder
 		EmitChanges() SelectBuilder
 		EmitFinal() SelectBuilder
-		Expression() (string, error)
 	}
 
 	// Joiner - common contract for all JOIN operations in SELECT statements
@@ -117,6 +118,9 @@ const (
 	// before the From() method call without any schema or schema alias provided
 	// once RelationReport() is called, the schema name will be replaced with the actual schema name
 	defaultSchemaName = "from.ksql"
+
+	derivedSchemaName = "derived.ksql" // special schema name for derived fields
+
 )
 
 var (
@@ -179,6 +183,14 @@ var (
 		windowInTable,
 		emitFinalWithTable,
 		emitFinalAndChanges,
+	}
+)
+
+// predefined names for the select builder
+var (
+	reserved = map[string]struct{}{
+		"from.ksql": {}, // default schema name
+		"CASE":      {}, // reserved for CASE expressions
 	}
 )
 
@@ -288,26 +300,24 @@ func (s *selectBuilder) Select(fields ...Field) SelectBuilder {
 	s.fields = append(s.fields, fields...)
 
 	if static.ReflectionFlag {
+		var (
+			rels []Relational
+			// slice of relation that parsed from derived fields (see Relation interface derived method)
+			// inner relations participate only in reflection report
+			// and do not in return schema reflection check
+			innerRels []Relational
+		)
+
 		for idx := range fields {
-			f := schema.SearchField{
-				Name:     fields[idx].Column(),
-				Relation: s.parseRelationName(fields[idx]),
-			}
+			rels = append(rels, fields[idx])
+			innerRels = append(innerRels, fields[idx].InnerRelations()...)
+		}
 
-			s.addSearchField(f)
-
-			meta := returnNameMeta{
-				relation: f.Relation,
-				alias:    fields[idx].Alias(),
-			}
-
-			if len(fields[idx].Alias()) > 0 {
-				meta.alias = fields[idx].Alias()
-			}
-
-			sl, _ := s.returnTypeMapper[f.Name]
-			sl = append(sl, meta)
-			s.returnTypeMapper[f.Name] = sl
+		for idx := range rels {
+			s.processRelation(rels[idx], true)
+		}
+		for idx := range innerRels {
+			s.processRelation(innerRels[idx], false)
 		}
 
 	}
@@ -563,12 +573,6 @@ func (s *selectBuilder) Expression() (string, error) {
 		builder.WriteString(expression)
 		fieldIsFirst = false
 
-		alias := s.fields[idx].Alias()
-		if len(alias) > 0 {
-			builder.WriteString(" AS ")
-			builder.WriteString(alias)
-		}
-
 	}
 
 	fromString, err := s.fromEx.Expression()
@@ -599,16 +603,6 @@ func (s *selectBuilder) Expression() (string, error) {
 		builder.WriteString(whereString)
 	}
 
-	if !s.groupByEx.IsEmpty() {
-		groupByString, err := s.groupByEx.Expression()
-		if err != nil {
-			return "", fmt.Errorf("GROUP BY expression: %w", err)
-		}
-
-		builder.WriteString(" ")
-		builder.WriteString(groupByString)
-	}
-
 	if s.windowEx != nil {
 		windowString, err := s.windowEx.Expression()
 		if err != nil {
@@ -617,6 +611,16 @@ func (s *selectBuilder) Expression() (string, error) {
 
 		builder.WriteString(" ")
 		builder.WriteString(windowString)
+	}
+
+	if !s.groupByEx.IsEmpty() {
+		groupByString, err := s.groupByEx.Expression()
+		if err != nil {
+			return "", fmt.Errorf("GROUP BY expression: %w", err)
+		}
+
+		builder.WriteString(" ")
+		builder.WriteString(groupByString)
 	}
 
 	if !s.havingEx.IsEmpty() {
@@ -654,17 +658,31 @@ func (s *selectBuilder) Expression() (string, error) {
 	return builder.String(), nil
 }
 
-// Returns - returns all fields that were selected in the select builder
+// Returns - function that returns all fields that were selected in the select builder
 // it also checks for fields existence in the relation storage
 func (s *selectBuilder) Returns() schema.LintedFields {
 	result := schema.NewLintedFields()
 
+	s.buildRelationReport()
+
 	for fieldName, metaSlice := range s.returnTypeMapper {
 		for _, meta := range metaSlice {
+			if realRel, ok := s.virtualSchemas[meta.relation]; ok {
+				// if the relation is aliased, we should use the real schema name
+				meta.relation = realRel
+			}
+
+			if meta.relation == derivedSchemaName {
+				result.Set(schema.SearchField{
+					Name:     meta.alias,
+					Relation: "",
+				})
+			}
+
 			rel, ok := s.relationStorage[meta.relation]
 			if !ok {
 				// if relation is gone
-				// there was a aliased storage
+				// there was an aliased storage
 				continue
 			}
 
@@ -672,7 +690,6 @@ func (s *selectBuilder) Returns() schema.LintedFields {
 
 			if len(meta.alias) != 0 {
 				v.Name = meta.alias
-				v.Relation = ""
 			}
 
 			if realRel, ok := s.virtualSchemas[meta.relation]; ok {
@@ -690,33 +707,36 @@ func (s *selectBuilder) Returns() schema.LintedFields {
 // if the reflection flag is enabled. Then it returns all processed fields
 func (s *selectBuilder) RelationReport() map[string]schema.LintedFields {
 	if static.ReflectionFlag {
-
-		s.aliasRefresher.Do(func() {
-			// update defaultSchemaName to the real schema name
-			// received from From() method
-			if len(s.fromEx.Schema()) > 0 {
-				s.virtualSchemas[defaultSchemaName] = s.fromEx.Schema()
-			}
-			// refresh relation storage with real schema names
-			for alias, schemaName := range s.virtualSchemas {
-
-				// if we have a relation with the alias,
-				// we should replace it with the real schema name
-				// and remove the alias from the relation storage
-				if _, exists := s.relationStorage[alias]; exists {
-					s.relationStorage[schemaName] = s.relationStorage[alias]
-					for _, v := range s.relationStorage[schemaName].Map() {
-						v.Relation = schemaName
-						s.relationStorage[schemaName].Set(v)
-					}
-					delete(s.relationStorage, alias)
-					continue
-				}
-			}
-		})
+		s.buildRelationReport()
 		return s.relationStorage
 	}
 	return nil
+}
+
+func (s *selectBuilder) buildRelationReport() {
+	s.aliasRefresher.Do(func() {
+		// update defaultSchemaName to the real schema name
+		// received from From() method
+		if len(s.fromEx.Schema()) > 0 {
+			s.virtualSchemas[defaultSchemaName] = s.fromEx.Schema()
+		}
+		// refresh relation storage with real schema names
+		for alias, schemaName := range s.virtualSchemas {
+
+			// if we have a relation with the alias,
+			// we should replace it with the real schema name
+			// and remove the alias from the relation storage
+			if _, exists := s.relationStorage[alias]; exists {
+				s.relationStorage[schemaName] = s.relationStorage[alias]
+				for _, v := range s.relationStorage[schemaName].Map() {
+					v.Relation = schemaName
+					s.relationStorage[schemaName].Set(v)
+				}
+				delete(s.relationStorage, alias)
+				continue
+			}
+		}
+	})
 }
 
 // withAggregatedFields checks if the select builder has any aggregated fields
@@ -745,6 +765,62 @@ func (s *selectBuilder) withAggregatedOperators() bool {
 	return s.groupByEx != nil || s.havingEx != nil
 }
 
+func (s *selectBuilder) processRelation(rel Relational, returnCheck bool) {
+	// if the field is already reserved, we should skip it
+	if _, ok := reserved[rel.Column()]; ok {
+		return
+	}
+
+	// if relation is computing during query
+	// it should be added just for return schema
+	// and ignored in relation report
+	if rel.derived() {
+
+		if len(rel.Alias()) == 0 {
+			s.ctx.err = fmt.Errorf("derived field should have an alias")
+			return
+		}
+
+		meta := returnNameMeta{
+			relation: derivedSchemaName,
+			alias:    rel.Alias(),
+		}
+
+		sl, _ := s.returnTypeMapper[meta.alias]
+		sl = append(sl, meta)
+		s.returnTypeMapper[meta.alias] = sl
+
+		return
+	}
+
+	f := schema.SearchField{
+		Name:     rel.Column(),
+		Relation: s.parseRelationName(rel),
+	}
+
+	s.addSearchField(f)
+
+	// if field participates in query as a parameter for
+	// aggregated function, conditional, etc.,
+	// it's not necessary to add it to return schema reflection check
+	if !returnCheck {
+		return
+	}
+
+	meta := returnNameMeta{
+		relation: f.Relation,
+		alias:    rel.Alias(),
+	}
+
+	if len(rel.Alias()) > 0 {
+		meta.alias = rel.Alias()
+	}
+
+	sl, _ := s.returnTypeMapper[f.Name]
+	sl = append(sl, meta)
+	s.returnTypeMapper[f.Name] = sl
+}
+
 // addRelation adds a relation to the relation storage
 func (s *selectBuilder) addRelation(
 	relationName string,
@@ -768,9 +844,6 @@ func (s *selectBuilder) addRelation(
 func (s *selectBuilder) addSearchField(
 	field schema.SearchField,
 ) {
-	if field.Relation == "" {
-		return
-	}
 
 	if _, ok := s.virtualSchemas[field.Relation]; ok {
 		return
@@ -782,11 +855,7 @@ func (s *selectBuilder) addSearchField(
 }
 
 // parseRelationName parses the relation name from the field
-func (s *selectBuilder) parseRelationName(f Field) string {
-	if len(f.Alias()) > 0 {
-		s.virtualColumns[f.Alias()] = f.Schema()
-		return f.Schema()
-	}
+func (s *selectBuilder) parseRelationName(f Relational) string {
 
 	if len(f.Schema()) == 0 {
 		// check column is already an alias
@@ -799,6 +868,10 @@ func (s *selectBuilder) parseRelationName(f Field) string {
 		//to prevent conflicts with other schemas
 		s.virtualSchemas[f.Column()] = defaultSchemaName
 		return defaultSchemaName
+	}
+
+	if len(f.Alias()) > 0 {
+		s.virtualColumns[f.Alias()] = f.Schema()
 	}
 	return f.Schema()
 }

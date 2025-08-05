@@ -17,7 +17,8 @@ type Settings struct {
 	SourceTopic string
 	Partitions  int
 	Schema      schema.LintedFields
-	Format      kinds.ValueFormat
+	ValueFormat kinds.ValueFormat
+	KeyFormat   kinds.ValueFormat
 }
 
 // StreamSettings - describes the settings of stream
@@ -36,7 +37,7 @@ func (s *Settings) Validate() error {
 
 	s.SourceTopic = strings.TrimSpace(s.SourceTopic)
 	if len(s.SourceTopic) == 0 {
-		return fmt.Errorf("souce topic cannot be blank")
+		return fmt.Errorf("source topic cannot be blank")
 	}
 
 	return nil
@@ -73,7 +74,8 @@ type RelationSettings interface {
 		SourceTopic string
 		Partitions  int
 		Schema      schema.LintedFields
-		Format      kinds.ValueFormat
+		ValueFormat kinds.ValueFormat
+		KeyFormat   kinds.ValueFormat
 	}
 }
 

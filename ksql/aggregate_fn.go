@@ -36,8 +36,9 @@ const (
 // AggregateFunction - common contract for introspecting fields
 // that must be aggregated
 type AggregateFunction interface {
-	Expression() (string, error)
+	Expression
 	Field
+
 	Name() string
 }
 
@@ -63,6 +64,18 @@ func (a *aggregateFunction) Expression() (string, error) {
 	}
 
 	return a.name + "(" + expr + ")", nil
+}
+
+// aggregateFunction contains fields that participates in query schema
+// reflection check and doesn't require return schema check.
+// But it's construct a new field that does not exist in the original schema.
+// so we signal that this is a derived field.
+func (a *aggregateFunction) derived() bool {
+	return true
+}
+
+func (a *aggregatedField) InnerRelations() []Relational {
+	return []Relational{a.Field.Copy()}
 }
 
 // Name - returns function name of aggregate field. Like MAX, MIN, AVG etc...
@@ -148,6 +161,10 @@ type topKFunction struct {
 	k int
 }
 
+func (t *topKFunction) InnerRelations() []Relational {
+	return []Relational{t.Field}
+}
+
 // Expression - accumulates all applied settings and build string query
 func (t *topKFunction) Expression() (string, error) {
 	if t.aggregateFunction.Field == nil {
@@ -184,6 +201,10 @@ type topKDistinct struct {
 	k int
 }
 
+func (t *topKDistinct) InnerRelations() []Relational {
+	return []Relational{t.Field}
+}
+
 // Expression - accumulates all applied settings and build string query
 func (t *topKDistinct) Expression() (string, error) {
 	if t.aggregateFunction.Field == nil {
@@ -217,6 +238,10 @@ func TopKDistinct(f Field, k int) Field {
 type histogramFunction struct {
 	aggregateFunction
 	buckets int
+}
+
+func (h *histogramFunction) InnerRelations() []Relational {
+	return []Relational{h.Field}
 }
 
 // Expression - accumulates all applied settings and build string query

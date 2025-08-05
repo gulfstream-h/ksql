@@ -149,10 +149,10 @@ func Drop(ctx context.Context, name string) error {
 			drop []dao.DropInfo
 		)
 
-		slog.Debug("received from pipeline", slog.String("val", string(val)))
-
 		if err = jsoniter.Unmarshal(val, &drop); err != nil {
-			return fmt.Errorf("cannot unmarshal drop response: %w", err)
+			slog.Debug("received from pipeline", slog.String("val", string(val)))
+			goto del
+			//return fmt.Errorf("cannot unmarshal drop response: %w", err)
 		}
 
 		if len(drop) == 0 {
@@ -164,6 +164,7 @@ func Drop(ctx context.Context, name string) error {
 		}
 	}
 
+del:
 	query = util.MustNoError(ksql.Drop(ksql.TABLE, name).Expression)
 
 	pipeline, err = network.Net.Perform(
@@ -358,7 +359,7 @@ func CreateTable[S any](
 			sourceTopic:  settings.SourceTopic,
 			partitions:   settings.Partitions,
 			remoteSchema: rmSchema,
-			format:       settings.Format,
+			format:       settings.ValueFormat,
 		}, nil
 	}
 }
@@ -387,7 +388,7 @@ func CreateTableAsSelect[S any](
 	}
 
 	if static.ReflectionFlag {
-		err := report.ReflectionReportNative(s, fields)
+		err := report.ReflectionReportNative(s, tableName, fields)
 		if err != nil {
 			return nil, fmt.Errorf("reflection report native: %w", err)
 		}
@@ -403,6 +404,7 @@ func CreateTableAsSelect[S any](
 	meta := ksql.Metadata{
 		Topic:       settings.SourceTopic,
 		ValueFormat: kinds.JSON.String(),
+		KeyFormat:   settings.KeyFormat.String(),
 	}
 
 	query, err := ksql.Create(ksql.TABLE, tableName).
@@ -437,6 +439,7 @@ func CreateTableAsSelect[S any](
 		)
 
 		if err = jsoniter.Unmarshal(val, &create); err != nil {
+			slog.Debug("ksql response", "raw", string(val))
 			return nil, fmt.Errorf("cannot unmarshal create response: %w", err)
 		}
 
@@ -456,7 +459,7 @@ func CreateTableAsSelect[S any](
 			sourceTopic:  settings.SourceTopic,
 			partitions:   settings.Partitions,
 			remoteSchema: fields,
-			format:       settings.Format,
+			format:       settings.ValueFormat,
 		}, nil
 	}
 }
