@@ -1,5 +1,9 @@
+version: 2          # <-- THIS LINE IS REQUIRED
+project_name: ksql
+
 changelog:
   sort: asc
+
 builds:
   - id: ksql
     main: ./cmd/cli/main.go
@@ -8,6 +12,6 @@ builds:
     ldflags:
       - "-s -w"
     binary: ksql
+
 git:
   tag: true
-
