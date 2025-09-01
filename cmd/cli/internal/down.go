@@ -1,4 +1,4 @@
-package cli
+package internal
 
 import (
 	"context"
@@ -8,12 +8,12 @@ import (
 	"log/slog"
 )
 
-// upCmd represents the up command
-// that copies migration-file up command
+// downCmd represents the up command
+// that copies migration-file down command
 // and executes it on remote ksql-server
-var upCmd = &cobra.Command{
-	Use:   "up [file_name]",
-	Short: "Apply changes. Invokes up-migration in provided file",
+var downCmd = &cobra.Command{
+	Use:   "down [file_name]",
+	Short: "Discard changes. Invokes down-migration in provided file",
 	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		err := config.New(dbURL, 30, false).Configure(context.Background())
@@ -22,15 +22,15 @@ var upCmd = &cobra.Command{
 			return
 		}
 
-		if err := migrations.New(dbURL, ".").Up(args[0]); err != nil {
-			slog.Error("cannot up migration", "error", err.Error())
+		if err := migrations.New(dbURL, ".").Down(args[0]); err != nil {
+			slog.Error("cannot down migration", "error", err.Error())
 			return
 		}
 
-		slog.Info("migration was successfully executed", "filename", args[0])
+		slog.Info("down migration successfully executed", "filename", args[0])
 	},
 }
 
 func init() {
-	rootCmd.AddCommand(upCmd)
+	rootCmd.AddCommand(downCmd)
 }

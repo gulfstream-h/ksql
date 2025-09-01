@@ -1,4 +1,4 @@
-package cli
+package internal
 
 import (
 	"github.com/joho/godotenv"
