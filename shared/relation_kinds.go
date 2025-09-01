@@ -2,7 +2,6 @@ package shared
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"github.com/gulfstream-h/ksql/internal/schema"
 	"github.com/gulfstream-h/ksql/kinds"
@@ -13,7 +12,6 @@ import (
 // that describes relation data.
 // used in cache for fast schema access
 type Settings struct {
-	Name        string
 	SourceTopic string
 	Partitions  int
 	Schema      schema.LintedFields
@@ -29,11 +27,6 @@ type StreamSettings = Settings
 // Validate - primary checks settings
 // to avoid malformed relation creation
 func (s *Settings) Validate() error {
-	s.Name = strings.TrimSpace(s.Name)
-
-	if len(s.Name) == 0 {
-		return errors.New("invalid stream name")
-	}
 
 	s.SourceTopic = strings.TrimSpace(s.SourceTopic)
 	if len(s.SourceTopic) == 0 {
@@ -70,7 +63,6 @@ type TableSettings = Settings
 // both fields of structure without interface Getters
 type RelationSettings interface {
 	~struct {
-		Name        string
 		SourceTopic string
 		Partitions  int
 		Schema      schema.LintedFields
