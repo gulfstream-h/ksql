@@ -6,4 +6,6 @@ builds:
     ldflags:
       - "-s -w"
     binary: ksql
+git:
+  tag: true
 
