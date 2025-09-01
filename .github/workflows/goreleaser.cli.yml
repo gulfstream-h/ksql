@@ -1,6 +1,6 @@
 builds:
   - id: ksql
-    main: ../../cmd/cli/main.go
+    main: ./cmd/cli/main.go
     goos: [linux, darwin, windows]
     goarch: [amd64, arm64]
     ldflags:
