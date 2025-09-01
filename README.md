@@ -730,8 +730,7 @@ Migrations are used to separate the database architecture from the business logi
 For full functionality, it is necessary to install the CLI tool for Linux/macOS:
 
 ```go
-go install github.com/gulfstream-h/ksql
-// TODO: should we drop installation (we've already has an installation topic)
+go install github.com/gulfstream-h/ksql/cmd/cli
 ```
 
 To start work with migration tool, it needs to create sql migration in your file system with `ksql` command:
