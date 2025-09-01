@@ -217,7 +217,6 @@ partitions := 1 // if topic doesnt exists, partitions are required
 
 exampleTable, err := streams.CreateStream[ExampleStream](
    ctx, streamName, shared.StreamSettings{
-      Name:        streamName,
       SourceTopic: sourceTopic,
       Partitions:  partitions,
       Format:      kinds.JSON,
@@ -238,7 +237,6 @@ partitions := 1 // if topic doesnt exists, partitions are required
 
 exampleTable, err := tables.CreateTable[ExampleTable](
    ctx, tableName, shared.TableSettings{
-      Name:        tableName,
       SourceTopic: sourceTopic,
       Partitions:  partitions,
       Format:      kinds.JSON,
