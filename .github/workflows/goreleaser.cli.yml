@@ -1,4 +1,4 @@
-version: 2          # <-- THIS LINE IS REQUIRED
+version: 2
 project_name: ksql
 
 changelog:
