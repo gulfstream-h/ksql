@@ -1,8 +1,14 @@
+version: 2
+project_name: ksql
+
+changelog:
+  sort: asc
+
 builds:
-  - id: cli
+  - id: ksql
     main: ./cmd/cli/main.go
     goos: [linux, darwin, windows]
     goarch: [amd64, arm64]
     ldflags:
       - "-s -w"
-    binary: cli
+    binary: ksql
